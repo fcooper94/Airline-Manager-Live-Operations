@@ -51,6 +51,12 @@ const User = sequelize.define('User', {
   lastLogin: {
     type: DataTypes.DATE,
     field: 'last_login'
+  },
+  credits: {
+    type: DataTypes.INTEGER,
+    defaultValue: 20,
+    allowNull: false,
+    comment: 'User credits for participating in worlds (1 credit per game week)'
   }
 }, {
   tableName: 'users',

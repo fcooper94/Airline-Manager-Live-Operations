@@ -18,6 +18,8 @@
         </div>
       </div>
       <div class="nav-user">
+        <span class="user-label">CREDITS</span>
+        <span class="user-name" id="userCredits" style="margin-right: 2rem;">--</span>
         <span class="user-label">OPERATOR</span>
         <span class="user-name" id="userName">Loading...</span>
         <a href="/auth/logout" class="btn btn-logout">Sign Out</a>
@@ -58,6 +60,18 @@
     </aside>
 
     <main class="main-content">
+      <!-- Low Credit Warning Banner -->
+      <div id="creditWarningBanner" class="credit-warning-banner" style="display: none;">
+        <div class="warning-content">
+          <span class="warning-icon">⚠</span>
+          <div class="warning-text">
+            <strong id="warningTitle">LOW CREDITS WARNING</strong>
+            <p id="warningMessage">Your credit balance is running low. Your company will enter administration if credits fall below -4.</p>
+          </div>
+          <button class="btn btn-primary" onclick="window.location.href='/admin'" id="buyCreditsBtn" style="display: none;">Manage Credits</button>
+        </div>
+      </div>
+
       <!-- System Status Bar -->
       <div class="system-status">
         <div class="status-item">

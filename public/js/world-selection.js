@@ -1,4 +1,5 @@
 let selectedWorldId = null;
+let bankruptcyWorldId = null;
 
 // Load user information
 async function loadUserInfo() {
@@ -8,6 +9,16 @@ async function loadUserInfo() {
 
     if (data.authenticated) {
       document.getElementById('userName').textContent = data.user.name;
+      const creditsEl = document.getElementById('userCredits');
+      creditsEl.textContent = data.user.credits;
+      // Color code credits based on value
+      if (data.user.credits < 0) {
+        creditsEl.style.color = 'var(--warning-color)';
+      } else if (data.user.credits < 10) {
+        creditsEl.style.color = 'var(--text-secondary)';
+      } else {
+        creditsEl.style.color = 'var(--success-color)';
+      }
     } else {
       window.location.href = '/';
     }
@@ -33,6 +44,8 @@ async function loadWorlds() {
     if (myWorlds.length > 0) {
       myWorldsSection.style.display = 'block';
       myWorldsList.innerHTML = myWorlds.map(world => createWorldCard(world, true)).join('');
+    } else {
+      myWorldsSection.style.display = 'none';
     }
 
     // Show available worlds
@@ -51,8 +64,8 @@ function createWorldCard(world, isMember) {
   const formattedDate = timeDate.toISOString().split('T')[0];
 
   return `
-    <div class="world-card ${isMember ? 'member' : ''}" onclick="${isMember ? `enterWorld('${world.id}')` : `openJoinModal('${world.id}', '${world.name}')`}">
-      <div class="world-header">
+    <div class="world-card ${isMember ? 'member' : ''}">
+      <div class="world-header" onclick="${isMember ? `enterWorld('${world.id}')` : `openJoinModal('${world.id}', '${world.name}')`}" style="cursor: pointer;">
         <div>
           <div class="world-name">${world.name}</div>
           <div class="world-era">ERA ${world.era}</div>
@@ -63,7 +76,7 @@ function createWorldCard(world, isMember) {
       </div>
 
       ${isMember && world.airlineName ? `
-        <div class="airline-info">
+        <div class="airline-info" onclick="enterWorld('${world.id}')" style="cursor: pointer;">
           <div class="airline-name">${world.airlineName}</div>
           <div class="airline-code">ICAO: ${world.airlineCode}</div>
         </div>
@@ -73,7 +86,7 @@ function createWorldCard(world, isMember) {
         <div class="world-description">${world.description}</div>
       ` : ''}
 
-      <div class="world-info">
+      <div class="world-info" onclick="${isMember ? `enterWorld('${world.id}')` : `openJoinModal('${world.id}', '${world.name}')`}" style="cursor: pointer;">
         <div class="info-row">
           <span class="info-label">Current Date</span>
           <span class="info-value">${formattedDate}</span>
@@ -87,17 +100,42 @@ function createWorldCard(world, isMember) {
           <span class="info-value">${world.memberCount}/${world.maxPlayers}</span>
         </div>
       </div>
+
+      ${isMember ? `
+        <div class="world-actions" style="padding: 1rem; border-top: 1px solid var(--border-color);">
+          <button class="btn btn-secondary" style="width: 100%;" onclick="event.stopPropagation(); leaveWorld('${world.id}', '${world.name}')">Declare Bankruptcy</button>
+        </div>
+      ` : ''}
     </div>
   `;
+}
+
+// Update starting capital info based on airline type
+function updateStartingInfo() {
+  const airlineType = document.getElementById('airlineType').value;
+  const capitalEl = document.getElementById('startingCapital');
+
+  const capitals = {
+    'regional': '$500,000',
+    'medium-haul': '$1,000,000',
+    'long-haul': '$2,000,000'
+  };
+
+  capitalEl.textContent = airlineType
+    ? `Starting Capital: ${capitals[airlineType]}`
+    : 'Starting Capital: Select airline type';
 }
 
 // Open join modal
 function openJoinModal(worldId, worldName) {
   selectedWorldId = worldId;
   document.getElementById('selectedWorldName').textContent = worldName;
+  document.getElementById('region').value = '';
+  document.getElementById('airlineType').value = '';
   document.getElementById('airlineName').value = '';
   document.getElementById('airlineCode').value = '';
   document.getElementById('joinError').style.display = 'none';
+  document.getElementById('startingCapital').textContent = 'Starting Capital: Select airline type';
   document.getElementById('joinModal').style.display = 'flex';
 }
 
@@ -109,13 +147,15 @@ function closeJoinModal() {
 
 // Confirm join
 async function confirmJoin() {
+  const region = document.getElementById('region').value;
+  const airlineType = document.getElementById('airlineType').value;
   const airlineName = document.getElementById('airlineName').value.trim();
   const airlineCode = document.getElementById('airlineCode').value.trim().toUpperCase();
   const errorDiv = document.getElementById('joinError');
 
   // Validation
-  if (!airlineName || !airlineCode) {
-    errorDiv.textContent = 'Please fill in all fields';
+  if (!region || !airlineType || !airlineName || !airlineCode) {
+    errorDiv.textContent = 'Please fill in all required fields';
     errorDiv.style.display = 'block';
     return;
   }
@@ -134,6 +174,8 @@ async function confirmJoin() {
       },
       body: JSON.stringify({
         worldId: selectedWorldId,
+        region,
+        airlineType,
         airlineName,
         airlineCode
       })
@@ -153,6 +195,47 @@ async function confirmJoin() {
     console.error('Error joining world:', error);
     errorDiv.textContent = 'Network error. Please try again.';
     errorDiv.style.display = 'block';
+  }
+}
+
+// Open bankruptcy modal
+function leaveWorld(worldId, worldName) {
+  bankruptcyWorldId = worldId;
+  document.getElementById('bankruptcyWorldName').textContent = worldName;
+  document.getElementById('bankruptcyModal').style.display = 'flex';
+}
+
+// Close bankruptcy modal
+function closeBankruptcyModal() {
+  document.getElementById('bankruptcyModal').style.display = 'none';
+  bankruptcyWorldId = null;
+}
+
+// Confirm bankruptcy
+async function confirmBankruptcy() {
+  if (!bankruptcyWorldId) {
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/worlds/leave', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ worldId: bankruptcyWorldId })
+    });
+
+    if (response.ok) {
+      closeBankruptcyModal();
+      loadWorlds();
+    } else {
+      const data = await response.json();
+      alert(data.error || 'Failed to leave world');
+    }
+  } catch (error) {
+    console.error('Error leaving world:', error);
+    alert('Network error. Please try again.');
   }
 }
 

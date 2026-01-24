@@ -79,6 +79,37 @@ async function loadWorldInfo() {
   }
 }
 
+// Update credit warning banner
+function updateCreditWarningBanner(credits) {
+  const banner = document.getElementById('creditWarningBanner');
+  const title = document.getElementById('warningTitle');
+  const message = document.getElementById('warningMessage');
+
+  if (credits <= -4) {
+    // Critical: In administration
+    banner.style.display = 'block';
+    banner.classList.add('critical');
+    title.textContent = 'COMPANY IN ADMINISTRATION';
+    message.textContent = 'Your company has entered administration. All assets will be sold to cover debts. Purchase credits immediately to continue operations.';
+  } else if (credits < 0) {
+    // Warning: Negative credits
+    const weeksRemaining = 4 + credits; // e.g., -2 credits = 2 weeks remaining
+    banner.style.display = 'block';
+    banner.classList.remove('critical');
+    title.textContent = 'CRITICAL CREDIT WARNING';
+    message.textContent = `Your credit balance is negative (${credits} credits). You have ${weeksRemaining} game week${weeksRemaining !== 1 ? 's' : ''} remaining before your company enters administration and assets are sold.`;
+  } else if (credits < 10) {
+    // Low credits warning
+    banner.style.display = 'block';
+    banner.classList.remove('critical');
+    title.textContent = 'LOW CREDITS WARNING';
+    message.textContent = `Your credit balance is running low (${credits} credits). Credits are consumed at 1 credit per game week. Consider purchasing more credits soon.`;
+  } else {
+    // Sufficient credits
+    banner.style.display = 'none';
+  }
+}
+
 // Load user information
 async function loadUserInfo() {
   try {
@@ -87,6 +118,19 @@ async function loadUserInfo() {
 
     if (data.authenticated) {
       document.getElementById('userName').textContent = data.user.name;
+      const creditsEl = document.getElementById('userCredits');
+      creditsEl.textContent = data.user.credits;
+      // Color code credits based on value
+      if (data.user.credits < 0) {
+        creditsEl.style.color = 'var(--warning-color)';
+      } else if (data.user.credits < 10) {
+        creditsEl.style.color = 'var(--text-secondary)';
+      } else {
+        creditsEl.style.color = 'var(--success-color)';
+      }
+
+      // Show warning banner if credits are low
+      updateCreditWarningBanner(data.user.credits);
     } else {
       // Redirect to login if not authenticated
       window.location.href = '/';

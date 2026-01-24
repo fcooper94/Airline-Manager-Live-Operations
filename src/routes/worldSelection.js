@@ -62,9 +62,9 @@ router.post('/join', async (req, res) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const { worldId, airlineName, airlineCode } = req.body;
+    const { worldId, airlineName, airlineCode, region, airlineType, baseAirport } = req.body;
 
-    if (!worldId || !airlineName || !airlineCode) {
+    if (!worldId || !airlineName || !airlineCode || !region || !airlineType) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -72,6 +72,15 @@ router.post('/join', async (req, res) => {
     if (!/^[A-Z]{3}$/.test(airlineCode)) {
       return res.status(400).json({ error: 'Airline code must be 3 uppercase letters' });
     }
+
+    // Determine starting balance based on airline type
+    const startingBalances = {
+      'regional': 500000.00,
+      'medium-haul': 1000000.00,
+      'long-haul': 2000000.00
+    };
+
+    const startingBalance = startingBalances[airlineType] || 1000000.00;
 
     // Find or create user
     const [user] = await User.findOrCreate({
@@ -119,7 +128,10 @@ router.post('/join', async (req, res) => {
       worldId,
       airlineName,
       airlineCode,
-      balance: 1000000.00, // Starting capital
+      region,
+      airlineType,
+      baseAirport,
+      balance: startingBalance,
       reputation: 50
     });
 
@@ -140,6 +152,46 @@ router.post('/join', async (req, res) => {
     }
 
     res.status(500).json({ error: 'Failed to join world' });
+  }
+});
+
+/**
+ * Leave a world (declare bankruptcy)
+ */
+router.post('/leave', async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const { worldId } = req.body;
+
+    if (!worldId) {
+      return res.status(400).json({ error: 'World ID required' });
+    }
+
+    const user = await User.findOne({ where: { vatsimId: req.user.vatsimId } });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Find membership
+    const membership = await WorldMembership.findOne({
+      where: { userId: user.id, worldId }
+    });
+
+    if (!membership) {
+      return res.status(404).json({ error: 'Not a member of this world' });
+    }
+
+    // Delete membership (declare bankruptcy)
+    await membership.destroy();
+
+    res.json({ message: 'Successfully left world' });
+  } catch (error) {
+    console.error('Error leaving world:', error);
+    res.status(500).json({ error: 'Failed to leave world' });
   }
 });
 

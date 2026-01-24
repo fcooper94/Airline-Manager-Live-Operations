@@ -39,6 +39,21 @@ const WorldMembership = sequelize.define('WorldMembership', {
     comment: 'ICAO airline code',
     field: 'airline_code'
   },
+  region: {
+    type: DataTypes.STRING,
+    comment: 'Starting region (Africa, Asia, Europe, North America, Oceania, South America)',
+    field: 'region'
+  },
+  airlineType: {
+    type: DataTypes.STRING,
+    comment: 'Airline type (regional, medium-haul, long-haul)',
+    field: 'airline_type'
+  },
+  baseAirport: {
+    type: DataTypes.STRING(4),
+    comment: 'ICAO code of base airport',
+    field: 'base_airport'
+  },
   balance: {
     type: DataTypes.DECIMAL(15, 2),
     defaultValue: 1000000.00,
@@ -59,6 +74,12 @@ const WorldMembership = sequelize.define('WorldMembership', {
     defaultValue: true,
     comment: 'Whether user is actively participating in this world',
     field: 'is_active'
+  },
+  lastCreditDeduction: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW,
+    comment: 'Last time credits were deducted for this membership',
+    field: 'last_credit_deduction'
   }
 }, {
   tableName: 'world_memberships',

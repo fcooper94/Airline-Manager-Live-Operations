@@ -63,6 +63,7 @@ const { requireAuth, redirectIfAuth } = require('./middleware/auth');
 const authRoutes = require('./routes/auth');
 const worldRoutes = require('./routes/world');
 const worldSelectionRoutes = require('./routes/worldSelection');
+const adminRoutes = require('./routes/admin');
 
 // Import services
 const worldTimeService = require('./services/worldTimeService');
@@ -73,6 +74,7 @@ app.use('/auth', authRoutes);
 // API routes
 app.use('/api/world', worldRoutes);
 app.use('/api/worlds', worldSelectionRoutes);
+app.use('/api/admin', requireAuth, adminRoutes);
 
 // Page routes
 app.get('/', redirectIfAuth, (req, res) => {
@@ -85,6 +87,10 @@ app.get('/world-selection', requireAuth, (req, res) => {
 
 app.get('/dashboard', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, '../public/dashboard.html'));
+});
+
+app.get('/admin', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/admin.html'));
 });
 
 // API routes

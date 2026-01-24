@@ -1,4 +1,5 @@
 const World = require('../models/World');
+const { WorldMembership, User } = require('../models');
 
 /**
  * World Time Service
@@ -113,6 +114,67 @@ class WorldTimeService {
         gameTime: gameTime.toISOString(),
         advancement: advancementSeconds
       });
+    }
+
+    // Check for credit deductions (asynchronously, don't block tick)
+    this.processCredits(gameTime).catch(err => {
+      console.error('Error processing credits:', err.message);
+    });
+  }
+
+  /**
+   * Process credit deductions for all active memberships
+   */
+  async processCredits(currentGameTime) {
+    if (!this.activeWorld) return;
+
+    try {
+      // Get all active memberships for this world
+      const memberships = await WorldMembership.findAll({
+        where: {
+          worldId: this.activeWorld.id,
+          isActive: true
+        },
+        include: [{
+          model: User,
+          as: 'user',
+          attributes: ['id', 'credits']
+        }]
+      });
+
+      const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+
+      for (const membership of memberships) {
+        // Check if a week has passed since last credit deduction
+        const lastDeduction = membership.lastCreditDeduction ? new Date(membership.lastCreditDeduction) : new Date(membership.joinedAt);
+        const timeSinceLastDeduction = new Date(currentGameTime).getTime() - lastDeduction.getTime();
+
+        if (timeSinceLastDeduction >= ONE_WEEK_MS) {
+          // Calculate how many weeks have passed
+          const weeksPassed = Math.floor(timeSinceLastDeduction / ONE_WEEK_MS);
+
+          // Deduct credits (1 per week)
+          if (membership.user) {
+            membership.user.credits -= weeksPassed;
+            await membership.user.save();
+
+            // Update last deduction time
+            const newDeductionTime = new Date(lastDeduction.getTime() + (weeksPassed * ONE_WEEK_MS));
+            membership.lastCreditDeduction = newDeductionTime;
+            await membership.save();
+
+            console.log(`Deducted ${weeksPassed} credits from user ${membership.user.id} for world ${this.activeWorld.name}. New balance: ${membership.user.credits}`);
+
+            // Check if user has fallen below -4 (enter administration)
+            if (membership.user.credits < -4) {
+              console.log(`User ${membership.user.id} has entered administration (credits: ${membership.user.credits})`);
+              // TODO: Implement administration logic (sell assets, etc.)
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error processing credits:', error);
     }
   }
 

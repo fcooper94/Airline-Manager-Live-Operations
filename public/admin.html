@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - Airline Control</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/dashboard.css">
+  <link rel="stylesheet" href="/css/world-selection.css">
+</head>
+<body class="dashboard-body">
+  <nav class="navbar">
+    <div class="nav-container">
+      <div class="nav-brand">
+        <div class="brand-mark">AC</div>
+        <div class="brand-info">
+          <span class="brand-text">AIRLINE CONTROL</span>
+          <span class="brand-subtitle">Admin Panel</span>
+        </div>
+      </div>
+      <div class="nav-user">
+        <span class="user-label">CREDITS</span>
+        <span class="user-name" id="userCredits" style="margin-right: 2rem;">--</span>
+        <span class="user-label">OPERATOR</span>
+        <span class="user-name" id="userName">Loading...</span>
+        <a href="/world-selection" class="btn btn-secondary" style="margin-right: 1rem;">Back to Worlds</a>
+        <a href="/auth/logout" class="btn btn-logout">Sign Out</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="world-selection-container">
+    <div class="selection-header">
+      <h1>USER CREDIT MANAGEMENT</h1>
+      <p class="subtitle">ADJUST USER CREDITS FOR WORLD PARTICIPATION</p>
+    </div>
+
+    <div class="worlds-section">
+      <h2 class="section-title">ALL USERS</h2>
+      <div id="usersTable">
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background: var(--surface); border-bottom: 2px solid var(--border-color);">
+              <th style="padding: 1rem; text-align: left; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">VATSIM ID</th>
+              <th style="padding: 1rem; text-align: left; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">NAME</th>
+              <th style="padding: 1rem; text-align: left; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">EMAIL</th>
+              <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">ACTIVE WORLDS</th>
+              <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">CREDITS</th>
+              <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody id="usersTableBody">
+            <tr>
+              <td colspan="6" style="padding: 2rem; text-align: center; color: var(--text-muted);">Loading users...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Credits Modal -->
+  <div id="editCreditsModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>ADJUST CREDITS</h2>
+        <button class="modal-close" onclick="closeEditModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>USER</label>
+          <div id="editUserName" class="form-value"></div>
+        </div>
+
+        <div class="form-group">
+          <label>CURRENT CREDITS</label>
+          <div id="editCurrentCredits" class="form-value"></div>
+        </div>
+
+        <div class="form-group">
+          <label for="newCredits">NEW CREDITS VALUE</label>
+          <input type="number" id="newCredits" placeholder="Enter new credits value">
+        </div>
+
+        <div class="form-info">
+          <p>Enter the new total credits for this user.</p>
+          <p>Credits are consumed at 1 credit per game week.</p>
+          <p>Users can continue playing down to -4 credits (1 game month grace period).</p>
+        </div>
+
+        <div id="editError" class="error-message" style="display: none;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmEdit()">Update Credits</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/admin.js"></script>
+</body>
+</html>

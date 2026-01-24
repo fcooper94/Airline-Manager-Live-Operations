@@ -19,6 +19,8 @@
         </div>
       </div>
       <div class="nav-user">
+        <span class="user-label">CREDITS</span>
+        <span class="user-name" id="userCredits" style="margin-right: 2rem;">--</span>
         <span class="user-label">OPERATOR</span>
         <span class="user-name" id="userName">Loading...</span>
         <a href="/auth/logout" class="btn btn-logout">Sign Out</a>
@@ -55,16 +57,42 @@
           <label>WORLD</label>
           <div id="selectedWorldName" class="form-value"></div>
         </div>
+
+        <div class="form-group">
+          <label for="region">WORLD REGION *</label>
+          <select id="region" onchange="updateStartingInfo()">
+            <option value="">-- Select Region --</option>
+            <option value="Africa">Africa</option>
+            <option value="Asia">Asia</option>
+            <option value="Europe">Europe</option>
+            <option value="North America">North America</option>
+            <option value="Oceania">Oceania</option>
+            <option value="South America">South America</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="airlineType">TYPE OF AIRLINE *</label>
+          <select id="airlineType" onchange="updateStartingInfo()">
+            <option value="">-- Select Type --</option>
+            <option value="regional">Regional (small/short routes)</option>
+            <option value="medium-haul">Medium-haul routes</option>
+            <option value="long-haul">Long-haul routes</option>
+          </select>
+        </div>
+
         <div class="form-group">
           <label for="airlineName">AIRLINE NAME *</label>
           <input type="text" id="airlineName" maxlength="50" placeholder="e.g., Transatlantic Airways">
         </div>
+
         <div class="form-group">
           <label for="airlineCode">ICAO CODE * (3 letters)</label>
           <input type="text" id="airlineCode" maxlength="3" placeholder="e.g., TRA" style="text-transform: uppercase;">
         </div>
+
         <div class="form-info">
-          <p>Starting Capital: $1,000,000</p>
+          <p id="startingCapital">Starting Capital: Select airline type</p>
           <p>Starting Reputation: 50/100</p>
         </div>
         <div id="joinError" class="error-message" style="display: none;"></div>
@@ -72,6 +100,34 @@
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeJoinModal()">Cancel</button>
         <button class="btn btn-primary" onclick="confirmJoin()">Join World</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bankruptcy Confirmation Modal -->
+  <div id="bankruptcyModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>DECLARE BANKRUPTCY</h2>
+        <button class="modal-close" onclick="closeBankruptcyModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>WORLD</label>
+          <div id="bankruptcyWorldName" class="form-value"></div>
+        </div>
+        <div class="form-info" style="background: rgba(217, 119, 6, 0.15); border-color: var(--warning-color);">
+          <p style="color: var(--warning-color); font-weight: 600;">WARNING: This action cannot be undone.</p>
+          <p>Declaring bankruptcy will:</p>
+          <p>• Remove your airline from this world</p>
+          <p>• Delete all your assets and progress</p>
+          <p>• Free up your airline code for others</p>
+          <p style="margin-top: 1rem;">You can rejoin this world later with a fresh start.</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeBankruptcyModal()">Cancel</button>
+        <button class="btn btn-primary" style="background: var(--warning-color); border-color: var(--warning-color);" onclick="confirmBankruptcy()">Declare Bankruptcy</button>
       </div>
     </div>
   </div>

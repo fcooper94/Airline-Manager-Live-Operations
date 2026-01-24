@@ -506,3 +506,66 @@
     padding: 1.5rem 1rem;
   }
 }
+
+/* Credit Warning Banner */
+.credit-warning-banner {
+  background: rgba(217, 119, 6, 0.15);
+  border: 2px solid var(--warning-color);
+  border-left: 6px solid var(--warning-color);
+  padding: 1.5rem 2rem;
+  margin-bottom: 2rem;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.credit-warning-banner.critical {
+  background: rgba(220, 38, 38, 0.15);
+  border-color: #dc2626;
+  border-left-color: #dc2626;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+.warning-content {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.warning-icon {
+  font-size: 2rem;
+  color: var(--warning-color);
+}
+
+.credit-warning-banner.critical .warning-icon {
+  color: #dc2626;
+}
+
+.warning-text {
+  flex: 1;
+}
+
+.warning-text strong {
+  display: block;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--warning-color);
+  margin-bottom: 0.5rem;
+}
+
+.credit-warning-banner.critical .warning-text strong {
+  color: #dc2626;
+}
+
+.warning-text p {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
