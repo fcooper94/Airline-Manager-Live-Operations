@@ -177,19 +177,41 @@ function createWorldCard(world, isMember) {
 }
 
 // Update starting capital info based on airline type
-function updateStartingInfo() {
+async function updateStartingInfo() {
   const airlineType = document.getElementById('airlineType').value;
   const capitalEl = document.getElementById('startingCapital');
 
-  const capitals = {
-    'regional': 'USD $500,000',
-    'medium-haul': 'USD $1,000,000',
-    'long-haul': 'USD $2,000,000'
-  };
+  if (!airlineType) {
+    capitalEl.textContent = 'Starting Capital: Select airline type';
+    return;
+  }
 
-  capitalEl.textContent = airlineType
-    ? `Starting Capital: ${capitals[airlineType]}`
-    : 'Starting Capital: Select airline type';
+  if (!selectedWorldId) {
+    // Fallback to static values if no world selected (shouldn't happen)
+    const capitals = {
+      'regional': 'USD $500,000',
+      'medium-haul': 'USD $1,000,000',
+      'long-haul': 'USD $2,000,000'
+    };
+    capitalEl.textContent = `Starting Capital: ${capitals[airlineType]}`;
+    return;
+  }
+
+  try {
+    // Fetch era-appropriate starting capital from server
+    const response = await fetch(`/api/worlds/${selectedWorldId}/starting-capital?airlineType=${airlineType}`);
+    const data = await response.json();
+
+    if (response.ok) {
+      capitalEl.textContent = `Starting Capital: ${data.formattedCapital} (${data.eraName})`;
+    } else {
+      console.error('Failed to fetch starting capital:', data.error);
+      capitalEl.textContent = 'Starting Capital: Error loading';
+    }
+  } catch (error) {
+    console.error('Error fetching starting capital:', error);
+    capitalEl.textContent = 'Starting Capital: Error loading';
+  }
 }
 
 // Search airports

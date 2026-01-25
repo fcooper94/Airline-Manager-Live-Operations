@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { World, WorldMembership, User, Airport } = require('../models');
+const eraEconomicService = require('../services/eraEconomicService');
 
 /**
  * Get all available worlds for user to join
@@ -87,14 +88,22 @@ router.post('/join', async (req, res) => {
       return res.status(404).json({ error: 'Selected airport not found' });
     }
 
-    // Determine starting balance based on airline type
-    const startingBalances = {
-      'regional': 500000.00,
-      'medium-haul': 1000000.00,
-      'long-haul': 2000000.00
-    };
+    // Check if world exists first (need it for era calculation)
+    const world = await World.findByPk(worldId);
+    if (!world) {
+      return res.status(404).json({ error: 'World not found' });
+    }
 
-    const startingBalance = startingBalances[airlineType] || 1000000.00;
+    // Get world's current year for era-based starting capital
+    const worldYear = new Date(world.currentTime).getFullYear();
+
+    // Determine starting balance based on airline type AND world era
+    // This ensures fair gameplay across all time periods
+    const startingBalance = eraEconomicService.getStartingCapital(airlineType, worldYear);
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Starting capital for ${airlineType} airline in ${worldYear}: $${startingBalance.toLocaleString()}`);
+    }
 
     // Find or create user
     const [user] = await User.findOrCreate({
@@ -111,12 +120,6 @@ router.post('/join', async (req, res) => {
         lastLogin: new Date()
       }
     });
-
-    // Check if world exists
-    const world = await World.findByPk(worldId);
-    if (!world) {
-      return res.status(404).json({ error: 'World not found' });
-    }
 
     // Check if already a member
     const existing = await WorldMembership.findOne({
@@ -256,6 +259,43 @@ router.get('/my-worlds', async (req, res) => {
       console.error('Error fetching user worlds:', error);
     }
     res.status(500).json({ error: 'Failed to fetch your worlds' });
+  }
+});
+
+/**
+ * Get starting capital for a world and airline type
+ */
+router.get('/:worldId/starting-capital', async (req, res) => {
+  try {
+    const { worldId } = req.params;
+    const { airlineType } = req.query;
+
+    if (!airlineType) {
+      return res.status(400).json({ error: 'Airline type required' });
+    }
+
+    const world = await World.findByPk(worldId);
+    if (!world) {
+      return res.status(404).json({ error: 'World not found' });
+    }
+
+    const worldYear = new Date(world.currentTime).getFullYear();
+    const startingCapital = eraEconomicService.getStartingCapital(airlineType, worldYear);
+    const eraInfo = eraEconomicService.getStartingCapitalInfo(airlineType, worldYear);
+
+    res.json({
+      worldYear,
+      airlineType,
+      startingCapital,
+      formattedCapital: eraInfo.displayCapital,
+      eraName: eraInfo.eraName,
+      multiplier: eraInfo.multiplier
+    });
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error getting starting capital:', error);
+    }
+    res.status(500).json({ error: 'Failed to get starting capital' });
   }
 });
 
