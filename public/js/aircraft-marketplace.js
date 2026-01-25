@@ -1,443 +1,6 @@
 let allAircraft = [];
 let currentCategory = '';
-
-// Sample aircraft data - in a real implementation, this would come from an API
-const sampleAircraftData = [
-  // Used aircraft
-  {
-    id: 'a1',
-    model: 'Boeing 737-800',
-    manufacturer: 'Boeing',
-    type: 'Narrowbody',
-    range: '3000nm',
-    age: 8,
-    condition: 'Good',
-    price: 45000000,
-    leasePrice: 350000,
-    capacity: 162,
-    fuelConsumption: 2.8,
-    category: 'used',
-    description: 'Well-maintained aircraft with recent maintenance checks.',
-    image: 'https://images.unsplash.com/photo-1530521954602-af862a62eca0?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80' // Boeing 737
-  },
-  {
-    id: 'a21',
-    model: 'Boeing 737-800',
-    manufacturer: 'Boeing',
-    type: 'Narrowbody',
-    range: '3000nm',
-    age: 5,
-    condition: 'Excellent',
-    price: 52000000,
-    leasePrice: 420000,
-    capacity: 162,
-    fuelConsumption: 2.8,
-    category: 'used',
-    description: 'Low-hour example with excellent maintenance history.',
-    image: 'https://images.unsplash.com/photo-1530521954602-af862a62eca0?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80' // Boeing 737
-  },
-  {
-    id: 'a22',
-    model: 'Boeing 737-800',
-    manufacturer: 'Boeing',
-    type: 'Narrowbody',
-    range: '3000nm',
-    age: 12,
-    condition: 'Fair',
-    price: 38000000,
-    leasePrice: 300000,
-    capacity: 162,
-    fuelConsumption: 2.8,
-    category: 'used',
-    description: 'High-utilization aircraft with good structural integrity.',
-    image: 'https://images.unsplash.com/photo-1530521954602-af862a62eca0?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80' // Boeing 737
-  },
-  {
-    id: 'a2',
-    model: 'Airbus A320-200',
-    manufacturer: 'Airbus',
-    type: 'Narrowbody',
-    range: '3300nm',
-    age: 12,
-    condition: 'Fair',
-    price: 32000000,
-    leasePrice: 280000,
-    capacity: 150,
-    fuelConsumption: 2.9,
-    category: 'used',
-    description: 'Solid aircraft with good remaining life expectancy.',
-    image: 'https://images.unsplash.com/photo-1546662244-524b69c0c6e5?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80' // Airbus A320
-  },
-  {
-    id: 'a23',
-    model: 'Airbus A320-200',
-    manufacturer: 'Airbus',
-    type: 'Narrowbody',
-    range: '3300nm',
-    age: 7,
-    condition: 'Good',
-    price: 38000000,
-    leasePrice: 320000,
-    capacity: 150,
-    fuelConsumption: 2.9,
-    category: 'used',
-    description: 'Mid-life aircraft with updated avionics.',
-    image: 'https://images.unsplash.com/photo-1546662244-524b69c0c6e5?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80' // Airbus A320
-  },
-  {
-    id: 'a3',
-    model: 'Embraer E195',
-    manufacturer: 'Embraer',
-    type: 'Regional',
-    range: '2380nm',
-    age: 5,
-    condition: 'Excellent',
-    price: 28000000,
-    leasePrice: 220000,
-    capacity: 120,
-    fuelConsumption: 2.5,
-    category: 'used',
-    description: 'Nearly new regional jet with minimal wear.',
-    image: 'https://images.unsplash.com/photo-1594831217262-94e04f0f0f0f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80' // Embraer aircraft
-  },
-  {
-    id: 'a8',
-    model: 'Boeing 767-300ER',
-    manufacturer: 'Boeing',
-    type: 'Widebody',
-    range: '6560nm',
-    age: 15,
-    condition: 'Good',
-    price: 35000000,
-    leasePrice: 380000,
-    capacity: 245,
-    fuelConsumption: 3.2,
-    category: 'used',
-    description: 'Reliable widebody for long-haul operations.',
-    image: 'https://images.unsplash.com/photo-1535768526360-86d5d206a04b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80' // Boeing 767
-  },
-  {
-    id: 'a24',
-    model: 'Boeing 767-300ER',
-    manufacturer: 'Boeing',
-    type: 'Widebody',
-    range: '6560nm',
-    age: 10,
-    condition: 'Very Good',
-    price: 48000000,
-    leasePrice: 450000,
-    capacity: 245,
-    fuelConsumption: 3.2,
-    category: 'used',
-    description: 'Well-maintained widebody with updated engines.',
-    image: 'https://images.unsplash.com/photo-1535768526360-86d5d206a04b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80' // Boeing 767
-  },
-  {
-    id: 'a9',
-    model: 'Airbus A330-200',
-    manufacturer: 'Airbus',
-    type: 'Widebody',
-    range: '7250nm',
-    age: 10,
-    condition: 'Very Good',
-    price: 75000000,
-    leasePrice: 650000,
-    capacity: 253,
-    fuelConsumption: 2.7,
-    category: 'used',
-    description: 'Efficient twin-aisle aircraft for international routes.',
-    image: 'https://images.unsplash.com/photo-1594831217262-94e04f0f0f0f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80' // Airbus A330
-  },
-  {
-    id: 'a10',
-    model: 'Bombardier CRJ900',
-    manufacturer: 'Bombardier',
-    type: 'Regional',
-    range: '1500nm',
-    age: 7,
-    condition: 'Good',
-    price: 18000000,
-    leasePrice: 150000,
-    capacity: 90,
-    fuelConsumption: 2.2,
-    category: 'used',
-    description: 'Popular regional jet for short-haul routes.',
-    image: 'https://images.unsplash.com/photo-1594831217262-94e04f0f0f0f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80' // Regional jet
-  },
-  {
-    id: 'a11',
-    model: 'Boeing 757-200',
-    manufacturer: 'Boeing',
-    type: 'Narrowbody',
-    range: '3900nm',
-    age: 20,
-    condition: 'Fair',
-    price: 25000000,
-    leasePrice: 250000,
-    capacity: 239,
-    fuelConsumption: 3.0,
-    category: 'used',
-    description: 'Classic narrowbody for medium to long-haul routes.',
-    image: 'https://images.unsplash.com/photo-1535768526360-86d5d206a04b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80' // Boeing 757
-  },
-  {
-    id: 'a12',
-    model: 'Airbus A319',
-    manufacturer: 'Airbus',
-    type: 'Narrowbody',
-    range: '3750nm',
-    age: 14,
-    condition: 'Good',
-    price: 22000000,
-    leasePrice: 190000,
-    capacity: 124,
-    fuelConsumption: 2.8,
-    category: 'used',
-    description: 'Compact member of the A320 family.',
-    image: 'https://images.unsplash.com/photo-1546662244-524b69c0c6e5?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80' // Airbus A319
-  },
-  {
-    id: 'a13',
-    model: 'ATR 42-600',
-    manufacturer: 'ATR',
-    type: 'Regional',
-    range: '1000nm',
-    age: 3,
-    condition: 'Excellent',
-    price: 15000000,
-    leasePrice: 120000,
-    capacity: 50,
-    fuelConsumption: 1.7,
-    category: 'used',
-    description: 'Modern turboprop for short regional routes.',
-    image: 'https://images.unsplash.com/photo-1594831217262-94e04f0f0f0f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80' // ATR aircraft
-  },
-  {
-    id: 'a14',
-    model: 'McDonnell Douglas MD-80',
-    manufacturer: 'McDonnell Douglas',
-    type: 'Narrowbody',
-    range: '2400nm',
-    age: 25,
-    condition: 'Fair',
-    price: 8000000,
-    leasePrice: 90000,
-    capacity: 135,
-    fuelConsumption: 3.5,
-    category: 'used',
-    description: 'Classic twin-engine aircraft, economical for short routes.',
-    image: 'https://images.unsplash.com/photo-1535768526360-86d5d206a04b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80' // MD-80
-  },
-  // New aircraft
-  {
-    id: 'a4',
-    model: 'Boeing 787-9 Dreamliner',
-    manufacturer: 'Boeing',
-    type: 'Widebody',
-    range: '7635nm',
-    age: 0,
-    condition: 'New',
-    price: 280000000,
-    leasePrice: 1800000,
-    capacity: 290,
-    fuelConsumption: 2.1,
-    category: 'new',
-    description: 'Latest technology widebody aircraft with superior fuel efficiency.',
-    image: 'https://images.unsplash.com/photo-1530521954602-af862a62eca0?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80' // Boeing 787
-  },
-  {
-    id: 'a5',
-    model: 'Airbus A350-900',
-    manufacturer: 'Airbus',
-    type: 'Widebody',
-    range: '8100nm',
-    age: 0,
-    condition: 'New',
-    price: 312000000,
-    leasePrice: 2000000,
-    capacity: 314,
-    fuelConsumption: 2.0,
-    category: 'new',
-    description: 'State-of-the-art widebody with advanced materials and systems.',
-    image: 'https://images.unsplash.com/photo-1546662244-524b69c0c6e5?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80' // Airbus A350
-  },
-  {
-    id: 'a6',
-    model: 'Boeing 737 MAX 8',
-    manufacturer: 'Boeing',
-    type: 'Narrowbody',
-    range: '3550nm',
-    age: 0,
-    condition: 'New',
-    price: 120000000,
-    leasePrice: 750000,
-    capacity: 178,
-    fuelConsumption: 2.3,
-    category: 'new',
-    description: 'Next-generation narrowbody with improved fuel efficiency.',
-    image: 'https://images.unsplash.com/photo-1530521954602-af862a62eca0?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80' // Boeing 737 MAX
-  },
-  {
-    id: 'a25',
-    model: 'Boeing 737 MAX 8',
-    manufacturer: 'Boeing',
-    type: 'Narrowbody',
-    range: '3550nm',
-    age: 0,
-    condition: 'New',
-    price: 125000000,
-    leasePrice: 780000,
-    capacity: 178,
-    fuelConsumption: 2.3,
-    category: 'new',
-    description: 'Next-generation narrowbody with Sky Interior.',
-    image: 'https://images.unsplash.com/photo-1530521954602-af862a62eca0?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80' // Boeing 737 MAX
-  },
-  {
-    id: 'a7',
-    model: 'ATR 72-600',
-    manufacturer: 'ATR',
-    type: 'Regional',
-    range: '950nm',
-    age: 0,
-    condition: 'New',
-    price: 22000000,
-    leasePrice: 160000,
-    capacity: 78,
-    fuelConsumption: 1.8,
-    category: 'new',
-    description: 'Efficient turboprop for short-haul regional operations.',
-    image: 'https://images.unsplash.com/photo-1594831217262-94e04f0f0f0f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80' // ATR 72
-  },
-  {
-    id: 'a15',
-    model: 'Airbus A220-300',
-    manufacturer: 'Airbus',
-    type: 'Narrowbody',
-    range: '3200nm',
-    age: 0,
-    condition: 'New',
-    price: 89000000,
-    leasePrice: 580000,
-    capacity: 160,
-    fuelConsumption: 2.0,
-    category: 'new',
-    description: 'Advanced narrowbody with exceptional fuel efficiency.',
-    image: 'https://images.unsplash.com/photo-1546662244-524b69c0c6e5?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80' // Airbus A220
-  },
-  {
-    id: 'a16',
-    model: 'Boeing 777X-9',
-    manufacturer: 'Boeing',
-    type: 'Widebody',
-    range: '8200nm',
-    age: 0,
-    condition: 'New',
-    price: 442000000,
-    leasePrice: 2800000,
-    capacity: 407,
-    fuelConsumption: 1.9,
-    category: 'new',
-    description: 'The most advanced widebody aircraft with folding wingtips.',
-    image: 'https://images.unsplash.com/photo-1535768526360-86d5d206a04b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80' // Boeing 777X
-  },
-  {
-    id: 'a17',
-    model: 'Embraer E175-E2',
-    manufacturer: 'Embraer',
-    type: 'Regional',
-    range: '2400nm',
-    age: 0,
-    condition: 'New',
-    price: 45000000,
-    leasePrice: 290000,
-    capacity: 90,
-    fuelConsumption: 1.9,
-    category: 'new',
-    description: 'Next-generation regional jet with improved efficiency.',
-    image: 'https://images.unsplash.com/photo-1594831217262-94e04f0f0f0f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80' // Embraer E2
-  },
-  {
-    id: 'a18',
-    model: 'Bombardier Global 7500',
-    manufacturer: 'Bombardier',
-    type: 'Business',
-    range: '7400nm',
-    age: 0,
-    condition: 'New',
-    price: 75000000,
-    leasePrice: 500000,
-    capacity: 19,
-    fuelConsumption: 1.2,
-    category: 'new',
-    description: 'Ultra-long-range business jet for VIP operations.',
-    image: 'https://images.unsplash.com/photo-1535768526360-86d5d206a04b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80' // Business jet
-  },
-  {
-    id: 'a19',
-    model: 'Airbus A380-800',
-    manufacturer: 'Airbus',
-    type: 'Widebody',
-    range: '8200nm',
-    age: 0,
-    condition: 'New',
-    price: 445000000,
-    leasePrice: 3200000,
-    capacity: 525,
-    fuelConsumption: 2.5,
-    category: 'new',
-    description: 'The largest passenger airliner ever built.',
-    image: 'https://images.unsplash.com/photo-1546662244-524b69c0c6e5?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80' // Airbus A380
-  },
-  {
-    id: 'a20',
-    model: 'Boeing 747-8 Intercontinental',
-    manufacturer: 'Boeing',
-    type: 'Widebody',
-    range: '8000nm',
-    age: 0,
-    condition: 'New',
-    price: 375000000,
-    leasePrice: 2500000,
-    capacity: 467,
-    fuelConsumption: 2.4,
-    category: 'new',
-    description: 'The newest member of the iconic 747 family.',
-    image: 'https://images.unsplash.com/photo-1530521954602-af862a62eca0?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80' // Boeing 747-8
-  },
-  {
-    id: 'a26',
-    model: 'Airbus A321neo',
-    manufacturer: 'Airbus',
-    type: 'Narrowbody',
-    range: '3700nm',
-    age: 0,
-    condition: 'New',
-    price: 135000000,
-    leasePrice: 850000,
-    capacity: 244,
-    fuelConsumption: 2.2,
-    category: 'new',
-    description: 'Extended range and higher capacity variant of the A320 family.',
-    image: 'https://images.unsplash.com/photo-1546662244-524b69c0c6e5?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80' // Airbus A321
-  },
-  {
-    id: 'a27',
-    model: 'Boeing 737-900ER',
-    manufacturer: 'Boeing',
-    type: 'Narrowbody',
-    range: '3200nm',
-    age: 10,
-    condition: 'Good',
-    price: 65000000,
-    leasePrice: 500000,
-    capacity: 215,
-    fuelConsumption: 2.7,
-    category: 'used',
-    description: 'Extended range variant with increased capacity.',
-    image: 'https://images.unsplash.com/photo-1530521954602-af862a62eca0?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80' // Boeing 737-900
-  }
-];
+let selectedAircraft = null;
 
 // Load aircraft based on category
 async function loadAircraft() {
@@ -445,11 +8,11 @@ async function loadAircraft() {
     // Get category from URL parameter
     const urlParams = new URLSearchParams(window.location.search);
     currentCategory = urlParams.get('category') || 'used';
-    
+
     // Update page title and subtitle based on category
     const titleElement = document.getElementById('marketplaceTitle');
     const subtitleElement = document.getElementById('marketplaceSubtitle');
-    
+
     if (currentCategory === 'new') {
       titleElement.textContent = 'NEW AIRCRAFT FROM MANUFACTURER';
       subtitleElement.textContent = 'PURCHASE BRAND NEW AIRCRAFT';
@@ -457,13 +20,18 @@ async function loadAircraft() {
       titleElement.textContent = 'USED AIRCRAFT MARKET';
       subtitleElement.textContent = 'BROWSE PREVIOUSLY OWNED AIRCRAFT';
     }
-    
-    // Filter aircraft by category
-    allAircraft = sampleAircraftData.filter(aircraft => 
-      aircraft.category === currentCategory
-    );
-    
+
+    // Fetch aircraft from API based on category
+    const response = await fetch(`/api/aircraft?category=${currentCategory}`);
+    const aircraft = await response.json();
+
+    if (!response.ok) {
+      throw new Error(aircraft.error || 'Failed to fetch aircraft');
+    }
+
+    allAircraft = aircraft;
     displayAircraft(allAircraft);
+    updateActiveTab(); // Update the active tab after loading
   } catch (error) {
     console.error('Error loading aircraft:', error);
     document.getElementById('aircraftGrid').innerHTML = `
@@ -517,7 +85,7 @@ function displayAircraft(aircraftArray) {
     tableRows += `
       <tr style="background: var(--surface-elevated);">
         <td colspan="9" style="padding: 1rem 1rem 0.5rem; font-weight: bold; color: var(--accent-color); border-top: 2px solid var(--border-color);">
-          ${manufacturer} AIRCRAFT
+          ${manufacturer}
         </td>
       </tr>
     `;
@@ -546,28 +114,36 @@ function displayAircraft(aircraftArray) {
 
       // Add aircraft rows for this model
       tableRows += aircraftList.map(aircraft => {
+        // Format range based on whether it's a used or new aircraft
+        const rangeDisplay = aircraft.rangeNm ? `${aircraft.rangeNm} nm` : aircraft.range || 'N/A';
+        const ageDisplay = aircraft.age !== undefined ? `${aircraft.age} years` : 'New';
+        const conditionDisplay = aircraft.condition || 'New';
+        
+        // Calculate condition percentage
+        const conditionPercent = aircraft.conditionPercentage || conditionToPercentage(conditionDisplay);
+        
         return `
           <tr style="border-bottom: 1px solid var(--border-color); cursor: pointer;" onclick="showAircraftDetails('${aircraft.id}')">
             <td style="padding: 1rem;">
               <div>
-                <div style="font-weight: 600; color: var(--text-primary);">${aircraft.model}</div>
-                <div style="font-size: 0.8rem; color: var(--text-secondary);">${aircraft.manufacturer} ${aircraft.model}</div>
+                <div style="font-weight: 600; color: var(--text-primary);">${aircraft.model}${aircraft.variant ? '-' + aircraft.variant : ''}</div>
+                <div style="font-size: 0.8rem; color: var(--text-secondary);">${aircraft.manufacturer} ${aircraft.model}${aircraft.variant ? '-' + aircraft.variant : ''}</div>
               </div>
             </td>
             <td style="padding: 1rem; color: var(--text-secondary);">${aircraft.type}</td>
-            <td style="padding: 1rem; text-align: center; color: var(--text-primary);">${aircraft.capacity} pax</td>
-            <td style="padding: 1rem; text-align: center; color: var(--text-primary);">${aircraft.range}</td>
-            <td style="padding: 1rem; text-align: center; color: var(--text-primary);">${aircraft.age} years</td>
+            <td style="padding: 1rem; text-align: center; color: var(--text-primary);">${aircraft.passengerCapacity || 'N/A'} pax</td>
+            <td style="padding: 1rem; text-align: center; color: var(--text-primary);">${rangeDisplay}</td>
+            <td style="padding: 1rem; text-align: center; color: var(--text-primary);">${ageDisplay}</td>
             <td style="padding: 1rem; text-align: center;">
               <span style="padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; display: inline-block; min-width: 60px; text-align: center; ${
-                conditionToPercentage(aircraft.condition) >= 90 ? 'background: var(--success-color); color: white;' :
-                conditionToPercentage(aircraft.condition) >= 70 ? 'background: #10b981; color: white;' :
-                conditionToPercentage(aircraft.condition) >= 50 ? 'background: #60a5fa; color: white;' :
+                conditionPercent >= 90 ? 'background: var(--success-color); color: white;' :
+                conditionPercent >= 70 ? 'background: #10b981; color: white;' :
+                conditionPercent >= 50 ? 'background: #60a5fa; color: white;' :
                 'background: var(--warning-color); color: white;'
-              }">${conditionToPercentage(aircraft.condition)}%</span>
+              }">${conditionPercent}%</span>
             </td>
-            <td style="padding: 1rem; text-align: center; font-weight: 600; color: var(--success-color);">$${formatCurrency(aircraft.price)}</td>
-            <td style="padding: 1rem; text-align: center; font-weight: 600; color: var(--accent-color);">$${formatCurrency(aircraft.leasePrice)}/mo</td>
+            <td style="padding: 1rem; text-align: center; font-weight: 600; color: var(--success-color);">$${formatCurrency(aircraft.purchasePrice || 0)}</td>
+            <td style="padding: 1rem; text-align: center; font-weight: 600; color: var(--accent-color);">$${formatCurrency(aircraft.leasePrice || 0)}/mo</td>
             <td style="padding: 1rem; text-align: center;">
               <button class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 0.8rem;" onclick="event.stopPropagation(); showAircraftDetails('${aircraft.id}')">View Details</button>
             </td>
@@ -588,7 +164,8 @@ function displayAircraft(aircraftArray) {
 
 // Format currency for display
 function formatCurrency(amount) {
-  return amount.toLocaleString('en-US', {
+  const numAmount = Number(amount) || 0;
+  return numAmount.toLocaleString('en-US', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0
   });
@@ -597,19 +174,19 @@ function formatCurrency(amount) {
 // Search aircraft
 function searchAircraft() {
   const searchTerm = document.getElementById('searchAircraftInput').value.toLowerCase();
-  
+
   if (!searchTerm) {
     displayAircraft(allAircraft);
     return;
   }
-  
-  const filteredAircraft = allAircraft.filter(aircraft => 
-    aircraft.model.toLowerCase().includes(searchTerm) ||
-    aircraft.manufacturer.toLowerCase().includes(searchTerm) ||
-    aircraft.type.toLowerCase().includes(searchTerm) ||
-    aircraft.description.toLowerCase().includes(searchTerm)
+
+  const filteredAircraft = allAircraft.filter(aircraft =>
+    (aircraft.model && aircraft.model.toLowerCase().includes(searchTerm)) ||
+    (aircraft.manufacturer && aircraft.manufacturer.toLowerCase().includes(searchTerm)) ||
+    (aircraft.type && aircraft.type.toLowerCase().includes(searchTerm)) ||
+    (aircraft.description && aircraft.description.toLowerCase().includes(searchTerm))
   );
-  
+
   displayAircraft(filteredAircraft);
 }
 
@@ -618,41 +195,44 @@ function filterAircraft() {
   const manufacturer = document.getElementById('manufacturerFilter').value;
   const type = document.getElementById('typeFilter').value;
   const range = document.getElementById('rangeFilter').value;
-  
+
   let filteredAircraft = [...allAircraft];
-  
+
   if (manufacturer) {
-    filteredAircraft = filteredAircraft.filter(aircraft => 
+    filteredAircraft = filteredAircraft.filter(aircraft =>
       aircraft.manufacturer === manufacturer
     );
   }
-  
+
   if (type) {
-    filteredAircraft = filteredAircraft.filter(aircraft => 
+    filteredAircraft = filteredAircraft.filter(aircraft =>
       aircraft.type === type
     );
   }
-  
+
   if (range) {
-    filteredAircraft = filteredAircraft.filter(aircraft => 
-      aircraft.range === range
+    filteredAircraft = filteredAircraft.filter(aircraft =>
+      aircraft.rangeCategory === range
     );
   }
-  
+
   displayAircraft(filteredAircraft);
 }
 
 // Show aircraft details in modal
 function showAircraftDetails(aircraftId) {
   const aircraft = allAircraft.find(a => a.id === aircraftId);
-  
+
   if (!aircraft) return;
-  
+
+  // Store selected aircraft for purchase/lease
+  selectedAircraft = aircraft;
+
   const detailContent = document.getElementById('aircraftDetailContent');
   detailContent.innerHTML = `
     <div style="display: flex; gap: 2rem; align-items: flex-start;">
       <div style="flex: 1;">
-        <h3 style="color: var(--text-primary); margin-bottom: 1rem;">${aircraft.manufacturer} ${aircraft.model}</h3>
+        <h3 style="color: var(--text-primary); margin-bottom: 1rem;">${aircraft.manufacturer} ${aircraft.model}${aircraft.variant ? '-' + aircraft.variant : ''}</h3>
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
           <div class="info-row">
             <span class="info-label">Type</span>
@@ -660,60 +240,87 @@ function showAircraftDetails(aircraftId) {
           </div>
           <div class="info-row">
             <span class="info-label">Range</span>
-            <span class="info-value">${aircraft.range}</span>
+            <span class="info-value">${aircraft.rangeNm ? aircraft.rangeNm + ' nm' : 'N/A'}</span>
           </div>
           <div class="info-row">
             <span class="info-label">Capacity</span>
-            <span class="info-value">${aircraft.capacity} passengers</span>
+            <span class="info-value">${aircraft.passengerCapacity || 'N/A'} passengers</span>
           </div>
           <div class="info-row">
-            <span class="info-label">Fuel Efficiency</span>
-            <span class="info-value">${aircraft.fuelConsumption} gal/pax/100nm</span>
+            <span class="info-label">Fuel Burn/Hour</span>
+            <span class="info-value">${aircraft.fuelBurnPerHour || 'N/A'} L/hr</span>
           </div>
           <div class="info-row">
             <span class="info-label">Age</span>
-            <span class="info-value">${aircraft.age} years</span>
+            <span class="info-value">${aircraft.age !== undefined ? aircraft.age + ' years' : 'New'}</span>
           </div>
           <div class="info-row">
             <span class="info-label">Condition</span>
-            <span class="info-value">${aircraft.condition}</span>
+            <span class="info-value">${aircraft.condition || 'New'}</span>
           </div>
-          <div class="info-row" style="grid-column: span 2;">
-            <span class="info-label">Purchase Price</span>
-            <span class="info-value" style="font-weight: bold; color: var(--success-color); font-size: 1.2rem;">$${formatCurrency(aircraft.price)}</span>
+          <div class="info-row">
+            <span class="info-label">Maintenance Cost/Hour</span>
+            <span class="info-value">$${formatCurrency(aircraft.maintenanceCostPerHour || 0)}/hr</span>
           </div>
-          <div class="info-row" style="grid-column: span 2;">
-            <span class="info-label">Lease Price/Month</span>
-            <span class="info-value" style="font-weight: bold; color: var(--accent-color); font-size: 1.2rem;">$${formatCurrency(aircraft.leasePrice)}/mo</span>
+          <div class="info-row">
+            <span class="info-label">First Introduced</span>
+            <span class="info-value">${aircraft.firstIntroduced || 'N/A'}</span>
           </div>
         </div>
-        <div style="margin-bottom: 1.5rem;">
-          <h4 style="color: var(--text-primary); margin-bottom: 0.5rem;">Description</h4>
-          <p style="color: var(--text-secondary);">${aircraft.description}</p>
+        <div class="info-row" style="margin-bottom: 1.5rem;">
+          <span class="info-label">Description</span>
+          <span class="info-value">${aircraft.description || 'No description available.'}</span>
         </div>
       </div>
-      <div style="flex: 1; text-align: center;">
-        <div style="background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; height: 100%;">
-          <img src="${aircraft.image || '/images/default-aircraft.jpg'}" alt="${aircraft.model}" 
-               style="width: 100%; height: 200px; object-fit: contain; border-radius: 4px; margin-bottom: 1rem;">
-          <div style="text-align: left;">
-            <h4 style="color: var(--text-primary); margin-bottom: 0.5rem;">Specifications</h4>
-            <ul style="color: var(--text-secondary); list-style-type: none; padding-left: 0;">
-              <li>• Max Range: ${aircraft.range}</li>
-              <li>• Engines: Turbofan</li>
-              <li>• Wing Configuration: High-wing</li>
-              <li>• Year Introduced: ${2023 - aircraft.age}</li>
-            </ul>
+      <div style="flex: 1; display: flex; flex-direction: column; gap: 1rem;">
+        <div class="card" style="padding: 1.5rem;">
+          <h4 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-primary);">PRICING</h4>
+          <div class="info-row" style="margin-bottom: 1rem;">
+            <span class="info-label">Purchase Price</span>
+            <span class="info-value" style="font-weight: bold; color: var(--success-color);">$${formatCurrency(aircraft.purchasePrice || 0)}</span>
+          </div>
+          <div class="info-row" style="margin-bottom: 1rem;">
+            <span class="info-label">Lease Price/Month</span>
+            <span class="info-value" style="font-weight: bold; color: var(--accent-color);">$${formatCurrency(aircraft.leasePrice || 0)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Condition</span>
+            <span class="info-value" style="font-weight: bold; color: var(--text-primary);">${aircraft.conditionPercentage || (aircraft.condition ? (aircraft.condition === 'New' ? 100 : 70) : 100)}%</span>
+          </div>
+        </div>
+        <div class="card" style="padding: 1.5rem;">
+          <h4 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-primary);">SPECIFICATIONS</h4>
+          <div class="info-row" style="margin-bottom: 0.5rem;">
+            <span class="info-label">Cruise Speed</span>
+            <span class="info-value">${aircraft.cruiseSpeed || 'N/A'} kts</span>
+          </div>
+          <div class="info-row" style="margin-bottom: 0.5rem;">
+            <span class="info-label">Fuel Capacity</span>
+            <span class="info-value">${aircraft.fuelCapacityLiters || 'N/A'} L</span>
+          </div>
+          <div class="info-row" style="margin-bottom: 0.5rem;">
+            <span class="info-label">Cargo Capacity</span>
+            <span class="info-value">${aircraft.cargoCapacityKg || 'N/A'} kg</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Range Category</span>
+            <span class="info-value">${aircraft.rangeCategory || 'N/A'}</span>
           </div>
         </div>
       </div>
     </div>
   `;
-  
-  // Store selected aircraft ID for purchase
-  document.getElementById('purchaseAircraftBtn').dataset.aircraftId = aircraftId;
-  
+
+  document.getElementById('detailModalTitle').textContent = `${aircraft.manufacturer} ${aircraft.model}${aircraft.variant ? '-' + aircraft.variant : ''} DETAILS`;
   document.getElementById('aircraftDetailModal').style.display = 'flex';
+  
+  // Update purchase button based on category
+  const purchaseBtn = document.getElementById('purchaseAircraftBtn');
+  if (currentCategory === 'new') {
+    purchaseBtn.textContent = 'Purchase New Aircraft';
+  } else {
+    purchaseBtn.textContent = 'Purchase Used Aircraft';
+  }
 }
 
 // Close aircraft detail modal
@@ -722,24 +329,469 @@ function closeAircraftDetailModal() {
 }
 
 // Purchase aircraft
-async function purchaseAircraft() {
-  const aircraftId = document.getElementById('purchaseAircraftBtn').dataset.aircraftId;
-  const aircraft = allAircraft.find(a => a.id === aircraftId);
-  
-  if (!aircraft) {
-    alert('Aircraft not found');
+function purchaseAircraft() {
+  if (!selectedAircraft) {
+    showErrorMessage('No aircraft selected');
     return;
   }
-  
-  // In a real implementation, this would call an API to purchase the aircraft
-  // For now, we'll just show a success message
-  alert(`Purchase initiated for ${aircraft.manufacturer} ${aircraft.model}!\n\nPrice: $${formatCurrency(aircraft.price)}\n\nThis would be processed through the backend in a real implementation.`);
-  
-  // Close modal after purchase
+
+  // Close detail modal
   closeAircraftDetailModal();
+
+  // Show purchase/lease confirmation modal
+  showPurchaseConfirmationModal();
 }
 
-// Initialize page
+// Show purchase/lease confirmation modal
+function showPurchaseConfirmationModal() {
+  if (!selectedAircraft) return;
+
+  // Calculate condition percentage
+  const conditionPercent = selectedAircraft.conditionPercentage || (selectedAircraft.condition === 'New' ? 100 : 70);
+  const ageYears = selectedAircraft.age || 0;
+
+  // Create confirmation modal overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'purchaseConfirmationOverlay';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 2000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  `;
+
+  overlay.innerHTML = `
+    <div style="background: var(--surface); border: 1px solid var(--border-color); border-radius: 8px; padding: 2rem; width: 90%; max-width: 600px;">
+      <h2 style="margin-bottom: 1.5rem; color: var(--text-primary); text-align: center;">CONFIRM ACQUISITION</h2>
+
+      <div style="margin-bottom: 2rem; padding: 1rem; background: var(--surface-elevated); border-radius: 4px;">
+        <h3 style="margin: 0 0 1rem 0; color: var(--accent-color);">${selectedAircraft.manufacturer} ${selectedAircraft.model}${selectedAircraft.variant ? '-' + selectedAircraft.variant : ''}</h3>
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; font-size: 0.9rem;">
+          <div><span style="color: var(--text-secondary);">Condition:</span> <strong>${conditionPercent}%</strong></div>
+          <div><span style="color: var(--text-secondary);">Age:</span> <strong>${ageYears} years</strong></div>
+          <div><span style="color: var(--text-secondary);">Capacity:</span> <strong>${selectedAircraft.passengerCapacity} pax</strong></div>
+          <div><span style="color: var(--text-secondary);">Range:</span> <strong>${selectedAircraft.rangeNm} nm</strong></div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem;">
+        <button id="confirmPurchaseBtn" class="btn btn-primary" style="padding: 1.5rem; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center;">
+          <span>PURCHASE OUTRIGHT</span>
+          <strong style="color: var(--success-color);">$${formatCurrency(selectedAircraft.purchasePrice || 0)}</strong>
+        </button>
+        <button id="confirmLeaseBtn" class="btn btn-secondary" style="padding: 1.5rem; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center;">
+          <span>LEASE (12 MONTHS)</span>
+          <strong style="color: var(--accent-color);">$${formatCurrency(selectedAircraft.leasePrice || 0)}/mo</strong>
+        </button>
+      </div>
+
+      <button id="cancelPurchaseBtn" class="btn btn-logout" style="width: 100%; padding: 0.75rem;">Cancel</button>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  // Add event listeners
+  document.getElementById('confirmPurchaseBtn').addEventListener('click', () => {
+    document.body.removeChild(overlay);
+    processPurchase();
+  });
+
+  document.getElementById('confirmLeaseBtn').addEventListener('click', () => {
+    document.body.removeChild(overlay);
+    processLease();
+  });
+
+  document.getElementById('cancelPurchaseBtn').addEventListener('click', () => {
+    document.body.removeChild(overlay);
+  });
+}
+
+// Show purchase confirmation dialog
+function processPurchase() {
+  if (!selectedAircraft) return;
+
+  const fullName = selectedAircraft.variant
+    ? `${selectedAircraft.manufacturer} ${selectedAircraft.model}-${selectedAircraft.variant}`
+    : `${selectedAircraft.manufacturer} ${selectedAircraft.model}`;
+
+  const condition = selectedAircraft.condition || 'New';
+  const price = selectedAircraft.purchasePrice;
+
+  showConfirmationDialog(
+    'CONFIRM PURCHASE',
+    fullName,
+    condition,
+    `$${formatCurrency(price)}`,
+    'Purchase',
+    confirmPurchase
+  );
+}
+
+// Actually process the purchase after confirmation
+async function confirmPurchase(registration) {
+  if (!selectedAircraft) return;
+
+  try {
+    const conditionPercent = selectedAircraft.conditionPercentage || (selectedAircraft.condition === 'New' ? 100 : 70);
+    const ageYears = selectedAircraft.age || 0;
+
+    // Use variantId for used aircraft, id for new aircraft
+    const aircraftId = selectedAircraft.variantId || selectedAircraft.id;
+
+    const response = await fetch('/api/fleet/purchase', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        aircraftId: aircraftId,
+        category: currentCategory,
+        condition: selectedAircraft.condition || 'New',
+        conditionPercentage: conditionPercent,
+        ageYears: ageYears,
+        purchasePrice: selectedAircraft.purchasePrice,
+        maintenanceCostPerHour: selectedAircraft.maintenanceCostPerHour,
+        fuelBurnPerHour: selectedAircraft.fuelBurnPerHour,
+        registration: registration
+      })
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      // Show success message
+      showSuccessMessage(`Aircraft purchased successfully! Registration: ${data.aircraft.registration}`, data.newBalance);
+
+      // Reload marketplace info to update balance
+      loadMarketplaceInfo();
+    } else {
+      // Show error message
+      const errorMsg = data.details ? `${data.error}: ${data.details}` : data.error;
+      showErrorMessage(`Purchase failed: ${errorMsg}`);
+    }
+  } catch (error) {
+    console.error('Error purchasing aircraft:', error);
+    showErrorMessage('Failed to purchase aircraft. Please try again.');
+  }
+}
+
+// Show confirmation dialog with registration input
+function showConfirmationDialog(title, aircraftName, condition, price, actionType, confirmCallback) {
+  const overlay = document.createElement('div');
+  overlay.id = 'registrationConfirmOverlay';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 2000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  `;
+
+  overlay.innerHTML = `
+    <div style="background: var(--surface); border: 1px solid var(--border-color); border-radius: 8px; padding: 2rem; width: 90%; max-width: 550px;">
+      <h2 style="margin-bottom: 1.5rem; color: var(--text-primary); text-align: center;">${title}</h2>
+
+      <div style="margin-bottom: 1.5rem; padding: 1rem; background: var(--surface-elevated); border-radius: 4px;">
+        <h3 style="margin: 0 0 0.75rem 0; color: var(--accent-color); font-size: 1.1rem;">${aircraftName}</h3>
+        <div style="display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 0.5rem;">
+          <span style="color: var(--text-secondary);">Condition:</span>
+          <strong>${condition}</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+          <span style="color: var(--text-secondary);">Price:</span>
+          <strong style="color: var(--success-color);">${price}</strong>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 1.5rem;">
+        <label style="display: block; margin-bottom: 0.5rem; color: var(--text-primary); font-weight: 600;">Aircraft Registration</label>
+        <input
+          type="text"
+          id="registrationInput"
+          placeholder="e.g., N12345"
+          maxlength="10"
+          style="width: 100%; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 1rem;"
+        />
+        <div id="registrationError" style="margin-top: 0.5rem; color: var(--warning-color); font-size: 0.85rem; display: none;"></div>
+      </div>
+
+      <div style="display: flex; gap: 1rem;">
+        <button id="confirmActionBtn" class="btn btn-primary" style="flex: 1; padding: 0.75rem;">${actionType}</button>
+        <button id="cancelActionBtn" class="btn btn-secondary" style="flex: 1; padding: 0.75rem;">Cancel</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const registrationInput = document.getElementById('registrationInput');
+  const registrationError = document.getElementById('registrationError');
+  const confirmBtn = document.getElementById('confirmActionBtn');
+
+  // Validate registration format (alphanumeric, starts with letter, 3-10 chars)
+  function validateRegistration(registration) {
+    const trimmed = registration.trim().toUpperCase();
+    if (trimmed.length < 3) {
+      return { valid: false, message: 'Registration must be at least 3 characters' };
+    }
+    if (!/^[A-Z]/.test(trimmed)) {
+      return { valid: false, message: 'Registration must start with a letter' };
+    }
+    if (!/^[A-Z0-9-]+$/.test(trimmed)) {
+      return { valid: false, message: 'Registration can only contain letters, numbers, and hyphens' };
+    }
+    return { valid: true, value: trimmed };
+  }
+
+  // Add event listener for confirm button
+  confirmBtn.addEventListener('click', () => {
+    const registration = registrationInput.value.trim();
+    const validation = validateRegistration(registration);
+
+    if (!validation.valid) {
+      registrationError.textContent = validation.message;
+      registrationError.style.display = 'block';
+      registrationInput.style.borderColor = 'var(--warning-color)';
+      return;
+    }
+
+    // Remove overlay and call confirm callback
+    document.body.removeChild(overlay);
+    confirmCallback(validation.value);
+  });
+
+  // Add event listener for cancel button
+  document.getElementById('cancelActionBtn').addEventListener('click', () => {
+    document.body.removeChild(overlay);
+  });
+
+  // Clear error on input
+  registrationInput.addEventListener('input', () => {
+    registrationError.style.display = 'none';
+    registrationInput.style.borderColor = 'var(--border-color)';
+  });
+
+  // Allow Enter key to submit
+  registrationInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      confirmBtn.click();
+    }
+  });
+
+  // Auto-focus the input
+  registrationInput.focus();
+}
+
+// Show lease confirmation dialog
+function processLease() {
+  if (!selectedAircraft) return;
+
+  const fullName = selectedAircraft.variant
+    ? `${selectedAircraft.manufacturer} ${selectedAircraft.model}-${selectedAircraft.variant}`
+    : `${selectedAircraft.manufacturer} ${selectedAircraft.model}`;
+
+  const condition = selectedAircraft.condition || 'New';
+  const price = selectedAircraft.leasePrice;
+
+  showConfirmationDialog(
+    'CONFIRM LEASE',
+    fullName,
+    condition,
+    `$${formatCurrency(price)}/month`,
+    'Lease',
+    confirmLease
+  );
+}
+
+// Actually process the lease after confirmation
+async function confirmLease(registration) {
+  if (!selectedAircraft) return;
+
+  try {
+    const conditionPercent = selectedAircraft.conditionPercentage || (selectedAircraft.condition === 'New' ? 100 : 70);
+    const ageYears = selectedAircraft.age || 0;
+
+    // Use variantId for used aircraft, id for new aircraft
+    const aircraftId = selectedAircraft.variantId || selectedAircraft.id;
+
+    const response = await fetch('/api/fleet/lease', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        aircraftId: aircraftId,
+        category: currentCategory,
+        condition: selectedAircraft.condition || 'New',
+        conditionPercentage: conditionPercent,
+        ageYears: ageYears,
+        leaseMonthlyPayment: selectedAircraft.leasePrice,
+        leaseDurationMonths: 12,
+        maintenanceCostPerHour: selectedAircraft.maintenanceCostPerHour,
+        fuelBurnPerHour: selectedAircraft.fuelBurnPerHour,
+        purchasePrice: selectedAircraft.purchasePrice, // For reference
+        registration: registration
+      })
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      // Show success message
+      showSuccessMessage(`Aircraft leased successfully! Registration: ${data.aircraft.registration}`, data.newBalance);
+
+      // Reload marketplace info to update balance
+      loadMarketplaceInfo();
+    } else {
+      // Show error message
+      const errorMsg = data.details ? `${data.error}: ${data.details}` : data.error;
+      showErrorMessage(`Lease failed: ${errorMsg}`);
+    }
+  } catch (error) {
+    console.error('Error leasing aircraft:', error);
+    showErrorMessage('Failed to lease aircraft. Please try again.');
+  }
+}
+
+// Show success message
+function showSuccessMessage(message, newBalance) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 2000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  `;
+
+  overlay.innerHTML = `
+    <div style="background: var(--surface); border: 1px solid var(--success-color); border-radius: 8px; padding: 2rem; width: 90%; max-width: 500px; text-align: center;">
+      <div style="font-size: 3rem; color: var(--success-color); margin-bottom: 1rem;">✓</div>
+      <h2 style="margin-bottom: 1rem; color: var(--text-primary);">SUCCESS</h2>
+      <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">${message}</p>
+      <p style="margin-bottom: 2rem; color: var(--text-secondary);">New Balance: <strong style="color: var(--success-color);">$${formatCurrency(newBalance)}</strong></p>
+      <button id="viewFleetBtn" class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem;">View My Fleet</button>
+      <button id="continueShoppingBtn" class="btn btn-secondary" style="width: 100%;">Continue Shopping</button>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById('viewFleetBtn').addEventListener('click', () => {
+    window.location.href = '/fleet';
+  });
+
+  document.getElementById('continueShoppingBtn').addEventListener('click', () => {
+    document.body.removeChild(overlay);
+  });
+}
+
+// Show error message
+function showErrorMessage(message) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 2000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  `;
+
+  overlay.innerHTML = `
+    <div style="background: var(--surface); border: 1px solid var(--warning-color); border-radius: 8px; padding: 2rem; width: 90%; max-width: 500px; text-align: center;">
+      <div style="font-size: 3rem; color: var(--warning-color); margin-bottom: 1rem;">⚠</div>
+      <h2 style="margin-bottom: 1rem; color: var(--text-primary);">ERROR</h2>
+      <p style="margin-bottom: 2rem; color: var(--text-secondary);">${message}</p>
+      <button id="closeErrorBtn" class="btn btn-primary" style="width: 100%;">Close</button>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById('closeErrorBtn').addEventListener('click', () => {
+    document.body.removeChild(overlay);
+  });
+}
+
+// Update active tab based on current category
+function updateActiveTab() {
+  const usedTab = document.getElementById('usedTab');
+  const newTab = document.getElementById('newTab');
+
+  // Reset styles
+  usedTab.style.borderBottom = '3px solid transparent';
+  usedTab.style.color = 'var(--text-muted)';
+  newTab.style.borderBottom = '3px solid transparent';
+  newTab.style.color = 'var(--text-muted)';
+
+  // Apply active styles based on current category
+  if (currentCategory === 'new') {
+    newTab.style.borderBottom = '3px solid var(--primary-color)';
+    newTab.style.color = 'var(--primary-color)';
+  } else {
+    usedTab.style.borderBottom = '3px solid var(--primary-color)';
+    usedTab.style.color = 'var(--primary-color)';
+  }
+}
+
+// Load marketplace-specific info (balance and airline)
+async function loadMarketplaceInfo() {
+  try {
+    const response = await fetch('/api/world/info');
+    const data = await response.json();
+
+    if (!data.error) {
+      // Update balance display
+      const balanceEl = document.getElementById('marketplaceBalance');
+      if (balanceEl) {
+        const balance = Number(data.balance) || 0;
+        balanceEl.textContent = `$${Math.round(balance).toLocaleString('en-US')}`;
+
+        // Color code balance based on value
+        if (balance < 0) {
+          balanceEl.style.color = 'var(--warning-color)';
+        } else if (balance < 100000) {
+          balanceEl.style.color = 'var(--text-secondary)';
+        } else {
+          balanceEl.style.color = 'var(--success-color)';
+        }
+      }
+
+      // Update airline name
+      const airlineEl = document.getElementById('marketplaceAirlineName');
+      if (airlineEl) {
+        airlineEl.textContent = data.airlineName || '--';
+      }
+    }
+  } catch (error) {
+    console.error('Error loading marketplace info:', error);
+  }
+}
+
+// Initialize when page loads
 document.addEventListener('DOMContentLoaded', () => {
   loadAircraft();
+  loadMarketplaceInfo();
 });

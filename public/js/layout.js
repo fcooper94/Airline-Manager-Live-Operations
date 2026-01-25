@@ -38,6 +38,9 @@ async function loadUserInfo() {
           adminLink.classList.add('btn-secondary');
         }
       }
+
+      // Load world information if user is in an active world
+      loadWorldInfo();
     } else {
       // Redirect to login if not authenticated (only on protected pages)
       if (window.location.pathname !== '/' &&
@@ -51,9 +54,124 @@ async function loadUserInfo() {
   }
 }
 
+// Global variables for world time tracking
+let currentWorldTime = null;
+let worldTimeAcceleration = 60;
+let worldClockInterval = null;
+
+// Load world information for navigation bar
+async function loadWorldInfo() {
+  try {
+    // Don't show world info on world selection page
+    if (window.location.pathname === '/world-selection') {
+      const worldInfoContainer = document.getElementById('worldInfoContainer');
+      if (worldInfoContainer) {
+        worldInfoContainer.style.display = 'none';
+      }
+      return;
+    }
+
+    // Get world info from the dedicated API endpoint
+    const response = await fetch('/api/world/info');
+    const worldInfo = await response.json();
+
+    if (response.ok && worldInfo && !worldInfo.error) {
+      // Update world information
+      const worldNameEl = document.getElementById('worldName');
+      if (worldNameEl) {
+        worldNameEl.textContent = worldInfo.name || '--';
+      }
+
+      // Store current world time and acceleration
+      currentWorldTime = new Date(worldInfo.currentTime);
+      worldTimeAcceleration = worldInfo.timeAcceleration || 60;
+
+      // Format the world date and time separately
+      const worldDateEl = document.getElementById('worldDate');
+      const worldTimeEl = document.getElementById('worldTime');
+      if (worldDateEl && worldTimeEl) {
+        worldDateEl.textContent = currentWorldTime.toLocaleDateString();
+        worldTimeEl.textContent = currentWorldTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      }
+
+      // Update era
+      const worldEraEl = document.getElementById('worldEra');
+      if (worldEraEl) {
+        worldEraEl.textContent = worldInfo.era || '--';
+      }
+
+      // Update elapsed time
+      const worldElapsedEl = document.getElementById('worldElapsed');
+      if (worldElapsedEl) {
+        worldElapsedEl.textContent = `${worldInfo.elapsedDays || 0} days`;
+      }
+
+      // Update balance
+      const worldBalanceEl = document.getElementById('worldBalance');
+      if (worldBalanceEl) {
+        const balance = Number(worldInfo.balance) || 0;
+        worldBalanceEl.textContent = `$${Math.round(balance).toLocaleString('en-US')}`;
+
+        // Color code balance based on value
+        if (balance < 0) {
+          worldBalanceEl.style.color = 'var(--warning-color)';
+        } else if (balance < 100000) {
+          worldBalanceEl.style.color = 'var(--text-secondary)';
+        } else {
+          worldBalanceEl.style.color = 'var(--success-color)';
+        }
+      }
+
+      // Set up real-time clock with correct acceleration
+      startRealTimeClock(worldTimeAcceleration);
+    }
+    // If no world data, just leave placeholder values visible - no need to hide container
+  } catch (error) {
+    console.error('Error loading world info:', error);
+    // On error, just leave placeholder values visible - no need to hide container
+  }
+}
+
+// Update world time periodically (sync with server every 30 seconds)
+function updateWorldTime() {
+  loadWorldInfo();
+}
+
+// More efficient real-time clock that increments time locally
+function startRealTimeClock(accelerationFactor) {
+  // Clear any existing interval
+  if (worldClockInterval) {
+    clearInterval(worldClockInterval);
+  }
+
+  // Update the clock every 100ms for smooth progression
+  worldClockInterval = setInterval(() => {
+    if (currentWorldTime) {
+      // Advance game time based on acceleration (100ms real time)
+      // If acceleration is 60x: 100ms real = 6000ms game time (6 seconds)
+      // If acceleration is 120x: 100ms real = 12000ms game time (12 seconds)
+      currentWorldTime = new Date(currentWorldTime.getTime() + (100 * accelerationFactor));
+
+      const worldTimeEl = document.getElementById('worldTime');
+      const worldDateEl = document.getElementById('worldDate');
+
+      if (worldTimeEl) {
+        worldTimeEl.textContent = currentWorldTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      }
+
+      if (worldDateEl) {
+        worldDateEl.textContent = currentWorldTime.toLocaleDateString();
+      }
+    }
+  }, 100); // Update every 100ms
+}
+
 // Universal page initialization
 function initializeLayout() {
   loadUserInfo();
+
+  // Sync world time with server every 30 seconds to avoid drift
+  setInterval(updateWorldTime, 30000);
 
   // Use event delegation to handle clicks on "Add to Fleet" button
   document.addEventListener('click', function(event) {

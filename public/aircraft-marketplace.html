@@ -2,10 +2,83 @@
 <!-- SUBTITLE: Aircraft Marketplace -->
 <!-- SCRIPTS: /js/aircraft-marketplace.js -->
 
-<div class="world-selection-container">
-  <div class="selection-header">
-    <h1>AIRCRAFT MARKETPLACE</h1>
-    <p class="subtitle" id="marketplaceSubtitle">BROWSE AVAILABLE AIRCRAFT</p>
+<div class="dashboard-container">
+  <aside class="sidebar">
+    <div class="sidebar-header">OPERATIONS</div>
+    <ul class="nav-menu">
+      <li class="nav-item">
+        <a href="/dashboard">
+          <span class="nav-text">Dashboard</span>
+        </a>
+      </li>
+      <li class="nav-item parent">
+        <a href="#" onclick="return false;">
+          <span class="nav-text">Flight Operations</span>
+        </a>
+        <ul class="nav-submenu">
+          <li class="nav-item">
+            <a href="/routes">
+              <span class="nav-text">Manage Routes</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="/scheduling">
+              <span class="nav-text">Scheduling</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="/pricing">
+              <span class="nav-text">Price Management</span>
+            </a>
+          </li>
+        </ul>
+      </li>
+      <li class="nav-item">
+        <a href="/fleet">
+          <span class="nav-text">Fleet Management</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="/finances">
+          <span class="nav-text">Financial Reports</span>
+        </a>
+      </li>
+      <li class="nav-item active">
+        <a href="/aircraft-marketplace">
+          <span class="nav-text">Aircraft Marketplace</span>
+        </a>
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <a href="/world-selection" class="btn btn-secondary btn-full-width">
+        <span class="nav-text">SELECT WORLD</span>
+      </a>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h1 id="marketplaceTitle">AIRCRAFT MARKETPLACE</h1>
+      <p class="subtitle" id="marketplaceSubtitle">BROWSE AVAILABLE AIRCRAFT</p>
+    </div>
+
+  <!-- Category Navigation -->
+  <div style="display: flex; gap: 1rem; margin-bottom: 1rem; border-bottom: 2px solid var(--border-color);">
+    <a href="?category=used" class="btn" id="usedTab" style="padding: 1rem 2rem; background: none; border: none; border-bottom: 3px solid transparent; color: var(--text-muted); font-weight: 600; cursor: pointer; text-decoration: none;">USED MARKET</a>
+    <a href="?category=new" class="btn" id="newTab" style="padding: 1rem 2rem; background: none; border: none; border-bottom: 3px solid transparent; color: var(--text-muted); font-weight: 600; cursor: pointer; text-decoration: none;">NEW MARKET</a>
+  </div>
+
+  <!-- Balance Display -->
+  <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between;">
+    <div>
+      <div style="color: var(--text-secondary); font-size: 0.875rem; font-weight: 600; margin-bottom: 0.25rem;">AVAILABLE FUNDS</div>
+      <div style="color: var(--text-primary); font-size: 1.5rem; font-weight: 700;" id="marketplaceBalance">$--</div>
+    </div>
+    <div>
+      <div style="color: var(--text-secondary); font-size: 0.875rem; font-weight: 600; margin-bottom: 0.25rem;">AIRLINE</div>
+      <div style="color: var(--text-primary); font-size: 1rem; font-weight: 600;" id="marketplaceAirlineName">--</div>
+    </div>
   </div>
 
   <div class="worlds-section">
@@ -52,7 +125,7 @@
       <!-- Aircraft will be loaded here dynamically -->
       <div class="empty-message">Loading aircraft inventory...</div>
     </div>
-  </div>
+  </main>
 </div>
 
 <!-- Aircraft Detail Modal -->

@@ -1,0 +1,107 @@
+<!-- TITLE: Fleet Management - Airline Manager -->
+<!-- SUBTITLE: Fleet Overview -->
+<!-- SCRIPTS: /js/fleet.js -->
+
+<div class="dashboard-container">
+  <aside class="sidebar">
+    <div class="sidebar-header">OPERATIONS</div>
+    <ul class="nav-menu">
+      <li class="nav-item">
+        <a href="/dashboard">
+          <span class="nav-text">Dashboard</span>
+        </a>
+      </li>
+      <li class="nav-item parent">
+        <a href="#" onclick="return false;">
+          <span class="nav-text">Flight Operations</span>
+        </a>
+        <ul class="nav-submenu">
+          <li class="nav-item">
+            <a href="/routes">
+              <span class="nav-text">Manage Routes</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="/scheduling">
+              <span class="nav-text">Scheduling</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="/pricing">
+              <span class="nav-text">Price Management</span>
+            </a>
+          </li>
+        </ul>
+      </li>
+      <li class="nav-item active">
+        <a href="/fleet">
+          <span class="nav-text">Fleet Management</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="/finances">
+          <span class="nav-text">Financial Reports</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="/aircraft-marketplace">
+          <span class="nav-text">Aircraft Marketplace</span>
+        </a>
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <a href="/world-selection" class="btn btn-secondary btn-full-width">
+        <span class="nav-text">SELECT WORLD</span>
+      </a>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h1 id="fleetTitle">MY FLEET</h1>
+      <p class="subtitle">MANAGE YOUR AIRCRAFT INVENTORY</p>
+    </div>
+
+    <div class="ops-panel full-width" style="margin-bottom: 2rem;">
+      <div class="panel-header">
+        <h2>FLEET OVERVIEW</h2>
+        <span class="panel-badge" id="fleetCountBadge">0 AIRCRAFT</span>
+      </div>
+      <div class="panel-body">
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;">
+          <div class="metric-card">
+            <div class="metric-title">TOTAL AIRCRAFT</div>
+            <div class="metric-value" id="totalAircraftCount">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">OWNED</div>
+            <div class="metric-value" id="ownedAircraftCount">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">LEASED</div>
+            <div class="metric-value" id="leasedAircraftCount">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">TOTAL VALUE</div>
+            <div class="metric-value" id="totalFleetValue">$0</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ops-panel full-width">
+      <div class="panel-header">
+        <h2>AIRCRAFT INVENTORY</h2>
+        <button class="btn btn-primary" onclick="window.location.href='/aircraft-marketplace'">ADD AIRCRAFT</button>
+      </div>
+      <div class="panel-body">
+        <div id="fleetGrid">
+          <div class="table-empty">
+            <div class="empty-message">LOADING FLEET DATA...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>

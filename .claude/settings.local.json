@@ -11,7 +11,14 @@
       "Bash(npm run db:sync:*)",
       "Bash(taskkill //F //PID 34444)",
       "Bash(npm run world:list:*)",
-      "Bash(node src/scripts/listWorlds.js:*)"
+      "Bash(node src/scripts/listWorlds.js:*)",
+      "Bash(npm start)",
+      "Bash(sqlite3:*)",
+      "Bash(node check-world.js:*)",
+      "Bash(node src/scripts/syncUserAircraft.js:*)",
+      "Bash(psql:*)",
+      "Bash(node src/scripts/addOperationalDates.js:*)",
+      "Bash(node:*)"
     ]
   }
 }

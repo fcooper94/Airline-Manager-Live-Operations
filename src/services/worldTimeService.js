@@ -226,6 +226,33 @@ class WorldTimeService {
   }
 
   /**
+   * Get information for a specific world
+   */
+  async getWorldInfoForWorld(world) {
+    if (!world) {
+      return null;
+    }
+
+    // Calculate elapsed days based on the world's dates
+    const elapsedMs = world.currentTime.getTime() - world.startDate.getTime();
+    const elapsedDays = Math.floor(elapsedMs / (1000 * 60 * 60 * 24));
+
+    return {
+      id: world.id,
+      name: world.name,
+      description: world.description,
+      currentTime: world.currentTime,
+      startDate: world.startDate,
+      timeAcceleration: world.timeAcceleration,
+      era: world.era,
+      status: world.status,
+      isPaused: world.isPaused,
+      isOperating: world.isOperating ? world.isOperating() : false,
+      elapsedDays: elapsedDays
+    };
+  }
+
+  /**
    * Pause the world
    */
   async pauseWorld() {

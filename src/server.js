@@ -71,13 +71,16 @@ app.set('io', io);
 global.io = io;
 
 // Import middleware
-const { requireAuth, redirectIfAuth } = require('./middleware/auth');
+const { requireAuth, redirectIfAuth, requireWorld } = require('./middleware/auth');
 
 // Import routes
 const authRoutes = require('./routes/auth');
 const worldRoutes = require('./routes/world');
 const worldSelectionRoutes = require('./routes/worldSelection');
 const adminRoutes = require('./routes/admin');
+const aircraftRoutes = require('./routes/aircraft');
+const fleetRoutes = require('./routes/fleet');
+const financesRoutes = require('./routes/finances');
 
 // Import services
 const worldTimeService = require('./services/worldTimeService');
@@ -138,6 +141,9 @@ app.use('/auth', authRoutes);
 // API routes
 app.use('/api/world', worldRoutes);
 app.use('/api/worlds', worldSelectionRoutes);
+app.use('/api/aircraft', aircraftRoutes);
+app.use('/api/fleet', requireWorld, fleetRoutes);
+app.use('/api/finances', requireWorld, financesRoutes);
 app.use('/api/admin', requireAuth, adminRoutes);
 
 // Page routes
@@ -155,7 +161,7 @@ app.get('/world-selection', requireAuth, async (req, res) => {
   }
 });
 
-app.get('/dashboard', requireAuth, async (req, res) => {
+app.get('/dashboard', requireWorld, async (req, res) => {
   try {
     const html = await renderPage(path.join(__dirname, '../public/dashboard.html'));
     res.send(html);
@@ -173,9 +179,27 @@ app.get('/admin', requireAuth, async (req, res) => {
   }
 });
 
-app.get('/aircraft-marketplace', requireAuth, async (req, res) => {
+app.get('/aircraft-marketplace', requireWorld, async (req, res) => {
   try {
     const html = await renderPage(path.join(__dirname, '../public/aircraft-marketplace.html'));
+    res.send(html);
+  } catch (error) {
+    res.status(500).send('Error loading page');
+  }
+});
+
+app.get('/fleet', requireWorld, async (req, res) => {
+  try {
+    const html = await renderPage(path.join(__dirname, '../public/fleet.html'));
+    res.send(html);
+  } catch (error) {
+    res.status(500).send('Error loading page');
+  }
+});
+
+app.get('/finances', requireWorld, async (req, res) => {
+  try {
+    const html = await renderPage(path.join(__dirname, '../public/finances.html'));
     res.send(html);
   } catch (error) {
     res.status(500).send('Error loading page');

@@ -1,0 +1,1140 @@
+require('dotenv').config();
+const sequelize = require('../config/database');
+const { Aircraft } = require('../models');
+
+/**
+ * Comprehensive aircraft database from 1950 to present
+ * All aircraft set to isActive: true - availableFrom/availableUntil control world availability
+ *
+ * Production years are approximate based on historical research
+ * Prices adjusted for inflation using 2024 USD values
+ */
+
+const HISTORICAL_AIRCRAFT = [
+  // ===== 1950s ERA - PROPELLER & EARLY JETS =====
+
+  {
+    manufacturer: 'Douglas',
+    model: 'DC-3',
+    variant: null,
+    type: 'Narrowbody',
+    rangeCategory: 'Short Haul',
+    rangeNm: 1500,
+    cruiseSpeed: 180,
+    passengerCapacity: 32,
+    cargoCapacityKg: 2700,
+    fuelCapacityLiters: 3180,
+    purchasePrice: 8500000, // Inflation-adjusted
+    usedPrice: 4000000,
+    maintenanceCostPerHour: 800,
+    maintenanceCostPerMonth: 64000,
+    fuelBurnPerHour: 500,
+    firstIntroduced: 1936,
+    availableFrom: 1950, // Available at game start
+    availableUntil: 1975, // Phased out for passenger service
+    requiredPilots: 2,
+    requiredCabinCrew: 2,
+    isActive: true,
+    description: 'Legendary propeller aircraft that revolutionized air travel'
+  },
+
+  {
+    manufacturer: 'Lockheed',
+    model: 'L-1049',
+    variant: 'Super Constellation',
+    type: 'Narrowbody',
+    rangeCategory: 'Medium Haul',
+    rangeNm: 2400,
+    cruiseSpeed: 300,
+    passengerCapacity: 95,
+    cargoCapacityKg: 6800,
+    fuelCapacityLiters: 22700,
+    purchasePrice: 18000000,
+    usedPrice: 9000000,
+    maintenanceCostPerHour: 1200,
+    maintenanceCostPerMonth: 96000,
+    fuelBurnPerHour: 1800,
+    firstIntroduced: 1951,
+    availableFrom: 1951,
+    availableUntil: 1968,
+    requiredPilots: 2,
+    requiredCabinCrew: 3,
+    isActive: true,
+    description: 'Iconic triple-tail luxury propeller airliner'
+  },
+
+  {
+    manufacturer: 'de Havilland',
+    model: 'Comet 4',
+    variant: null,
+    type: 'Narrowbody',
+    rangeCategory: 'Long Haul',
+    rangeNm: 3225,
+    cruiseSpeed: 450,
+    passengerCapacity: 81,
+    cargoCapacityKg: 5000,
+    fuelCapacityLiters: 28680,
+    purchasePrice: 22000000,
+    usedPrice: 10000000,
+    maintenanceCostPerHour: 1400,
+    maintenanceCostPerMonth: 112000,
+    fuelBurnPerHour: 3200,
+    firstIntroduced: 1958,
+    availableFrom: 1958,
+    availableUntil: 1981,
+    requiredPilots: 2,
+    requiredCabinCrew: 3,
+    isActive: true,
+    description: 'First commercial jetliner - pioneered jet travel'
+  },
+
+  // ===== 1960s ERA - JET AGE BEGINS =====
+
+  {
+    manufacturer: 'Boeing',
+    model: '707',
+    variant: '320B',
+    type: 'Narrowbody',
+    rangeCategory: 'Long Haul',
+    rangeNm: 4300,
+    cruiseSpeed: 525,
+    passengerCapacity: 189,
+    cargoCapacityKg: 15000,
+    fuelCapacityLiters: 90770,
+    purchasePrice: 45000000,
+    usedPrice: 20000000,
+    maintenanceCostPerHour: 2000,
+    maintenanceCostPerMonth: 160000,
+    fuelBurnPerHour: 5000,
+    firstIntroduced: 1958,
+    availableFrom: 1958,
+    availableUntil: 1991,
+    requiredPilots: 3, // Flight engineer required
+    requiredCabinCrew: 5,
+    isActive: true,
+    description: 'Aircraft that started the jet age and made Boeing dominant'
+  },
+
+  {
+    manufacturer: 'Douglas',
+    model: 'DC-8',
+    variant: '63',
+    type: 'Narrowbody',
+    rangeCategory: 'Long Haul',
+    rangeNm: 4500,
+    cruiseSpeed: 520,
+    passengerCapacity: 259,
+    cargoCapacityKg: 18000,
+    fuelCapacityLiters: 102200,
+    purchasePrice: 48000000,
+    usedPrice: 22000000,
+    maintenanceCostPerHour: 2100,
+    maintenanceCostPerMonth: 168000,
+    fuelBurnPerHour: 5200,
+    firstIntroduced: 1959,
+    availableFrom: 1959,
+    availableUntil: 1995,
+    requiredPilots: 3,
+    requiredCabinCrew: 6,
+    isActive: true,
+    description: 'Douglas rival to the 707 - stretched Super 60 series'
+  },
+
+  {
+    manufacturer: 'Boeing',
+    model: '727',
+    variant: '200',
+    type: 'Narrowbody',
+    rangeCategory: 'Short Haul',
+    rangeNm: 1900,
+    cruiseSpeed: 467,
+    passengerCapacity: 189,
+    cargoCapacityKg: 12000,
+    fuelCapacityLiters: 31160,
+    purchasePrice: 35000000,
+    usedPrice: 15000000,
+    maintenanceCostPerHour: 1700,
+    maintenanceCostPerMonth: 136000,
+    fuelBurnPerHour: 3800,
+    firstIntroduced: 1963,
+    availableFrom: 1963,
+    availableUntil: 2001,
+    requiredPilots: 3,
+    requiredCabinCrew: 4,
+    isActive: true,
+    description: 'Tri-jet workhorse - could operate from short runways'
+  },
+
+  {
+    manufacturer: 'Boeing',
+    model: '737',
+    variant: '200',
+    type: 'Narrowbody',
+    rangeCategory: 'Short Haul',
+    rangeNm: 2370,
+    cruiseSpeed: 440,
+    passengerCapacity: 130,
+    cargoCapacityKg: 8000,
+    fuelCapacityLiters: 19870,
+    purchasePrice: 28000000,
+    usedPrice: 12000000,
+    maintenanceCostPerHour: 1400,
+    maintenanceCostPerMonth: 112000,
+    fuelBurnPerHour: 2800,
+    firstIntroduced: 1968,
+    availableFrom: 1968,
+    availableUntil: 2000,
+    requiredPilots: 2,
+    requiredCabinCrew: 3,
+    isActive: true,
+    description: 'Original 737 - started the most successful aircraft family'
+  },
+
+  {
+    manufacturer: 'Douglas',
+    model: 'DC-9',
+    variant: '30',
+    type: 'Narrowbody',
+    rangeCategory: 'Short Haul',
+    rangeNm: 1450,
+    cruiseSpeed: 450,
+    passengerCapacity: 115,
+    cargoCapacityKg: 7500,
+    fuelCapacityLiters: 15900,
+    purchasePrice: 25000000,
+    usedPrice: 10000000,
+    maintenanceCostPerHour: 1300,
+    maintenanceCostPerMonth: 104000,
+    fuelBurnPerHour: 2600,
+    firstIntroduced: 1965,
+    availableFrom: 1965,
+    availableUntil: 1990,
+    requiredPilots: 2,
+    requiredCabinCrew: 3,
+    isActive: true,
+    description: 'Popular short-haul jet - competed with 737'
+  },
+
+  {
+    manufacturer: 'BAC',
+    model: 'One-Eleven',
+    variant: '500',
+    type: 'Narrowbody',
+    rangeCategory: 'Short Haul',
+    rangeNm: 1480,
+    cruiseSpeed: 461,
+    passengerCapacity: 119,
+    cargoCapacityKg: 7000,
+    fuelCapacityLiters: 17800,
+    purchasePrice: 24000000,
+    usedPrice: 9000000,
+    maintenanceCostPerHour: 1250,
+    maintenanceCostPerMonth: 100000,
+    fuelBurnPerHour: 2550,
+    firstIntroduced: 1963,
+    availableFrom: 1963,
+    availableUntil: 1989,
+    requiredPilots: 2,
+    requiredCabinCrew: 3,
+    isActive: true,
+    description: 'British short-haul jet - rear-mounted engines'
+  },
+
+  // ===== 1970s ERA - WIDEBODY REVOLUTION =====
+
+  {
+    manufacturer: 'Boeing',
+    model: '747',
+    variant: '100',
+    type: 'Widebody',
+    rangeCategory: 'Long Haul',
+    rangeNm: 5300,
+    cruiseSpeed: 490,
+    passengerCapacity: 366,
+    cargoCapacityKg: 40000,
+    fuelCapacityLiters: 183380,
+    purchasePrice: 180000000,
+    usedPrice: 80000000,
+    maintenanceCostPerHour: 3500,
+    maintenanceCostPerMonth: 315000,
+    fuelBurnPerHour: 11500,
+    firstIntroduced: 1970,
+    availableFrom: 1970,
+    availableUntil: 1993,
+    requiredPilots: 3,
+    requiredCabinCrew: 8,
+    isActive: true,
+    description: 'Queen of the Skies - revolutionary jumbo jet'
+  },
+
+  {
+    manufacturer: 'McDonnell Douglas',
+    model: 'DC-10',
+    variant: '30',
+    type: 'Widebody',
+    rangeCategory: 'Long Haul',
+    rangeNm: 5200,
+    cruiseSpeed: 490,
+    passengerCapacity: 380,
+    cargoCapacityKg: 35000,
+    fuelCapacityLiters: 138710,
+    purchasePrice: 150000000,
+    usedPrice: 65000000,
+    maintenanceCostPerHour: 3200,
+    maintenanceCostPerMonth: 288000,
+    fuelBurnPerHour: 9800,
+    firstIntroduced: 1971,
+    availableFrom: 1971,
+    availableUntil: 2000,
+    requiredPilots: 3,
+    requiredCabinCrew: 7,
+    isActive: true,
+    description: 'Tri-jet widebody - competed with 747'
+  },
+
+  {
+    manufacturer: 'Lockheed',
+    model: 'L-1011',
+    variant: 'TriStar',
+    type: 'Widebody',
+    rangeCategory: 'Long Haul',
+    rangeNm: 4850,
+    cruiseSpeed: 495,
+    passengerCapacity: 400,
+    cargoCapacityKg: 36000,
+    fuelCapacityLiters: 155770,
+    purchasePrice: 160000000,
+    usedPrice: 70000000,
+    maintenanceCostPerHour: 3300,
+    maintenanceCostPerMonth: 297000,
+    fuelBurnPerHour: 10200,
+    firstIntroduced: 1972,
+    availableFrom: 1972,
+    availableUntil: 1984,
+    requiredPilots: 3,
+    requiredCabinCrew: 7,
+    isActive: true,
+    description: 'Advanced tri-jet with sophisticated systems'
+  },
+
+  {
+    manufacturer: 'Airbus',
+    model: 'A300',
+    variant: 'B4',
+    type: 'Widebody',
+    rangeCategory: 'Medium Haul',
+    rangeNm: 3900,
+    cruiseSpeed: 470,
+    passengerCapacity: 266,
+    cargoCapacityKg: 28000,
+    fuelCapacityLiters: 62900,
+    purchasePrice: 85000000,
+    usedPrice: 35000000,
+    maintenanceCostPerHour: 2400,
+    maintenanceCostPerMonth: 192000,
+    fuelBurnPerHour: 5800,
+    firstIntroduced: 1974,
+    availableFrom: 1974,
+    availableUntil: 2007,
+    requiredPilots: 3,
+    requiredCabinCrew: 5,
+    isActive: true,
+    description: 'First Airbus - twin-engine widebody pioneer'
+  },
+
+  {
+    manufacturer: 'Aerospatiale-BAC',
+    model: 'Concorde',
+    variant: null,
+    type: 'Narrowbody',
+    rangeCategory: 'Long Haul',
+    rangeNm: 3900,
+    cruiseSpeed: 1350, // Supersonic!
+    passengerCapacity: 100,
+    cargoCapacityKg: 2500,
+    fuelCapacityLiters: 119500,
+    purchasePrice: 280000000,
+    usedPrice: 150000000,
+    maintenanceCostPerHour: 8000,
+    maintenanceCostPerMonth: 640000,
+    fuelBurnPerHour: 25600, // Very high fuel burn
+    firstIntroduced: 1976,
+    availableFrom: 1976,
+    availableUntil: 2003,
+    requiredPilots: 3,
+    requiredCabinCrew: 4,
+    isActive: true,
+    description: 'Supersonic legend - flew at Mach 2.04'
+  },
+
+  {
+    manufacturer: 'Boeing',
+    model: '737',
+    variant: '300',
+    type: 'Narrowbody',
+    rangeCategory: 'Short Haul',
+    rangeNm: 2800,
+    cruiseSpeed: 450,
+    passengerCapacity: 149,
+    cargoCapacityKg: 10000,
+    fuelCapacityLiters: 23800,
+    purchasePrice: 38000000,
+    usedPrice: 16000000,
+    maintenanceCostPerHour: 1500,
+    maintenanceCostPerMonth: 120000,
+    fuelBurnPerHour: 2900,
+    firstIntroduced: 1984,
+    availableFrom: 1984,
+    availableUntil: 2008,
+    requiredPilots: 2,
+    requiredCabinCrew: 3,
+    isActive: true,
+    description: '737 Classic - stretched and improved'
+  },
+
+  // ===== 1980s ERA - MODERN EFFICIENCY =====
+
+  {
+    manufacturer: 'Boeing',
+    model: '757',
+    variant: '200',
+    type: 'Narrowbody',
+    rangeCategory: 'Long Haul',
+    rangeNm: 3900,
+    cruiseSpeed: 470,
+    passengerCapacity: 200,
+    cargoCapacityKg: 15000,
+    fuelCapacityLiters: 42680,
+    purchasePrice: 80000000,
+    usedPrice: 35000000,
+    maintenanceCostPerHour: 1900,
+    maintenanceCostPerMonth: 152000,
+    fuelBurnPerHour: 3200,
+    firstIntroduced: 1983,
+    availableFrom: 1983,
+    availableUntil: 2005,
+    requiredPilots: 2,
+    requiredCabinCrew: 4,
+    isActive: true,
+    description: 'Narrow widebody - powerful engines, long range'
+  },
+
+  {
+    manufacturer: 'Boeing',
+    model: '767',
+    variant: '300ER',
+    type: 'Widebody',
+    rangeCategory: 'Long Haul',
+    rangeNm: 6385,
+    cruiseSpeed: 470,
+    passengerCapacity: 269,
+    cargoCapacityKg: 32000,
+    fuelCapacityLiters: 91380,
+    purchasePrice: 140000000,
+    usedPrice: 60000000,
+    maintenanceCostPerHour: 2600,
+    maintenanceCostPerMonth: 234000,
+    fuelBurnPerHour: 5500,
+    firstIntroduced: 1982,
+    availableFrom: 1982,
+    availableUntil: null, // Still in production as freighter
+    requiredPilots: 2,
+    requiredCabinCrew: 5,
+    isActive: true,
+    description: 'Twin widebody - pioneered ETOPS operations'
+  },
+
+  {
+    manufacturer: 'Airbus',
+    model: 'A310',
+    variant: '300',
+    type: 'Widebody',
+    rangeCategory: 'Long Haul',
+    rangeNm: 5150,
+    cruiseSpeed: 470,
+    passengerCapacity: 220,
+    cargoCapacityKg: 25000,
+    fuelCapacityLiters: 68250,
+    purchasePrice: 95000000,
+    usedPrice: 40000000,
+    maintenanceCostPerHour: 2300,
+    maintenanceCostPerMonth: 184000,
+    fuelBurnPerHour: 5000,
+    firstIntroduced: 1983,
+    availableFrom: 1983,
+    availableUntil: 2007,
+    requiredPilots: 2,
+    requiredCabinCrew: 4,
+    isActive: true,
+    description: 'Shortened A300 - advanced glass cockpit'
+  },
+
+  {
+    manufacturer: 'Airbus',
+    model: 'A320',
+    variant: '200',
+    type: 'Narrowbody',
+    rangeCategory: 'Short Haul',
+    rangeNm: 3300,
+    cruiseSpeed: 470,
+    passengerCapacity: 180,
+    cargoCapacityKg: 18000,
+    fuelCapacityLiters: 24210,
+    purchasePrice: 95000000,
+    usedPrice: 40000000,
+    maintenanceCostPerHour: 1600,
+    maintenanceCostPerMonth: 128000,
+    fuelBurnPerHour: 2500,
+    firstIntroduced: 1988,
+    availableFrom: 1988,
+    availableUntil: null, // Still produced
+    requiredPilots: 2,
+    requiredCabinCrew: 4,
+    isActive: true,
+    description: 'Revolutionary fly-by-wire narrowbody'
+  },
+
+  {
+    manufacturer: 'McDonnell Douglas',
+    model: 'MD-80',
+    variant: '83',
+    type: 'Narrowbody',
+    rangeCategory: 'Short Haul',
+    rangeNm: 2900,
+    cruiseSpeed: 460,
+    passengerCapacity: 155,
+    cargoCapacityKg: 10000,
+    fuelCapacityLiters: 24760,
+    purchasePrice: 42000000,
+    usedPrice: 18000000,
+    maintenanceCostPerHour: 1500,
+    maintenanceCostPerMonth: 120000,
+    fuelBurnPerHour: 3000,
+    firstIntroduced: 1980,
+    availableFrom: 1980,
+    availableUntil: 1999,
+    requiredPilots: 2,
+    requiredCabinCrew: 3,
+    isActive: true,
+    description: 'Stretched DC-9 - very popular in 1980s'
+  },
+
+  {
+    manufacturer: 'Boeing',
+    model: '747',
+    variant: '400',
+    type: 'Widebody',
+    rangeCategory: 'Long Haul',
+    rangeNm: 7260,
+    cruiseSpeed: 493,
+    passengerCapacity: 416,
+    cargoCapacityKg: 45000,
+    fuelCapacityLiters: 216840,
+    purchasePrice: 260000000,
+    usedPrice: 120000000,
+    maintenanceCostPerHour: 4000,
+    maintenanceCostPerMonth: 360000,
+    fuelBurnPerHour: 12000,
+    firstIntroduced: 1989,
+    availableFrom: 1989,
+    availableUntil: 2018,
+    requiredPilots: 2,
+    requiredCabinCrew: 9,
+    isActive: true,
+    description: 'Improved 747 - glass cockpit, winglets, extended range'
+  },
+
+  // ===== 1990s ERA - ETOPS & REGIONAL JETS =====
+
+  {
+    manufacturer: 'Boeing',
+    model: '777',
+    variant: '200ER',
+    type: 'Widebody',
+    rangeCategory: 'Long Haul',
+    rangeNm: 7065,
+    cruiseSpeed: 490,
+    passengerCapacity: 317,
+    cargoCapacityKg: 38000,
+    fuelCapacityLiters: 171170,
+    purchasePrice: 250000000,
+    usedPrice: 110000000,
+    maintenanceCostPerHour: 3200,
+    maintenanceCostPerMonth: 288000,
+    fuelBurnPerHour: 7500,
+    firstIntroduced: 1995,
+    availableFrom: 1995,
+    availableUntil: null,
+    requiredPilots: 2,
+    requiredCabinCrew: 6,
+    isActive: true,
+    description: 'First fly-by-wire Boeing - largest twin jet'
+  },
+
+  {
+    manufacturer: 'Airbus',
+    model: 'A330',
+    variant: '300',
+    type: 'Widebody',
+    rangeCategory: 'Long Haul',
+    rangeNm: 6350,
+    cruiseSpeed: 470,
+    passengerCapacity: 335,
+    cargoCapacityKg: 42000,
+    fuelCapacityLiters: 139090,
+    purchasePrice: 220000000,
+    usedPrice: 95000000,
+    maintenanceCostPerHour: 2900,
+    maintenanceCostPerMonth: 261000,
+    fuelBurnPerHour: 6400,
+    firstIntroduced: 1993,
+    availableFrom: 1993,
+    availableUntil: null,
+    requiredPilots: 2,
+    requiredCabinCrew: 6,
+    isActive: true,
+    description: 'Twin widebody - shares commonality with A340'
+  },
+
+  {
+    manufacturer: 'Airbus',
+    model: 'A340',
+    variant: '300',
+    type: 'Widebody',
+    rangeCategory: 'Long Haul',
+    rangeNm: 7400,
+    cruiseSpeed: 470,
+    passengerCapacity: 295,
+    cargoCapacityKg: 38000,
+    fuelCapacityLiters: 147850,
+    purchasePrice: 240000000,
+    usedPrice: 100000000,
+    maintenanceCostPerHour: 3100,
+    maintenanceCostPerMonth: 279000,
+    fuelBurnPerHour: 8800,
+    firstIntroduced: 1993,
+    availableFrom: 1993,
+    availableUntil: 2011,
+    requiredPilots: 2,
+    requiredCabinCrew: 6,
+    isActive: true,
+    description: 'Four-engine long hauler - ultra long range'
+  },
+
+  {
+    manufacturer: 'McDonnell Douglas',
+    model: 'MD-11',
+    variant: null,
+    type: 'Widebody',
+    rangeCategory: 'Long Haul',
+    rangeNm: 7240,
+    cruiseSpeed: 490,
+    passengerCapacity: 323,
+    cargoCapacityKg: 42000,
+    fuelCapacityLiters: 146210,
+    purchasePrice: 200000000,
+    usedPrice: 85000000,
+    maintenanceCostPerHour: 3000,
+    maintenanceCostPerMonth: 270000,
+    fuelBurnPerHour: 8600,
+    firstIntroduced: 1990,
+    availableFrom: 1990,
+    availableUntil: 2000,
+    requiredPilots: 2,
+    requiredCabinCrew: 6,
+    isActive: true,
+    description: 'Stretched DC-10 - last McDonnell Douglas jet'
+  },
+
+  {
+    manufacturer: 'Boeing',
+    model: '737',
+    variant: '800',
+    type: 'Narrowbody',
+    rangeCategory: 'Short Haul',
+    rangeNm: 3115,
+    cruiseSpeed: 475,
+    passengerCapacity: 189,
+    cargoCapacityKg: 12000,
+    fuelCapacityLiters: 26020,
+    purchasePrice: 90000000,
+    usedPrice: 40000000,
+    maintenanceCostPerHour: 1700,
+    maintenanceCostPerMonth: 136000,
+    fuelBurnPerHour: 2600,
+    firstIntroduced: 1998,
+    availableFrom: 1998,
+    availableUntil: null,
+    requiredPilots: 2,
+    requiredCabinCrew: 4,
+    isActive: true,
+    description: '737 Next Generation - modern avionics'
+  },
+
+  {
+    manufacturer: 'Bombardier',
+    model: 'CRJ-700',
+    variant: null,
+    type: 'Regional',
+    rangeCategory: 'Short Haul',
+    rangeNm: 1600,
+    cruiseSpeed: 450,
+    passengerCapacity: 78,
+    cargoCapacityKg: 4500,
+    fuelCapacityLiters: 10600,
+    purchasePrice: 35000000,
+    usedPrice: 15000000,
+    maintenanceCostPerHour: 1000,
+    maintenanceCostPerMonth: 80000,
+    fuelBurnPerHour: 1400,
+    firstIntroduced: 2001,
+    availableFrom: 2001,
+    availableUntil: null,
+    requiredPilots: 2,
+    requiredCabinCrew: 2,
+    isActive: true,
+    description: 'Stretched CRJ - popular regional jet'
+  },
+
+  {
+    manufacturer: 'Embraer',
+    model: 'ERJ 145',
+    variant: null,
+    type: 'Regional',
+    rangeCategory: 'Short Haul',
+    rangeNm: 1550,
+    cruiseSpeed: 450,
+    passengerCapacity: 50,
+    cargoCapacityKg: 3000,
+    fuelCapacityLiters: 5260,
+    purchasePrice: 20000000,
+    usedPrice: 8000000,
+    maintenanceCostPerHour: 800,
+    maintenanceCostPerMonth: 64000,
+    fuelBurnPerHour: 900,
+    firstIntroduced: 1996,
+    availableFrom: 1996,
+    availableUntil: null,
+    requiredPilots: 2,
+    requiredCabinCrew: 2,
+    isActive: true,
+    description: 'Brazilian regional jet - very successful'
+  },
+
+  // ===== 2000s ERA - NEXT GENERATION =====
+
+  {
+    manufacturer: 'Airbus',
+    model: 'A380',
+    variant: '800',
+    type: 'Widebody',
+    rangeCategory: 'Long Haul',
+    rangeNm: 8000,
+    cruiseSpeed: 488,
+    passengerCapacity: 525,
+    cargoCapacityKg: 66000,
+    fuelCapacityLiters: 323546,
+    purchasePrice: 450000000,
+    usedPrice: 250000000,
+    maintenanceCostPerHour: 5000,
+    maintenanceCostPerMonth: 450000,
+    fuelBurnPerHour: 14500,
+    firstIntroduced: 2007,
+    availableFrom: 2007,
+    availableUntil: 2021,
+    requiredPilots: 2,
+    requiredCabinCrew: 12,
+    isActive: true,
+    description: 'Largest passenger aircraft - double-decker superjumbo'
+  },
+
+  {
+    manufacturer: 'Boeing',
+    model: '787',
+    variant: '9',
+    type: 'Widebody',
+    rangeCategory: 'Long Haul',
+    rangeNm: 7635,
+    cruiseSpeed: 488,
+    passengerCapacity: 296,
+    cargoCapacityKg: 45000,
+    fuelCapacityLiters: 126372,
+    purchasePrice: 280000000,
+    usedPrice: 180000000,
+    maintenanceCostPerHour: 2800,
+    maintenanceCostPerMonth: 252000,
+    fuelBurnPerHour: 5400,
+    firstIntroduced: 2011,
+    availableFrom: 2011,
+    availableUntil: null,
+    requiredPilots: 2,
+    requiredCabinCrew: 6,
+    isActive: true,
+    description: 'Dreamliner - composite construction, fuel efficient'
+  },
+
+  {
+    manufacturer: 'Airbus',
+    model: 'A350',
+    variant: '900',
+    type: 'Widebody',
+    rangeCategory: 'Long Haul',
+    rangeNm: 8100,
+    cruiseSpeed: 487,
+    passengerCapacity: 325,
+    cargoCapacityKg: 50000,
+    fuelCapacityLiters: 141480,
+    purchasePrice: 317400000,
+    usedPrice: 200000000,
+    maintenanceCostPerHour: 3200,
+    maintenanceCostPerMonth: 288000,
+    fuelBurnPerHour: 5800,
+    firstIntroduced: 2013,
+    availableFrom: 2013,
+    availableUntil: null,
+    requiredPilots: 2,
+    requiredCabinCrew: 7,
+    isActive: true,
+    description: 'Carbon fiber widebody - competes with 787'
+  },
+
+  {
+    manufacturer: 'Boeing',
+    model: '747',
+    variant: '8',
+    type: 'Widebody',
+    rangeCategory: 'Long Haul',
+    rangeNm: 8000,
+    cruiseSpeed: 493,
+    passengerCapacity: 467,
+    cargoCapacityKg: 55000,
+    fuelCapacityLiters: 238610,
+    purchasePrice: 420000000,
+    usedPrice: 280000000,
+    maintenanceCostPerHour: 4500,
+    maintenanceCostPerMonth: 405000,
+    fuelBurnPerHour: 11000,
+    firstIntroduced: 2012,
+    availableFrom: 2012,
+    availableUntil: 2023,
+    requiredPilots: 2,
+    requiredCabinCrew: 10,
+    isActive: true,
+    description: 'Final 747 variant - stretched and modernized'
+  },
+
+  {
+    manufacturer: 'Embraer',
+    model: 'E-Jet E2',
+    variant: 'E195-E2',
+    type: 'Regional',
+    rangeCategory: 'Short Haul',
+    rangeNm: 2600,
+    cruiseSpeed: 460,
+    passengerCapacity: 146,
+    cargoCapacityKg: 12000,
+    fuelCapacityLiters: 13500,
+    purchasePrice: 65000000,
+    usedPrice: 45000000,
+    maintenanceCostPerHour: 1200,
+    maintenanceCostPerMonth: 96000,
+    fuelBurnPerHour: 1800,
+    firstIntroduced: 2019,
+    availableFrom: 2019,
+    availableUntil: null,
+    requiredPilots: 2,
+    requiredCabinCrew: 3,
+    isActive: true,
+    description: 'Next-gen E-Jet - efficient regional aircraft'
+  },
+
+  // ===== 2010s-PRESENT - LATEST GENERATION =====
+
+  {
+    manufacturer: 'Boeing',
+    model: '737',
+    variant: 'MAX 8',
+    type: 'Narrowbody',
+    rangeCategory: 'Short Haul',
+    rangeNm: 3550,
+    cruiseSpeed: 475,
+    passengerCapacity: 178,
+    cargoCapacityKg: 20000,
+    fuelCapacityLiters: 36000,
+    purchasePrice: 125000000,
+    usedPrice: 85000000,
+    maintenanceCostPerHour: 1800,
+    maintenanceCostPerMonth: 144000,
+    fuelBurnPerHour: 2500,
+    firstIntroduced: 2017,
+    availableFrom: 2017,
+    availableUntil: null,
+    requiredPilots: 2,
+    requiredCabinCrew: 4,
+    isActive: true,
+    description: 'Latest 737 - LEAP engines, improved efficiency'
+  },
+
+  {
+    manufacturer: 'Airbus',
+    model: 'A320',
+    variant: 'neo',
+    type: 'Narrowbody',
+    rangeCategory: 'Short Haul',
+    rangeNm: 3300,
+    cruiseSpeed: 470,
+    passengerCapacity: 180,
+    cargoCapacityKg: 18000,
+    fuelCapacityLiters: 34000,
+    purchasePrice: 110000000,
+    usedPrice: 75000000,
+    maintenanceCostPerHour: 1600,
+    maintenanceCostPerMonth: 128000,
+    fuelBurnPerHour: 2400,
+    firstIntroduced: 2015,
+    availableFrom: 2015,
+    availableUntil: null,
+    requiredPilots: 2,
+    requiredCabinCrew: 4,
+    isActive: true,
+    description: 'New Engine Option - 15% fuel savings'
+  },
+
+  {
+    manufacturer: 'Airbus',
+    model: 'A220',
+    variant: '300',
+    type: 'Narrowbody',
+    rangeCategory: 'Short Haul',
+    rangeNm: 3350,
+    cruiseSpeed: 463,
+    passengerCapacity: 160,
+    cargoCapacityKg: 10000,
+    fuelCapacityLiters: 21805,
+    purchasePrice: 91500000,
+    usedPrice: 60000000,
+    maintenanceCostPerHour: 1400,
+    maintenanceCostPerMonth: 112000,
+    fuelBurnPerHour: 2100,
+    firstIntroduced: 2016,
+    availableFrom: 2016,
+    availableUntil: null,
+    requiredPilots: 2,
+    requiredCabinCrew: 3,
+    isActive: true,
+    description: 'Former Bombardier C Series - very efficient'
+  },
+
+  {
+    manufacturer: 'Boeing',
+    model: '777',
+    variant: '9X',
+    type: 'Widebody',
+    rangeCategory: 'Long Haul',
+    rangeNm: 7285,
+    cruiseSpeed: 490,
+    passengerCapacity: 426,
+    cargoCapacityKg: 50000,
+    fuelCapacityLiters: 197977,
+    purchasePrice: 442000000,
+    usedPrice: 350000000,
+    maintenanceCostPerHour: 3800,
+    maintenanceCostPerMonth: 342000,
+    fuelBurnPerHour: 8200,
+    firstIntroduced: 2020,
+    availableFrom: 2020,
+    availableUntil: null,
+    requiredPilots: 2,
+    requiredCabinCrew: 9,
+    isActive: true,
+    description: 'Latest 777 - folding wingtips, ultra-efficient'
+  },
+
+  {
+    manufacturer: 'Airbus',
+    model: 'A350',
+    variant: '1000',
+    type: 'Widebody',
+    rangeCategory: 'Long Haul',
+    rangeNm: 8700,
+    cruiseSpeed: 487,
+    passengerCapacity: 369,
+    cargoCapacityKg: 55000,
+    fuelCapacityLiters: 156000,
+    purchasePrice: 366500000,
+    usedPrice: 280000000,
+    maintenanceCostPerHour: 3500,
+    maintenanceCostPerMonth: 315000,
+    fuelBurnPerHour: 6200,
+    firstIntroduced: 2018,
+    availableFrom: 2018,
+    availableUntil: null,
+    requiredPilots: 2,
+    requiredCabinCrew: 8,
+    isActive: true,
+    description: 'Stretched A350 - longest range commercial jet'
+  },
+
+  // ===== CARGO AIRCRAFT =====
+
+  {
+    manufacturer: 'Boeing',
+    model: '777',
+    variant: 'Freighter',
+    type: 'Cargo',
+    rangeCategory: 'Long Haul',
+    rangeNm: 5625,
+    cruiseSpeed: 489,
+    passengerCapacity: 0,
+    cargoCapacityKg: 102000,
+    fuelCapacityLiters: 117340,
+    purchasePrice: 350000000,
+    usedPrice: 280000000,
+    maintenanceCostPerHour: 3500,
+    maintenanceCostPerMonth: 315000,
+    fuelBurnPerHour: 6200,
+    firstIntroduced: 2009,
+    availableFrom: 2009,
+    availableUntil: null,
+    requiredPilots: 2,
+    requiredCabinCrew: 0,
+    isActive: true,
+    description: 'Heavy cargo aircraft - massive payload'
+  },
+
+  {
+    manufacturer: 'Boeing',
+    model: '747',
+    variant: '8F',
+    type: 'Cargo',
+    rangeCategory: 'Long Haul',
+    rangeNm: 4390,
+    cruiseSpeed: 493,
+    passengerCapacity: 0,
+    cargoCapacityKg: 134000,
+    fuelCapacityLiters: 238610,
+    purchasePrice: 420000000,
+    usedPrice: 320000000,
+    maintenanceCostPerHour: 4800,
+    maintenanceCostPerMonth: 432000,
+    fuelBurnPerHour: 11500,
+    firstIntroduced: 2011,
+    availableFrom: 2011,
+    availableUntil: null,
+    requiredPilots: 2,
+    requiredCabinCrew: 0,
+    isActive: true,
+    description: 'Largest 747 freighter - still in production'
+  },
+
+  {
+    manufacturer: 'Airbus',
+    model: 'A330',
+    variant: '200F',
+    type: 'Cargo',
+    rangeCategory: 'Long Haul',
+    rangeNm: 4000,
+    cruiseSpeed: 470,
+    passengerCapacity: 0,
+    cargoCapacityKg: 70000,
+    fuelCapacityLiters: 139090,
+    purchasePrice: 240000000,
+    usedPrice: 180000000,
+    maintenanceCostPerHour: 3000,
+    maintenanceCostPerMonth: 270000,
+    fuelBurnPerHour: 6800,
+    firstIntroduced: 2010,
+    availableFrom: 2010,
+    availableUntil: null,
+    requiredPilots: 2,
+    requiredCabinCrew: 0,
+    isActive: true,
+    description: 'Medium-capacity freighter - efficient cargo ops'
+  }
+];
+
+async function seedHistoricalAircraft() {
+  try {
+    console.log('=== Historical Aircraft Database Seeding ===\n');
+
+    await sequelize.authenticate();
+    console.log('✓ Database connected\n');
+
+    console.log(`Adding ${HISTORICAL_AIRCRAFT.length} aircraft from 1950-present...\n`);
+
+    let added = 0;
+    let updated = 0;
+
+    for (const aircraftData of HISTORICAL_AIRCRAFT) {
+      const fullName = aircraftData.variant
+        ? `${aircraftData.manufacturer} ${aircraftData.model}-${aircraftData.variant}`
+        : `${aircraftData.manufacturer} ${aircraftData.model}`;
+
+      // Check if aircraft already exists
+      const existing = await Aircraft.findOne({
+        where: {
+          manufacturer: aircraftData.manufacturer,
+          model: aircraftData.model,
+          variant: aircraftData.variant
+        }
+      });
+
+      if (existing) {
+        await existing.update(aircraftData);
+        console.log(`↻ Updated: ${fullName} (${aircraftData.firstIntroduced})`);
+        updated++;
+      } else {
+        await Aircraft.create(aircraftData);
+        console.log(`✓ Added: ${fullName} (${aircraftData.firstIntroduced})`);
+        added++;
+      }
+    }
+
+    console.log('\n=== Summary ===');
+    console.log(`Added: ${added}`);
+    console.log(`Updated: ${updated}`);
+    console.log(`Total: ${HISTORICAL_AIRCRAFT.length}`);
+
+    // Statistics
+    const stats = {
+      byType: {},
+      byEra: {},
+      retired: HISTORICAL_AIRCRAFT.filter(a => a.availableUntil !== null).length
+    };
+
+    const types = ['Narrowbody', 'Widebody', 'Regional', 'Cargo'];
+    for (const type of types) {
+      stats.byType[type] = HISTORICAL_AIRCRAFT.filter(a => a.type === type).length;
+    }
+
+    const eras = {
+      '1950s-1960s': HISTORICAL_AIRCRAFT.filter(a => a.firstIntroduced >= 1950 && a.firstIntroduced < 1970).length,
+      '1970s-1980s': HISTORICAL_AIRCRAFT.filter(a => a.firstIntroduced >= 1970 && a.firstIntroduced < 1990).length,
+      '1990s-2000s': HISTORICAL_AIRCRAFT.filter(a => a.firstIntroduced >= 1990 && a.firstIntroduced < 2010).length,
+      '2010s-Present': HISTORICAL_AIRCRAFT.filter(a => a.firstIntroduced >= 2010).length
+    };
+
+    console.log('\nBy Type:');
+    Object.keys(stats.byType).forEach(type => {
+      console.log(`  ${type}: ${stats.byType[type]}`);
+    });
+
+    console.log('\nBy Era:');
+    Object.keys(eras).forEach(era => {
+      console.log(`  ${era}: ${eras[era]}`);
+    });
+
+    console.log(`\nRetired Aircraft: ${stats.retired}`);
+    console.log(`Currently Available: ${HISTORICAL_AIRCRAFT.length - stats.retired}`);
+
+    console.log('\n✓ Historical aircraft seeded successfully!');
+    console.log('\nAll aircraft enabled (isActive: true) - availableFrom/availableUntil control world availability');
+
+    process.exit(0);
+  } catch (error) {
+    console.error('\n✗ Seeding failed:', error);
+    process.exit(1);
+  }
+}
+
+seedHistoricalAircraft();

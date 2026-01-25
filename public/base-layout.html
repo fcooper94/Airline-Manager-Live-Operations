@@ -11,11 +11,37 @@
 <body class="dashboard-body">
   <nav class="navbar">
     <div class="nav-container">
-      <div class="nav-brand">
+      <a href="/dashboard" class="nav-brand">
         <div class="brand-mark">AC</div>
         <div class="brand-info">
           <span class="brand-text">AIRLINE MANAGER</span>
           <span class="brand-subtitle" id="pageSubtitle">Operations Center</span>
+        </div>
+      </a>
+      <div class="nav-world-info" id="worldInfoContainer" style="margin-right: 2rem;">
+        <div class="world-info-item">
+          <span class="info-label">WORLD</span>
+          <span class="info-value" id="worldName">--</span>
+        </div>
+        <div class="world-info-item time-highlight">
+          <span class="info-label">DATE</span>
+          <span class="info-value" id="worldDate">--/--/----</span>
+        </div>
+        <div class="world-info-item time-highlight">
+          <span class="info-label">TIME</span>
+          <span class="info-value" id="worldTime">--:--</span>
+        </div>
+        <div class="world-info-item">
+          <span class="info-label">ERA</span>
+          <span class="info-value" id="worldEra">--</span>
+        </div>
+        <div class="world-info-item">
+          <span class="info-label">ELAPSED</span>
+          <span class="info-value" id="worldElapsed">--</span>
+        </div>
+        <div class="world-info-item">
+          <span class="info-label">BALANCE</span>
+          <span class="info-value" id="worldBalance">$--</span>
         </div>
       </div>
       <div class="nav-user">

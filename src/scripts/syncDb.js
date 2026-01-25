@@ -1,6 +1,6 @@
 require('dotenv').config();
 const sequelize = require('../config/database');
-const { User, Flight, World, WorldMembership } = require('../models');
+const { User, Flight, World, WorldMembership, Aircraft, UserAircraft, Airport } = require('../models');
 
 async function syncDatabase() {
   try {
@@ -15,6 +15,9 @@ async function syncDatabase() {
     console.log('  - worlds');
     console.log('  - world_memberships');
     console.log('  - flights');
+    console.log('  - aircraft');
+    console.log('  - user_aircraft');
+    console.log('  - airports');
 
     // Close connection
     await sequelize.close();

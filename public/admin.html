@@ -4,40 +4,165 @@
 
 <div class="world-selection-container">
   <div class="selection-header">
-    <h1>USER MANAGEMENT</h1>
-    <p class="subtitle">MANAGE USERS, PERMISSIONS, AND CREDITS</p>
+    <h1>ADMINISTRATION PANEL</h1>
+    <p class="subtitle">MANAGE USERS, AIRCRAFT, AND SYSTEM SETTINGS</p>
   </div>
 
-  <div class="worlds-section">
-    <div class="form-group">
-      <label for="searchUserInput">SEARCH USER BY VATSIM ID OR NAME</label>
-      <input type="text" id="searchUserInput" placeholder="Enter VATSIM ID or name..." onkeyup="searchUsers()">
-    </div>
+  <!-- Tab Navigation -->
+  <div style="display: flex; gap: 1rem; margin-bottom: 2rem; border-bottom: 2px solid var(--border-color);">
+    <button class="admin-tab active" onclick="switchTab('users')" id="usersTab" style="padding: 1rem 2rem; background: none; border: none; border-bottom: 3px solid var(--primary-color); color: var(--primary-color); font-weight: 600; cursor: pointer;">
+      USERS
+    </button>
+    <button class="admin-tab" onclick="switchTab('aircraft')" id="aircraftTab" style="padding: 1rem 2rem; background: none; border: none; border-bottom: 3px solid transparent; color: var(--text-muted); font-weight: 600; cursor: pointer;">
+      AIRCRAFT
+    </button>
+    <button class="admin-tab" onclick="switchTab('airports')" id="airportsTab" style="padding: 1rem 2rem; background: none; border: none; border-bottom: 3px solid transparent; color: var(--text-muted); font-weight: 600; cursor: pointer;">
+      AIRPORTS
+    </button>
+    <button class="admin-tab" onclick="switchTab('worlds')" id="worldsTab" style="padding: 1rem 2rem; background: none; border: none; border-bottom: 3px solid transparent; color: var(--text-muted); font-weight: 600; cursor: pointer;">
+      WORLDS
+    </button>
+  </div>
 
-    <h2 class="section-title">ALL USERS</h2>
-    <div id="usersTable">
-      <table style="width: 100%; border-collapse: collapse;">
-        <thead>
-          <tr style="background: var(--surface); border-bottom: 2px solid var(--border-color);">
-            <th style="padding: 1rem; text-align: left; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">VATSIM ID</th>
-            <th style="padding: 1rem; text-align: left; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">NAME</th>
-            <th style="padding: 1rem; text-align: left; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">EMAIL</th>
-            <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">ACTIVE WORLDS</th>
-            <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">CREDITS</th>
-            <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">PERMISSIONS</th>
-            <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">ACTIONS</th>
-          </tr>
-        </thead>
-        <tbody id="usersTableBody">
-          <tr>
-            <td colspan="7" style="padding: 2rem; text-align: center; color: var(--text-muted);">Loading users...</td>
-          </tr>
-        </tbody>
-      </table>
+  <!-- Users Tab -->
+  <div id="usersSection" class="admin-section">
+    <div class="worlds-section">
+      <div class="form-group">
+        <label for="searchUserInput">SEARCH USER BY VATSIM ID OR NAME</label>
+        <input type="text" id="searchUserInput" placeholder="Enter VATSIM ID or name..." onkeyup="searchUsers()">
+      </div>
+
+      <h2 class="section-title">ALL USERS</h2>
+      <div id="usersTable">
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background: var(--surface); border-bottom: 2px solid var(--border-color);">
+              <th style="padding: 1rem; text-align: left; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">VATSIM ID</th>
+              <th style="padding: 1rem; text-align: left; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">NAME</th>
+              <th style="padding: 1rem; text-align: left; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">EMAIL</th>
+              <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">ACTIVE WORLDS</th>
+              <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">CREDITS</th>
+              <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">PERMISSIONS</th>
+              <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody id="usersTableBody">
+            <tr>
+              <td colspan="7" style="padding: 2rem; text-align: center; color: var(--text-muted);">Loading users...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Aircraft Tab -->
+  <div id="aircraftSection" class="admin-section" style="display: none;">
+    <div class="worlds-section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <div class="form-group" style="flex: 1; margin: 0;">
+          <label for="searchAircraftInput">SEARCH AIRCRAFT</label>
+          <input type="text" id="searchAircraftInput" placeholder="Search by manufacturer or model..." onkeyup="searchAircraft()">
+        </div>
+        <button class="btn btn-primary" onclick="openAddAircraftModal()" style="margin-left: 1rem;">+ ADD AIRCRAFT</button>
+      </div>
+
+      <h2 class="section-title">AIRCRAFT DATABASE</h2>
+      <div id="aircraftTable">
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background: var(--surface); border-bottom: 2px solid var(--border-color);">
+              <th style="padding: 1rem; text-align: left; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">AIRCRAFT</th>
+              <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">TYPE</th>
+              <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">RANGE</th>
+              <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">CAPACITY</th>
+              <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">PRICE (NEW)</th>
+              <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">STATUS</th>
+              <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody id="aircraftTableBody">
+            <tr>
+              <td colspan="7" style="padding: 2rem; text-align: center; color: var(--text-muted);">Loading aircraft...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Airports Tab -->
+  <div id="airportsSection" class="admin-section" style="display: none;">
+    <div class="worlds-section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <div class="form-group" style="flex: 1; margin: 0;">
+          <label for="searchAirportInput">SEARCH AIRPORT</label>
+          <input type="text" id="searchAirportInput" placeholder="Search by name, city, or code..." onkeyup="searchAirports()">
+        </div>
+        <button class="btn btn-primary" onclick="openAddAirportModal()" style="margin-left: 1rem;">+ ADD AIRPORT</button>
+      </div>
+
+      <h2 class="section-title">AIRPORT DATABASE</h2>
+      <div id="airportsTable">
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background: var(--surface); border-bottom: 2px solid var(--border-color);">
+              <th style="padding: 1rem; text-align: left; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">AIRPORT</th>
+              <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">CODES</th>
+              <th style="padding: 1rem; text-align: left; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">LOCATION</th>
+              <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">TYPE</th>
+              <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">OPERATIONAL</th>
+              <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">AVAILABILITY</th>
+              <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody id="airportsTableBody">
+            <tr>
+              <td colspan="7" style="padding: 2rem; text-align: center; color: var(--text-muted);">Loading airports...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Worlds Tab -->
+  <div id="worldsSection" class="admin-section" style="display: none;">
+    <div class="worlds-section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <div class="form-group" style="flex: 1; margin: 0;">
+          <label for="searchWorldInput">SEARCH WORLDS</label>
+          <input type="text" id="searchWorldInput" placeholder="Search by name or era..." onkeyup="searchWorlds()">
+        </div>
+        <button class="btn btn-primary" onclick="openAddWorldModal()" style="margin-left: 1rem;">+ ADD WORLD</button>
+      </div>
+
+      <h2 class="section-title">MANAGE WORLDS</h2>
+      <div id="worldsTable">
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background: var(--surface); border-bottom: 2px solid var(--border-color);">
+              <th style="padding: 1rem; text-align: left; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">WORLD NAME</th>
+              <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">ERA</th>
+              <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">CURRENT TIME</th>
+              <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">MEMBERS</th>
+              <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">STATUS</th>
+              <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">SYNC RATE</th>
+              <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);">ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody id="worldsTableBody">
+            <tr>
+              <td colspan="7" style="padding: 2rem; text-align: center; color: var(--text-muted);">Loading worlds...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
 
+<!-- User Modals -->
 <!-- Edit Credits Modal -->
 <div id="editCreditsModal" class="modal" style="display: none;">
   <div class="modal-content">
@@ -116,6 +241,372 @@
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closePermissionModal()">Cancel</button>
       <button class="btn btn-primary" onclick="confirmPermissionUpdate()">Update Permissions</button>
+    </div>
+  </div>
+</div>
+
+<!-- Aircraft Modals -->
+<!-- Add/Edit Aircraft Modal -->
+<div id="aircraftModal" class="modal" style="display: none;">
+  <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column;">
+    <div class="modal-header">
+      <h2 id="aircraftModalTitle">ADD AIRCRAFT</h2>
+      <button class="modal-close" onclick="closeAircraftModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="overflow-y: auto; flex: 1; padding: 1rem 0;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 0 1rem;">
+        <div class="form-group">
+          <label for="aircraftManufacturer">MANUFACTURER *</label>
+          <input type="text" id="aircraftManufacturer" placeholder="e.g., Boeing">
+        </div>
+
+        <div class="form-group">
+          <label for="aircraftModel">MODEL *</label>
+          <input type="text" id="aircraftModel" placeholder="e.g., 787-9">
+        </div>
+
+        <div class="form-group">
+          <label for="aircraftVariant">VARIANT</label>
+          <input type="text" id="aircraftVariant" placeholder="Optional variant">
+        </div>
+
+        <div class="form-group">
+          <label for="aircraftType">TYPE *</label>
+          <select id="aircraftType">
+            <option value="">Select type</option>
+            <option value="Narrowbody">Narrowbody</option>
+            <option value="Widebody">Widebody</option>
+            <option value="Regional">Regional</option>
+            <option value="Cargo">Cargo</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="aircraftRangeCategory">RANGE CATEGORY *</label>
+          <select id="aircraftRangeCategory">
+            <option value="">Select category</option>
+            <option value="Short Haul">Short Haul</option>
+            <option value="Medium Haul">Medium Haul</option>
+            <option value="Long Haul">Long Haul</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="aircraftRangeNm">RANGE (NM) *</label>
+          <input type="number" id="aircraftRangeNm" placeholder="e.g., 7635">
+        </div>
+
+        <div class="form-group">
+          <label for="aircraftCruiseSpeed">CRUISE SPEED (KTS) *</label>
+          <input type="number" id="aircraftCruiseSpeed" placeholder="e.g., 488">
+        </div>
+
+        <div class="form-group">
+          <label for="aircraftPassengerCapacity">PASSENGER CAPACITY *</label>
+          <input type="number" id="aircraftPassengerCapacity" placeholder="e.g., 296">
+        </div>
+
+        <div class="form-group">
+          <label for="aircraftCargoCapacity">CARGO CAPACITY (KG)</label>
+          <input type="number" id="aircraftCargoCapacity" placeholder="Optional">
+        </div>
+
+        <div class="form-group">
+          <label for="aircraftFuelCapacity">FUEL CAPACITY (L) *</label>
+          <input type="number" id="aircraftFuelCapacity" placeholder="e.g., 126206">
+        </div>
+
+        <div class="form-group">
+          <label for="aircraftPurchasePrice">PURCHASE PRICE (USD) *</label>
+          <input type="number" id="aircraftPurchasePrice" placeholder="e.g., 248300000">
+        </div>
+
+        <div class="form-group">
+          <label for="aircraftUsedPrice">USED PRICE (USD)</label>
+          <input type="number" id="aircraftUsedPrice" placeholder="Optional">
+        </div>
+
+        <div class="form-group">
+          <label for="aircraftMaintenanceCost">MAINT. COST/HR (USD) *</label>
+          <input type="number" id="aircraftMaintenanceCost" placeholder="e.g., 1500">
+        </div>
+
+        <div class="form-group">
+          <label for="aircraftFuelBurn">FUEL BURN/HR (L) *</label>
+          <input type="number" id="aircraftFuelBurn" placeholder="e.g., 5400">
+        </div>
+
+        <div class="form-group">
+          <label for="aircraftMaintenanceMonth">MAINT. COST/MONTH (USD)</label>
+          <input type="number" id="aircraftMaintenanceMonth" placeholder="e.g., 144000">
+        </div>
+
+        <div class="form-group">
+          <label for="aircraftFirstIntroduced">FIRST INTRODUCED</label>
+          <input type="number" id="aircraftFirstIntroduced" placeholder="e.g., 2011">
+        </div>
+
+        <div class="form-group">
+          <label for="aircraftAvailableFrom">AVAILABLE FROM (YEAR)</label>
+          <input type="number" id="aircraftAvailableFrom" placeholder="e.g., 2017">
+        </div>
+
+        <div class="form-group">
+          <label for="aircraftAvailableUntil">AVAILABLE UNTIL (YEAR)</label>
+          <input type="number" id="aircraftAvailableUntil" placeholder="Leave empty if still available">
+        </div>
+
+        <div class="form-group">
+          <label for="aircraftRequiredPilots">REQUIRED PILOTS *</label>
+          <input type="number" id="aircraftRequiredPilots" value="2" min="1" max="4">
+        </div>
+
+        <div class="form-group">
+          <label for="aircraftRequiredCabinCrew">REQUIRED CABIN CREW *</label>
+          <input type="number" id="aircraftRequiredCabinCrew" value="0" min="0" max="20">
+        </div>
+
+        <div class="form-group">
+          <label for="aircraftIsActive">STATUS *</label>
+          <select id="aircraftIsActive">
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group" style="grid-column: 1 / -1;">
+        <label for="aircraftDescription">DESCRIPTION</label>
+        <textarea id="aircraftDescription" rows="3" placeholder="Optional description or notes"></textarea>
+      </div>
+
+      <div id="aircraftError" class="error-message" style="display: none;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeAircraftModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveAircraft()">Save Aircraft</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Aircraft Confirmation Modal -->
+<div id="deleteAircraftModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>DELETE AIRCRAFT</h2>
+      <button class="modal-close" onclick="closeDeleteAircraftModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>AIRCRAFT</label>
+        <div id="deleteAircraftName" class="form-value"></div>
+      </div>
+      <div class="form-info" style="background: rgba(217, 119, 6, 0.15); border-color: var(--warning-color);">
+        <p style="color: var(--warning-color); font-weight: 600;">WARNING: This action cannot be undone.</p>
+        <p>Deleting this aircraft will remove it from the database.</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeDeleteAircraftModal()">Cancel</button>
+      <button class="btn btn-primary" style="background: var(--warning-color); border-color: var(--warning-color);" onclick="confirmDeleteAircraft()">Delete Aircraft</button>
+    </div>
+  </div>
+</div>
+
+<!-- Airport Modals -->
+<!-- Add/Edit Airport Modal -->
+<div id="airportModal" class="modal" style="display: none;">
+  <div class="modal-content" style="max-width: 700px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column;">
+    <div class="modal-header">
+      <h2 id="airportModalTitle">ADD AIRPORT</h2>
+      <button class="modal-close" onclick="closeAirportModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="overflow-y: auto; flex: 1; padding: 1rem 0;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 0 1rem;">
+        <div class="form-group">
+          <label for="airportIcaoCode">ICAO CODE * (4 letters)</label>
+          <input type="text" id="airportIcaoCode" maxlength="4" placeholder="e.g., KJFK" style="text-transform: uppercase;">
+        </div>
+
+        <div class="form-group">
+          <label for="airportIataCode">IATA CODE (3 letters)</label>
+          <input type="text" id="airportIataCode" maxlength="3" placeholder="e.g., JFK" style="text-transform: uppercase;">
+        </div>
+
+        <div class="form-group" style="grid-column: 1 / -1;">
+          <label for="airportName">AIRPORT NAME *</label>
+          <input type="text" id="airportName" placeholder="e.g., John F. Kennedy International Airport">
+        </div>
+
+        <div class="form-group">
+          <label for="airportCity">CITY *</label>
+          <input type="text" id="airportCity" placeholder="e.g., New York">
+        </div>
+
+        <div class="form-group">
+          <label for="airportCountry">COUNTRY *</label>
+          <input type="text" id="airportCountry" placeholder="e.g., United States">
+        </div>
+
+        <div class="form-group">
+          <label for="airportLatitude">LATITUDE *</label>
+          <input type="number" id="airportLatitude" step="0.0000001" placeholder="e.g., 40.6413">
+        </div>
+
+        <div class="form-group">
+          <label for="airportLongitude">LONGITUDE *</label>
+          <input type="number" id="airportLongitude" step="0.0000001" placeholder="e.g., -73.7781">
+        </div>
+
+        <div class="form-group">
+          <label for="airportElevation">ELEVATION (FT)</label>
+          <input type="number" id="airportElevation" placeholder="e.g., 13">
+        </div>
+
+        <div class="form-group">
+          <label for="airportType">TYPE *</label>
+          <select id="airportType">
+            <option value="">Select type</option>
+            <option value="International Hub">International Hub</option>
+            <option value="Major">Major</option>
+            <option value="Regional">Regional</option>
+            <option value="Small Regional">Small Regional</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="airportTimezone">TIMEZONE</label>
+          <input type="text" id="airportTimezone" placeholder="e.g., America/New_York">
+        </div>
+
+        <div class="form-group">
+          <label for="airportOperationalFrom">OPERATIONAL FROM (YEAR)</label>
+          <input type="number" id="airportOperationalFrom" placeholder="e.g., 1930" min="1900" max="2100">
+        </div>
+
+        <div class="form-group">
+          <label for="airportOperationalUntil">OPERATIONAL UNTIL (YEAR)</label>
+          <input type="number" id="airportOperationalUntil" placeholder="e.g., 1998 (leave blank if still open)" min="1900" max="2100">
+        </div>
+
+        <div class="form-group">
+          <label for="airportIsActive">STATUS *</label>
+          <select id="airportIsActive">
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="airportError" class="error-message" style="display: none;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeAirportModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveAirport()">Save Airport</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Airport Confirmation Modal -->
+<div id="deleteAirportModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>DELETE AIRPORT</h2>
+      <button class="modal-close" onclick="closeDeleteAirportModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>AIRPORT</label>
+        <div id="deleteAirportName" class="form-value"></div>
+      </div>
+      <div class="form-info" style="background: rgba(217, 119, 6, 0.15); border-color: var(--warning-color);">
+        <p style="color: var(--warning-color); font-weight: 600;">WARNING: This action cannot be undone.</p>
+        <p>Deleting this airport will remove it from the database.</p>
+        <p>Airlines using this airport as their base may be affected.</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeDeleteAirportModal()">Cancel</button>
+      <button class="btn btn-primary" style="background: var(--warning-color); border-color: var(--warning-color);" onclick="confirmDeleteAirport()">Delete Airport</button>
+    </div>
+  </div>
+</div>
+
+<!-- Worlds Modals -->
+<!-- Add/Edit World Modal -->
+<div id="worldModal" class="modal" style="display: none;">
+  <div class="modal-content" style="max-width: 800px;">
+    <div class="modal-header">
+      <h2 id="worldModalTitle">ADD WORLD</h2>
+      <button class="modal-close" onclick="closeWorldModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div class="form-group" style="grid-column: 1 / -1;">
+          <label for="worldNameInput">WORLD NAME *</label>
+          <input type="text" id="worldNameInput" placeholder="e.g., Modern Aviation Era">
+        </div>
+
+        <div class="form-group">
+          <label for="worldStartDate">START DATE *</label>
+          <input type="date" id="worldStartDate">
+        </div>
+
+        <div class="form-group">
+          <label for="worldTimeAcceleration">TIME ACCELERATION *</label>
+          <input type="number" id="worldTimeAcceleration" placeholder="e.g., 60" min="1" max="1000" value="60">
+        </div>
+
+        <div class="form-group">
+          <label for="worldMaxPlayers">MAX PLAYERS</label>
+          <input type="number" id="worldMaxPlayers" placeholder="e.g., 100" min="1" max="1000" value="100">
+        </div>
+
+        <div class="form-group">
+          <label for="worldStatus">STATUS *</label>
+          <select id="worldStatus">
+            <option value="setup">Setup</option>
+            <option value="active">Active</option>
+            <option value="paused">Paused</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group" style="grid-column: 1 / -1;">
+        <label for="worldDescription">DESCRIPTION</label>
+        <textarea id="worldDescription" rows="3" placeholder="Optional description or notes"></textarea>
+      </div>
+
+      <div id="worldError" class="error-message" style="display: none;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeWorldModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveWorld()">Save World</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete World Confirmation Modal -->
+<div id="deleteWorldModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>DELETE WORLD</h2>
+      <button class="modal-close" onclick="closeDeleteWorldModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>WORLD</label>
+        <div id="deleteWorldName" class="form-value"></div>
+      </div>
+      <div class="form-info" style="background: rgba(217, 119, 6, 0.15); border-color: var(--warning-color);">
+        <p style="color: var(--warning-color); font-weight: 600;">WARNING: This action cannot be undone.</p>
+        <p>Deleting this world will remove it and all associated data from the database.</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeDeleteWorldModal()">Cancel</button>
+      <button class="btn btn-primary" style="background: var(--warning-color); border-color: var(--warning-color);" onclick="confirmDeleteWorld()">Delete World</button>
     </div>
   </div>
 </div>

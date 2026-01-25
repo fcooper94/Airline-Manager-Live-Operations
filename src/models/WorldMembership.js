@@ -49,10 +49,15 @@ const WorldMembership = sequelize.define('WorldMembership', {
     comment: 'Airline type (regional, medium-haul, long-haul)',
     field: 'airline_type'
   },
-  baseAirport: {
-    type: DataTypes.STRING(4),
-    comment: 'ICAO code of base airport',
-    field: 'base_airport'
+  baseAirportId: {
+    type: DataTypes.UUID,
+    allowNull: true,
+    field: 'base_airport_id',
+    comment: 'Foreign key reference to Airport',
+    references: {
+      model: 'airports',
+      key: 'id'
+    }
   },
   balance: {
     type: DataTypes.DECIMAL(15, 2),

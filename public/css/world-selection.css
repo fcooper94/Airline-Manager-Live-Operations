@@ -18,6 +18,29 @@
   margin-bottom: 0.5rem;
 }
 
+.current-time-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.current-date {
+  font-size: 1.2rem;
+  color: var(--text-primary);
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+}
+
+.current-time {
+  font-size: 1.5rem;
+  color: var(--accent-color);
+  font-weight: 700;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 1px;
+}
+
 .worlds-section {
   margin-bottom: 3rem;
 }

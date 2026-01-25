@@ -7,31 +7,54 @@
     <div class="sidebar-header">OPERATIONS</div>
     <ul class="nav-menu">
       <li class="nav-item active">
-        <a href="#overview">
+        <a href="/dashboard">
           <span class="nav-text">Dashboard</span>
         </a>
       </li>
-      <li class="nav-item">
-        <a href="#flights">
+      <li class="nav-item parent">
+        <a href="#" onclick="return false;">
           <span class="nav-text">Flight Operations</span>
         </a>
+        <ul class="nav-submenu">
+          <li class="nav-item">
+            <a href="/routes">
+              <span class="nav-text">Manage Routes</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="/scheduling">
+              <span class="nav-text">Scheduling</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="/pricing">
+              <span class="nav-text">Price Management</span>
+            </a>
+          </li>
+        </ul>
       </li>
       <li class="nav-item">
-        <a href="#fleet">
+        <a href="/fleet">
           <span class="nav-text">Fleet Management</span>
         </a>
       </li>
       <li class="nav-item">
-        <a href="#schedule">
-          <span class="nav-text">Schedule Control</span>
-        </a>
-      </li>
-      <li class="nav-item">
-        <a href="#finances">
+        <a href="/finances">
           <span class="nav-text">Financial Reports</span>
         </a>
       </li>
+      <li class="nav-item">
+        <a href="/aircraft-marketplace">
+          <span class="nav-text">Aircraft Marketplace</span>
+        </a>
+      </li>
     </ul>
+
+    <div class="sidebar-footer">
+      <a href="/world-selection" class="btn btn-secondary btn-full-width">
+        <span class="nav-text">SELECT WORLD</span>
+      </a>
+    </div>
   </aside>
 
   <main class="main-content">
@@ -44,35 +67,6 @@
           <p id="warningMessage">Your credit balance is running low. Your company will enter administration if credits fall below -4.</p>
         </div>
         <button class="btn btn-primary" onclick="window.location.href='/admin'" id="buyCreditsBtn" style="display: none;">Manage Credits</button>
-      </div>
-    </div>
-
-    <!-- System Status Bar -->
-    <div class="system-status">
-      <div class="status-item">
-        <div class="status-label">WORLD TIME</div>
-        <div class="status-value" id="gameTime">--:--</div>
-        <div class="status-meta" id="gameDate">----/--/--</div>
-      </div>
-      <div class="status-divider"></div>
-      <div class="status-item">
-        <div class="status-label">WORLD</div>
-        <div class="status-value" id="worldName">Loading...</div>
-      </div>
-      <div class="status-divider"></div>
-      <div class="status-item">
-        <div class="status-label">SYNC RATE</div>
-        <div class="status-value" id="timeAcceleration">--x</div>
-      </div>
-      <div class="status-divider"></div>
-      <div class="status-item">
-        <div class="status-label">ELAPSED</div>
-        <div class="status-value"><span id="elapsedDays">--</span> DAYS</div>
-      </div>
-      <div class="status-divider"></div>
-      <div class="status-item">
-        <div class="status-label">ERA</div>
-        <div class="status-value" id="worldEra">----</div>
       </div>
     </div>
 

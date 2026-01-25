@@ -1,83 +1,7 @@
 // WebSocket connection
 const socket = io();
 
-// Game time state
-let currentGameTime = null;
-let localClockInterval = null;
-
-// Format date and time
-function formatGameTime(dateString) {
-  const date = new Date(dateString);
-  const hours = String(date.getUTCHours()).padStart(2, '0');
-  const minutes = String(date.getUTCMinutes()).padStart(2, '0');
-  return `${hours}:${minutes}`;
-}
-
-function formatGameDate(dateString) {
-  const date = new Date(dateString);
-  const day = String(date.getUTCDate()).padStart(2, '0');
-  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-  const year = date.getUTCFullYear();
-  return `${day}/${month}/${year}`;
-}
-
-// Update game time display
-function updateGameTimeDisplay(gameTime) {
-  if (!gameTime) return;
-
-  currentGameTime = new Date(gameTime);
-
-  document.getElementById('gameTime').textContent = formatGameTime(gameTime);
-  document.getElementById('gameDate').textContent = formatGameDate(gameTime);
-}
-
-// Start local clock that advances the time client-side
-function startLocalClock(accelerationFactor) {
-  if (localClockInterval) {
-    clearInterval(localClockInterval);
-  }
-
-  // Update display every 100ms for smooth progression
-  localClockInterval = setInterval(() => {
-    if (currentGameTime) {
-      // Advance game time based on acceleration (100ms real time)
-      currentGameTime = new Date(currentGameTime.getTime() + (100 * accelerationFactor));
-      document.getElementById('gameTime').textContent = formatGameTime(currentGameTime);
-      document.getElementById('gameDate').textContent = formatGameDate(currentGameTime);
-    }
-  }, 100);
-}
-
-// Load world information
-async function loadWorldInfo() {
-  try {
-    const response = await fetch('/api/world/info');
-    const data = await response.json();
-
-    if (data.error) {
-      console.warn('No active world:', data.message);
-      document.getElementById('worldName').textContent = 'No World';
-      document.getElementById('gameTime').textContent = '--:--';
-      document.getElementById('gameDate').textContent = 'Create a world';
-      return;
-    }
-
-    // Update world info
-    document.getElementById('worldName').textContent = data.name;
-    document.getElementById('timeAcceleration').textContent = `${data.timeAcceleration}x`;
-    document.getElementById('elapsedDays').textContent = data.elapsedDays;
-    document.getElementById('worldEra').textContent = data.era;
-
-    // Update game time
-    updateGameTimeDisplay(data.currentTime);
-
-    // Start local clock
-    startLocalClock(data.timeAcceleration);
-
-  } catch (error) {
-    console.error('Error loading world info:', error);
-  }
-}
+// All world data and time management is handled by layout.js
 
 // Update credit warning banner
 function updateCreditWarningBanner(credits) {
@@ -151,12 +75,10 @@ socket.on('disconnect', () => {
 
 // Initialize dashboard
 document.addEventListener('DOMContentLoaded', () => {
-  loadWorldInfo();
   loadVatsimStatus();
-
-  // Refresh world info every 30 seconds to stay in sync
-  setInterval(loadWorldInfo, 30000);
 
   // Refresh VATSIM status every 30 seconds
   setInterval(loadVatsimStatus, 30000);
+
+  // World info is managed by layout.js
 });

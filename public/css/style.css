@@ -422,3 +422,70 @@ body {
 .form-info p:last-child {
   margin-bottom: 0;
 }
+
+/* Brand Link Styling */
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none;
+  color: inherit;
+  transition: opacity 0.2s;
+}
+
+.nav-brand:hover {
+  opacity: 0.8;
+}
+
+/* World Information in Navbar */
+.nav-world-info {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+  padding: 0.75rem 1.25rem;
+  background: linear-gradient(135deg, var(--surface-elevated), var(--surface));
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  min-width: 320px;
+  justify-content: space-around;
+}
+
+.world-info-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 70px;
+}
+
+.world-info-item .info-label {
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.world-info-item .info-value {
+  font-size: 1rem;
+  color: var(--text-primary);
+  font-weight: 700;
+  font-family: 'Courier New', monospace;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  min-width: 60px;
+}
+
+/* Highlight the time element to make it more prominent */
+.world-info-item.time-highlight .info-value {
+  background: rgba(37, 99, 235, 0.15); /* --accent-color with transparency */
+  border: 1px solid var(--accent-color);
+  color: var(--accent-color);
+  font-size: 1.1rem;
+  font-weight: 800;
+  padding: 0.3rem 0.6rem;
+  min-width: 80px;
+}

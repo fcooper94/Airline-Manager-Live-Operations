@@ -1,0 +1,99 @@
+<!-- TITLE: Financial Reports - Airline Manager -->
+<!-- SUBTITLE: Financial Overview -->
+<!-- SCRIPTS: /js/finances.js -->
+
+<div class="dashboard-container">
+  <aside class="sidebar">
+    <div class="sidebar-header">OPERATIONS</div>
+    <ul class="nav-menu">
+      <li class="nav-item">
+        <a href="/dashboard">
+          <span class="nav-text">Dashboard</span>
+        </a>
+      </li>
+      <li class="nav-item parent">
+        <a href="#" onclick="return false;">
+          <span class="nav-text">Flight Operations</span>
+        </a>
+        <ul class="nav-submenu">
+          <li class="nav-item">
+            <a href="/routes">
+              <span class="nav-text">Manage Routes</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="/scheduling">
+              <span class="nav-text">Scheduling</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="/pricing">
+              <span class="nav-text">Price Management</span>
+            </a>
+          </li>
+        </ul>
+      </li>
+      <li class="nav-item">
+        <a href="/fleet">
+          <span class="nav-text">Fleet Management</span>
+        </a>
+      </li>
+      <li class="nav-item active">
+        <a href="/finances">
+          <span class="nav-text">Financial Reports</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="/aircraft-marketplace">
+          <span class="nav-text">Aircraft Marketplace</span>
+        </a>
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <a href="/world-selection" class="btn btn-secondary btn-full-width">
+        <span class="nav-text">SELECT WORLD</span>
+      </a>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h1>FINANCIAL REPORTS</h1>
+      <p class="subtitle">WEEKLY BREAKDOWN</p>
+    </div>
+
+    <div class="ops-panel full-width" style="margin-bottom: 2rem;">
+      <div class="panel-header">
+        <h2>TIME PERIOD</h2>
+        <div style="display: flex; gap: 1rem;">
+          <select id="weekSelector" onchange="loadFinancialData()" style="padding: 0.5rem; background: var(--surface); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px;">
+            <option value="0">Current Week</option>
+            <option value="1">Last Week</option>
+            <option value="2">2 Weeks Ago</option>
+            <option value="3">3 Weeks Ago</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="ops-panel full-width">
+      <div class="panel-body" style="padding: 0;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background: var(--surface-elevated); border-bottom: 2px solid var(--border-color);">
+              <th style="padding: 1rem; text-align: left; font-weight: 600; color: var(--text-primary);">CATEGORY</th>
+              <th style="padding: 1rem; text-align: right; font-weight: 600; color: var(--text-primary);" id="week0Header">Week 0</th>
+              <th style="padding: 1rem; text-align: right; font-weight: 600; color: var(--text-secondary);">Week -1</th>
+              <th style="padding: 1rem; text-align: right; font-weight: 600; color: var(--text-secondary);">Week -2</th>
+              <th style="padding: 1rem; text-align: right; font-weight: 600; color: var(--text-secondary);">Week -3</th>
+            </tr>
+          </thead>
+          <tbody id="financialTable">
+            <tr><td colspan="5" style="padding: 2rem; text-align: center; color: var(--text-secondary);">Loading financial data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>

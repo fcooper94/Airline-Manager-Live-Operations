@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { World, WorldMembership, User } = require('../models');
+const { World, WorldMembership, User, Airport } = require('../models');
 
 /**
  * Get all available worlds for user to join
@@ -37,8 +37,14 @@ router.get('/available', async (req, res) => {
       const memberCount = await WorldMembership.count({ where: { worldId: world.id } });
       const membership = membershipMap.get(world.id);
 
+      // Calculate the decade from currentTime (e.g., 1995 -> "90's")
+      const currentYear = world.currentTime.getFullYear();
+      const decade = Math.floor(currentYear / 10) * 10;
+      const decadeString = `${decade.toString().slice(-2)}'s`;
+
       return {
         ...world.toJSON(),
+        era: decadeString,
         memberCount,
         isMember: !!membership,
         airlineName: membership?.airlineName,
@@ -64,15 +70,21 @@ router.post('/join', async (req, res) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const { worldId, airlineName, airlineCode, region, airlineType, baseAirport } = req.body;
+    const { worldId, airlineName, airlineCode, region, airlineType, baseAirportId } = req.body;
 
-    if (!worldId || !airlineName || !airlineCode || !region || !airlineType) {
+    if (!worldId || !airlineName || !airlineCode || !region || !airlineType || !baseAirportId) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
     // Validate airline code format (3 letters)
     if (!/^[A-Z]{3}$/.test(airlineCode)) {
       return res.status(400).json({ error: 'Airline code must be 3 uppercase letters' });
+    }
+
+    // Verify airport exists
+    const airport = await Airport.findByPk(baseAirportId);
+    if (!airport) {
+      return res.status(404).json({ error: 'Selected airport not found' });
     }
 
     // Determine starting balance based on airline type
@@ -132,7 +144,7 @@ router.post('/join', async (req, res) => {
       airlineCode,
       region,
       airlineType,
-      baseAirport,
+      baseAirportId,
       balance: startingBalance,
       reputation: 50
     });
@@ -244,6 +256,65 @@ router.get('/my-worlds', async (req, res) => {
       console.error('Error fetching user worlds:', error);
     }
     res.status(500).json({ error: 'Failed to fetch your worlds' });
+  }
+});
+
+/**
+ * Set active world in session
+ */
+router.post('/set-active', async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const { worldId } = req.body;
+
+    if (!worldId) {
+      return res.status(400).json({ error: 'World ID required' });
+    }
+
+    // Verify the user is a member of this world
+    const user = await User.findOne({ where: { vatsimId: req.user.vatsimId } });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const membership = await WorldMembership.findOne({
+      where: { userId: user.id, worldId }
+    });
+
+    if (!membership) {
+      return res.status(403).json({ error: 'Not a member of this world' });
+    }
+
+    // Verify world exists
+    const world = await World.findByPk(worldId);
+    if (!world) {
+      return res.status(404).json({ error: 'World not found' });
+    }
+
+    // Set active world in session
+    req.session.activeWorldId = worldId;
+
+    await new Promise((resolve, reject) => {
+      req.session.save((err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    res.json({
+      message: 'Active world set successfully',
+      worldId,
+      worldName: world.name
+    });
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error setting active world:', error);
+    }
+    res.status(500).json({ error: 'Failed to set active world' });
   }
 });
 
