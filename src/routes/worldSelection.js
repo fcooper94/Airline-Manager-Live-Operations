@@ -71,9 +71,9 @@ router.post('/join', async (req, res) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const { worldId, airlineName, airlineCode, region, airlineType, baseAirportId } = req.body;
+    const { worldId, airlineName, airlineCode, baseAirportId } = req.body;
 
-    if (!worldId || !airlineName || !airlineCode || !region || !airlineType || !baseAirportId) {
+    if (!worldId || !airlineName || !airlineCode || !baseAirportId) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -82,11 +82,14 @@ router.post('/join', async (req, res) => {
       return res.status(400).json({ error: 'Airline code must be 3 uppercase letters' });
     }
 
-    // Verify airport exists
+    // Verify airport exists and get region from airport
     const airport = await Airport.findByPk(baseAirportId);
     if (!airport) {
       return res.status(404).json({ error: 'Selected airport not found' });
     }
+
+    // Derive region from airport's country
+    const region = airport.country;
 
     // Check if world exists first (need it for era calculation)
     const world = await World.findByPk(worldId);
@@ -97,12 +100,12 @@ router.post('/join', async (req, res) => {
     // Get world's current year for era-based starting capital
     const worldYear = new Date(world.currentTime).getFullYear();
 
-    // Determine starting balance based on airline type AND world era
+    // Determine starting balance based on world era (everyone starts with same capital)
     // This ensures fair gameplay across all time periods
-    const startingBalance = eraEconomicService.getStartingCapital(airlineType, worldYear);
+    const startingBalance = eraEconomicService.getStartingCapital(worldYear);
 
     if (process.env.NODE_ENV === 'development') {
-      console.log(`Starting capital for ${airlineType} airline in ${worldYear}: $${startingBalance.toLocaleString()}`);
+      console.log(`Starting capital for ${worldYear}: $${startingBalance.toLocaleString()}`);
     }
 
     // Find or create user
@@ -146,7 +149,6 @@ router.post('/join', async (req, res) => {
       airlineName,
       airlineCode,
       region,
-      airlineType,
       baseAirportId,
       balance: startingBalance,
       reputation: 50
@@ -263,16 +265,11 @@ router.get('/my-worlds', async (req, res) => {
 });
 
 /**
- * Get starting capital for a world and airline type
+ * Get starting capital for a world
  */
 router.get('/:worldId/starting-capital', async (req, res) => {
   try {
     const { worldId } = req.params;
-    const { airlineType } = req.query;
-
-    if (!airlineType) {
-      return res.status(400).json({ error: 'Airline type required' });
-    }
 
     const world = await World.findByPk(worldId);
     if (!world) {
@@ -280,12 +277,11 @@ router.get('/:worldId/starting-capital', async (req, res) => {
     }
 
     const worldYear = new Date(world.currentTime).getFullYear();
-    const startingCapital = eraEconomicService.getStartingCapital(airlineType, worldYear);
-    const eraInfo = eraEconomicService.getStartingCapitalInfo(airlineType, worldYear);
+    const startingCapital = eraEconomicService.getStartingCapital(worldYear);
+    const eraInfo = eraEconomicService.getStartingCapitalInfo(worldYear);
 
     res.json({
       worldYear,
-      airlineType,
       startingCapital,
       formattedCapital: eraInfo.displayCapital,
       eraName: eraInfo.eraName,

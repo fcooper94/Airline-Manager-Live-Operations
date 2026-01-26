@@ -78,6 +78,28 @@ const Airport = sequelize.define('Airport', {
     allowNull: true,
     field: 'operational_until',
     comment: 'Year the airport closed (null if still operational)'
+  },
+  trafficDemand: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 10,
+    field: 'traffic_demand',
+    comment: 'Passenger traffic demand level (1-20)',
+    validate: {
+      min: 1,
+      max: 20
+    }
+  },
+  infrastructureLevel: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 10,
+    field: 'infrastructure_level',
+    comment: 'Airport infrastructure quality level (1-20)',
+    validate: {
+      min: 1,
+      max: 20
+    }
   }
 }, {
   tableName: 'airports',

@@ -2,6 +2,8 @@ let selectedWorldId = null;
 let bankruptcyWorldId = null;
 let selectedAirportId = null;
 let airportSearchTimeout = null;
+let allAirports = [];
+let filteredAirports = [];
 
 // Load available worlds
 async function loadWorlds() {
@@ -118,12 +120,14 @@ function createWorldCard(world, isMember) {
       </div>
     </div>
 
-    ${isMember ? `
-      <div class="world-actions" style="padding: 1rem; border-top: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.5rem;">
+    <div class="world-actions" style="padding: 1rem; border-top: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.5rem;">
+      ${isMember ? `
         <button class="btn btn-primary continue-game-btn" style="width: 100%;">Continue Game</button>
         <button class="btn btn-secondary bankruptcy-btn" style="width: 100%;">Declare Bankruptcy</button>
-      </div>
-    ` : ''}
+      ` : `
+        <button class="btn btn-primary join-game-btn" style="width: 100%;">Join Game</button>
+      `}
+    </div>
   `;
 
   // Add event listeners programmatically to avoid injection issues
@@ -132,6 +136,7 @@ function createWorldCard(world, isMember) {
   const airlineInfo = card.querySelector('.airline-info');
   const continueGameBtn = card.querySelector('.continue-game-btn');
   const bankruptcyBtn = card.querySelector('.bankruptcy-btn');
+  const joinGameBtn = card.querySelector('.join-game-btn');
 
   if (header) {
     header.addEventListener('click', () => {
@@ -173,33 +178,28 @@ function createWorldCard(world, isMember) {
     });
   }
 
+  if (joinGameBtn) {
+    joinGameBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      openJoinModal(world.id, world.name);
+    });
+  }
+
   return card;
 }
 
-// Update starting capital info based on airline type
+// Update starting capital info based on world
 async function updateStartingInfo() {
-  const airlineType = document.getElementById('airlineType').value;
   const capitalEl = document.getElementById('startingCapital');
 
-  if (!airlineType) {
-    capitalEl.textContent = 'Starting Capital: Select airline type';
-    return;
-  }
-
   if (!selectedWorldId) {
-    // Fallback to static values if no world selected (shouldn't happen)
-    const capitals = {
-      'regional': 'USD $500,000',
-      'medium-haul': 'USD $1,000,000',
-      'long-haul': 'USD $2,000,000'
-    };
-    capitalEl.textContent = `Starting Capital: ${capitals[airlineType]}`;
+    capitalEl.textContent = 'Starting Capital: Select a world first';
     return;
   }
 
   try {
     // Fetch era-appropriate starting capital from server
-    const response = await fetch(`/api/worlds/${selectedWorldId}/starting-capital?airlineType=${airlineType}`);
+    const response = await fetch(`/api/worlds/${selectedWorldId}/starting-capital`);
     const data = await response.json();
 
     if (response.ok) {
@@ -225,24 +225,36 @@ async function searchAirports(query) {
     // Pass the selected world ID to filter airports by operational dates
     const worldParam = selectedWorldId ? `&worldId=${selectedWorldId}` : '';
     const response = await fetch(`/api/world/airports?search=${encodeURIComponent(query)}${worldParam}`);
-    const airports = await response.json();
 
     const resultsDiv = document.getElementById('airportResults');
 
-    if (airports.length === 0) {
+    if (!response.ok) {
+      resultsDiv.innerHTML = '<div style="padding: 1rem; color: var(--warning-color);">Error loading airports</div>';
+      resultsDiv.style.display = 'block';
+      return;
+    }
+
+    const airports = await response.json();
+
+    if (!Array.isArray(airports) || airports.length === 0) {
       resultsDiv.innerHTML = '<div style="padding: 1rem; color: var(--text-secondary);">No airports found</div>';
       resultsDiv.style.display = 'block';
       return;
     }
 
     resultsDiv.innerHTML = airports.slice(0, 10).map(airport => `
-      <div class="airport-result-item" onclick="selectAirport('${airport.id}', '${airport.name.replace(/'/g, "\\'")}', '${airport.city}', '${airport.country}', '${airport.icaoCode}')" style="
+      <div class="airport-result-item" onclick="selectAirport('${airport.id}', '${airport.name.replace(/'/g, "\\'")}', '${airport.city}', '${airport.country}', '${airport.icaoCode}', ${airport.trafficDemand || 10}, ${airport.infrastructureLevel || 10}, ${airport.annualPassengers || 1}, ${airport.runways || 1}, ${airport.stands || 10})" style="
         padding: 0.75rem 1rem;
         cursor: pointer;
         border-bottom: 1px solid var(--border-color);
       " onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background='var(--surface-elevated)'">
         <div style="font-weight: 600; color: var(--text-primary);">${airport.name} (${airport.icaoCode})</div>
         <div style="font-size: 0.85rem; color: var(--text-secondary);">${airport.city}, ${airport.country} • ${airport.type}</div>
+        <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem; display: flex; gap: 1rem;">
+          <span>Demand: ${airport.trafficDemand || 10}/20</span>
+          <span>Infrastructure: ${airport.infrastructureLevel || 10}/20</span>
+          <span>Airlines: ${airport.airlinesBasedHere || 0}</span>
+        </div>
       </div>
     `).join('');
 
@@ -252,12 +264,60 @@ async function searchAirports(query) {
   }
 }
 
+// Generate colored scale visualization (1-20)
+function generateLevelScale(level) {
+  const dots = [];
+  for (let i = 1; i <= 20; i++) {
+    let color;
+    if (i <= 6) color = '#ef4444'; // Red for low (1-6)
+    else if (i <= 12) color = '#f59e0b'; // Orange for medium (7-12)
+    else if (i <= 16) color = '#eab308'; // Yellow for medium-high (13-16)
+    else color = '#22c55e'; // Green for high (17-20)
+
+    const isFilled = i <= level;
+    dots.push(`
+      <div style="
+        width: 14px;
+        height: 14px;
+        border-radius: 2px;
+        background: ${isFilled ? color : 'transparent'};
+        border: 1.5px solid ${color};
+        opacity: ${isFilled ? '1' : '0.3'};
+        flex-shrink: 0;
+      "></div>
+    `);
+  }
+
+  return `
+    <div style="display: flex; gap: 2px; align-items: center; flex-wrap: wrap; max-width: 100%;">
+      ${dots.join('')}
+      <span style="margin-left: 0.5rem; font-size: 0.75rem; color: var(--text-primary); font-weight: 600; white-space: nowrap;">${level}/20</span>
+    </div>
+  `;
+}
+
 // Select airport
-function selectAirport(id, name, city, country, icao) {
+function selectAirport(id, name, city, country, icao, trafficDemand, infrastructureLevel, annualPassengers, runways, stands) {
   selectedAirportId = id;
   document.getElementById('baseAirport').value = id;
   document.getElementById('selectedAirportName').textContent = `${name} (${icao})`;
   document.getElementById('selectedAirportLocation').textContent = `${city}, ${country}`;
+
+  // Set traffic demand scale
+  document.getElementById('selectedAirportTraffic').innerHTML = generateLevelScale(trafficDemand || 5, 'Traffic');
+
+  // Display annual passengers
+  const paxText = annualPassengers >= 1
+    ? `${annualPassengers.toFixed(1)}M passengers/year`
+    : `${(annualPassengers * 1000).toFixed(0)}K passengers/year`;
+  document.getElementById('selectedAirportPassengers').textContent = paxText;
+
+  // Set infrastructure scale
+  document.getElementById('selectedAirportInfrastructure').innerHTML = generateLevelScale(infrastructureLevel || 5, 'Infrastructure');
+
+  // Display runways and stands
+  document.getElementById('selectedAirportFacilities').textContent = `${runways || 1} runway${runways > 1 ? 's' : ''} • ${stands || 10} stands`;
+
   document.getElementById('selectedAirportDisplay').style.display = 'block';
   document.getElementById('airportSearch').style.display = 'none';
   document.getElementById('airportResults').style.display = 'none';
@@ -279,8 +339,6 @@ function openJoinModal(worldId, worldName) {
   selectedWorldId = worldId;
   selectedAirportId = null;
   document.getElementById('selectedWorldName').textContent = worldName;
-  document.getElementById('region').value = '';
-  document.getElementById('airlineType').value = '';
   document.getElementById('airlineName').value = '';
   document.getElementById('airlineCode').value = '';
   document.getElementById('baseAirport').value = '';
@@ -289,8 +347,11 @@ function openJoinModal(worldId, worldName) {
   document.getElementById('selectedAirportDisplay').style.display = 'none';
   document.getElementById('airportResults').style.display = 'none';
   document.getElementById('joinError').style.display = 'none';
-  document.getElementById('startingCapital').textContent = 'Starting Capital: Select airline type';
+  document.getElementById('startingCapital').textContent = 'Starting Capital: Loading...';
   document.getElementById('joinModal').style.display = 'flex';
+
+  // Fetch and display starting capital for this world
+  updateStartingInfo();
 }
 
 // Close join modal
@@ -301,15 +362,13 @@ function closeJoinModal() {
 
 // Confirm join
 async function confirmJoin() {
-  const region = document.getElementById('region').value;
-  const airlineType = document.getElementById('airlineType').value;
   const airlineName = document.getElementById('airlineName').value.trim();
   const airlineCode = document.getElementById('airlineCode').value.trim().toUpperCase();
   const baseAirportId = document.getElementById('baseAirport').value;
   const errorDiv = document.getElementById('joinError');
 
   // Validation
-  if (!region || !airlineType || !airlineName || !airlineCode) {
+  if (!airlineName || !airlineCode) {
     errorDiv.textContent = 'Please fill in all required fields';
     errorDiv.style.display = 'block';
     return;
@@ -335,8 +394,6 @@ async function confirmJoin() {
       },
       body: JSON.stringify({
         worldId: selectedWorldId,
-        region,
-        airlineType,
         airlineName,
         airlineCode,
         baseAirportId
@@ -490,6 +547,340 @@ function showErrorMessage(message) {
   document.getElementById('closeErrorBtn').addEventListener('click', () => {
     document.body.removeChild(overlay);
   });
+}
+
+// Airport Browser Functions
+async function openAirportBrowser() {
+  document.getElementById('airportBrowserModal').style.display = 'flex';
+  await loadAllAirports();
+}
+
+function closeAirportBrowser() {
+  document.getElementById('airportBrowserModal').style.display = 'none';
+}
+
+async function loadAllAirports() {
+  try {
+    const worldParam = selectedWorldId ? `?worldId=${selectedWorldId}` : '';
+    const response = await fetch(`/api/world/airports${worldParam}`);
+
+    if (!response.ok) {
+      throw new Error('Failed to load airports');
+    }
+
+    allAirports = await response.json();
+
+    // Sort by traffic demand (highest to lowest)
+    allAirports.sort((a, b) => (b.trafficDemand || 0) - (a.trafficDemand || 0));
+
+    // Populate region filter
+    const regions = [...new Set(allAirports.map(a => getRegionFromCountry(a.country)))].sort();
+    const regionFilter = document.getElementById('regionFilter');
+    regionFilter.innerHTML = '<option value="">All Regions</option>' +
+      regions.map(r => `<option value="${r}">${r}</option>`).join('');
+
+    // Populate country filter
+    const countries = [...new Set(allAirports.map(a => a.country))].sort();
+    const countryFilter = document.getElementById('countryFilter');
+    countryFilter.innerHTML = '<option value="">All Countries</option>' +
+      countries.map(c => `<option value="${c}">${c}</option>`).join('');
+
+    // Initial render
+    filteredAirports = allAirports;
+    renderAirportBrowser();
+  } catch (error) {
+    console.error('Error loading airports:', error);
+    document.getElementById('airportBrowserList').innerHTML = `
+      <div style="text-align: center; padding: 2rem; color: var(--warning-color);">
+        Error loading airports. Please try again.
+      </div>
+    `;
+  }
+}
+
+function getRegionFromCountry(country) {
+  // Comprehensive region mapping including historical country names
+  const regionMap = {
+    // North America
+    'United States': 'North America',
+    'Canada': 'North America',
+    'Mexico': 'North America',
+
+    // Europe (Modern)
+    'United Kingdom': 'Europe',
+    'France': 'Europe',
+    'Germany': 'Europe',
+    'West Germany': 'Europe',
+    'East Germany': 'Europe',
+    'Spain': 'Europe',
+    'Italy': 'Europe',
+    'Netherlands': 'Europe',
+    'Belgium': 'Europe',
+    'Switzerland': 'Europe',
+    'Austria': 'Europe',
+    'Austria-Hungary': 'Europe',
+    'Sweden': 'Europe',
+    'Norway': 'Europe',
+    'Denmark': 'Europe',
+    'Finland': 'Europe',
+    'Ireland': 'Europe',
+    'Portugal': 'Europe',
+    'Poland': 'Europe',
+
+    // Central/Eastern Europe
+    'Czech Republic': 'Europe',
+    'Czechoslovakia': 'Europe',
+    'Protectorate of Bohemia and Moravia': 'Europe',
+    'Slovakia': 'Europe',
+    'Hungary': 'Europe',
+    'Romania': 'Europe',
+
+    // Former Soviet Union
+    'Russia': 'Europe/Asia',
+    'Russian Empire': 'Europe/Asia',
+    'Soviet Union': 'Europe/Asia',
+    'Ukraine': 'Europe',
+    'Belarus': 'Europe',
+    'Kazakhstan': 'Asia',
+    'Uzbekistan': 'Asia',
+    'Georgia': 'Europe/Asia',
+    'Armenia': 'Europe/Asia',
+    'Azerbaijan': 'Europe/Asia',
+    'Lithuania': 'Europe',
+    'Latvia': 'Europe',
+    'Estonia': 'Europe',
+    'Moldova': 'Europe',
+
+    // Former Yugoslavia
+    'Yugoslavia': 'Europe',
+    'Serbia and Montenegro': 'Europe',
+    'Croatia': 'Europe',
+    'Serbia': 'Europe',
+    'Montenegro': 'Europe',
+    'Slovenia': 'Europe',
+    'Bosnia and Herzegovina': 'Europe',
+    'Macedonia': 'Europe',
+    'North Macedonia': 'Europe',
+
+    // Middle East
+    'Turkey': 'Europe/Middle East',
+    'Ottoman Empire': 'Middle East',
+    'United Arab Emirates': 'Middle East',
+    'Trucial States': 'Middle East',
+    'Saudi Arabia': 'Middle East',
+    'Qatar': 'Middle East',
+    'British Protectorate': 'Middle East',
+    'Oman': 'Middle East',
+    'Jordan': 'Middle East',
+
+    // Africa
+    'Egypt': 'Africa',
+    'South Africa': 'Africa',
+    'Kenya': 'Africa',
+    'Nigeria': 'Africa',
+    'Morocco': 'Africa',
+    'Zimbabwe': 'Africa',
+    'Rhodesia': 'Africa',
+    'Zambia': 'Africa',
+    'Northern Rhodesia': 'Africa',
+    'Namibia': 'Africa',
+    'South West Africa': 'Africa',
+    'Tanzania': 'Africa',
+    'Tanganyika': 'Africa',
+
+    // Asia (East & Southeast)
+    'China': 'Asia',
+    'Japan': 'Asia',
+    'Japanese Taiwan': 'Asia',
+    'South Korea': 'Asia',
+    'North Korea': 'Asia',
+    'Korea': 'Asia',
+    'Hong Kong': 'Asia',
+    'British Hong Kong': 'Asia',
+    'Taiwan': 'Asia',
+    'Singapore': 'Asia',
+    'British Singapore': 'Asia',
+    'Malaysia': 'Asia',
+    'British Malaya': 'Asia',
+    'Federation of Malaya': 'Asia',
+    'Thailand': 'Asia',
+    'Siam': 'Asia',
+    'Indonesia': 'Asia',
+    'Dutch East Indies': 'Asia',
+    'Philippines': 'Asia',
+    'Vietnam': 'Asia',
+    'South Vietnam': 'Asia',
+    'French Indochina': 'Asia',
+
+    // South Asia
+    'India': 'Asia',
+    'British India': 'Asia',
+    'Pakistan': 'Asia',
+    'Bangladesh': 'Asia',
+    'Myanmar': 'Asia',
+    'Burma': 'Asia',
+    'Sri Lanka': 'Asia',
+    'Ceylon': 'Asia',
+
+    // Oceania
+    'Australia': 'Oceania',
+    'New Zealand': 'Oceania',
+
+    // South America
+    'Brazil': 'South America',
+    'Argentina': 'South America',
+    'Chile': 'South America',
+    'Colombia': 'South America',
+    'Peru': 'South America'
+  };
+
+  return regionMap[country] || 'Other';
+}
+
+function filterAirportBrowser() {
+  const regionFilter = document.getElementById('regionFilter').value;
+  const countryFilter = document.getElementById('countryFilter').value;
+
+  // Update country dropdown based on selected region
+  if (regionFilter) {
+    const countriesInRegion = [...new Set(
+      allAirports
+        .filter(a => getRegionFromCountry(a.country) === regionFilter)
+        .map(a => a.country)
+    )].sort();
+
+    const countryDropdown = document.getElementById('countryFilter');
+    const currentValue = countryDropdown.value;
+
+    countryDropdown.innerHTML = '<option value="">All Countries</option>' +
+      countriesInRegion.map(c => `<option value="${c}">${c}</option>`).join('');
+
+    // Restore selection if it's still valid
+    if (countriesInRegion.includes(currentValue)) {
+      countryDropdown.value = currentValue;
+    }
+  } else {
+    // Reset to all countries if no region selected
+    const allCountries = [...new Set(allAirports.map(a => a.country))].sort();
+    const countryDropdown = document.getElementById('countryFilter');
+    const currentValue = countryDropdown.value;
+
+    countryDropdown.innerHTML = '<option value="">All Countries</option>' +
+      allCountries.map(c => `<option value="${c}">${c}</option>`).join('');
+
+    if (allCountries.includes(currentValue)) {
+      countryDropdown.value = currentValue;
+    }
+  }
+
+  // Filter airports
+  filteredAirports = allAirports.filter(airport => {
+    const matchesRegion = !regionFilter || getRegionFromCountry(airport.country) === regionFilter;
+    const matchesCountry = !countryFilter || airport.country === countryFilter;
+    return matchesRegion && matchesCountry;
+  });
+
+  renderAirportBrowser();
+}
+
+function renderAirportBrowser() {
+  const listDiv = document.getElementById('airportBrowserList');
+  const countSpan = document.getElementById('airportCount');
+
+  countSpan.textContent = filteredAirports.length;
+
+  if (filteredAirports.length === 0) {
+    listDiv.innerHTML = `
+      <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+        No airports found matching your filters.
+      </div>
+    `;
+    return;
+  }
+
+  listDiv.innerHTML = filteredAirports.map(airport => `
+    <div onclick="selectAirportFromBrowser('${airport.id}', '${airport.name.replace(/'/g, "\\'")}', '${airport.city}', '${airport.country}', '${airport.icaoCode}', ${airport.trafficDemand || 10}, ${airport.infrastructureLevel || 10}, ${airport.annualPassengers || 1}, ${airport.runways || 1}, ${airport.stands || 10})" style="
+      padding: 1rem;
+      margin-bottom: 0.75rem;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    " onmouseover="this.style.borderColor='var(--primary-color)'; this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border-color)'; this.style.transform='translateY(0)'">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+        <div style="flex: 1;">
+          <div style="font-weight: 600; font-size: 1rem; color: var(--text-primary); margin-bottom: 0.25rem;">
+            ${airport.name} (${airport.icaoCode})
+          </div>
+          <div style="font-size: 0.85rem; color: var(--text-secondary);">
+            ${airport.city}, ${airport.country} • ${airport.type}
+          </div>
+        </div>
+        <div style="text-align: right;">
+          <div style="font-size: 0.75rem; color: var(--text-secondary);">Airlines</div>
+          <div style="font-weight: 600; color: var(--text-primary);">${airport.airlinesBasedHere || 0}</div>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.75rem;">
+        <div>
+          <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Traffic Demand</div>
+          ${generateLevelScaleCompact(airport.trafficDemand || 5)}
+          <div style="margin-top: 0.25rem; font-size: 0.7rem; color: var(--text-secondary);">
+            ${airport.annualPassengers >= 1
+              ? `${airport.annualPassengers.toFixed(1)}M pax/year`
+              : `${(airport.annualPassengers * 1000).toFixed(0)}K pax/year`}
+          </div>
+        </div>
+        <div>
+          <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Infrastructure</div>
+          ${generateLevelScaleCompact(airport.infrastructureLevel || 5)}
+          <div style="margin-top: 0.25rem; font-size: 0.7rem; color: var(--text-secondary);">
+            ${airport.runways || 1} runway${airport.runways > 1 ? 's' : ''} • ${airport.stands || 10} stands
+          </div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function generateLevelScaleCompact(level) {
+  const dots = [];
+  for (let i = 1; i <= 20; i++) {
+    let color;
+    if (i <= 6) color = '#ef4444';
+    else if (i <= 12) color = '#f59e0b';
+    else if (i <= 16) color = '#eab308';
+    else color = '#22c55e';
+
+    const isFilled = i <= level;
+    dots.push(`
+      <div style="
+        width: 14px;
+        height: 14px;
+        border-radius: 2px;
+        background: ${isFilled ? color : 'transparent'};
+        border: 1px solid ${color};
+        opacity: ${isFilled ? '1' : '0.3'};
+      "></div>
+    `);
+  }
+
+  return `
+    <div style="display: flex; gap: 2px; align-items: center; flex-wrap: wrap;">
+      ${dots.join('')}
+      <span style="margin-left: 0.5rem; font-size: 0.75rem; color: var(--text-primary); font-weight: 600;">${level}/20</span>
+    </div>
+  `;
+}
+
+function selectAirportFromBrowser(id, name, city, country, icao, trafficDemand, infrastructureLevel, annualPassengers, runways, stands) {
+  // Close the browser modal
+  closeAirportBrowser();
+
+  // Select the airport in the join modal
+  selectAirport(id, name, city, country, icao, trafficDemand, infrastructureLevel, annualPassengers, runways, stands);
 }
 
 // Initialize

@@ -1,6 +1,25 @@
 let allAircraft = [];
 let currentCategory = '';
 let selectedAircraft = null;
+let registrationPrefix = 'N-'; // Default prefix, will be updated from world info
+let baseCountry = null;
+
+// Fetch world info to get registration prefix
+async function fetchRegistrationPrefix() {
+  try {
+    const response = await fetch('/api/world/info');
+    if (response.ok) {
+      const worldInfo = await response.json();
+      if (worldInfo.baseAirport && worldInfo.baseAirport.country) {
+        baseCountry = worldInfo.baseAirport.country;
+        registrationPrefix = getRegistrationPrefix(baseCountry);
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching world info for registration prefix:', error);
+    // Keep default prefix
+  }
+}
 
 // Load aircraft based on category
 async function loadAircraft() {
@@ -517,13 +536,17 @@ function showConfirmationDialog(title, aircraftName, condition, price, actionTyp
 
       <div style="margin-bottom: 1.5rem;">
         <label style="display: block; margin-bottom: 0.5rem; color: var(--text-primary); font-weight: 600;">Aircraft Registration</label>
-        <input
-          type="text"
-          id="registrationInput"
-          placeholder="e.g., N12345"
-          maxlength="10"
-          style="width: 100%; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 1rem;"
-        />
+        <div style="display: flex; align-items: stretch; border: 1px solid var(--border-color); border-radius: 4px; overflow: hidden; background: var(--surface-elevated);">
+          <div id="registrationPrefix" style="padding: 0.75rem; background: var(--surface); border-right: 1px solid var(--border-color); color: var(--text-secondary); font-weight: 600; font-size: 1rem; display: flex; align-items: center;">${registrationPrefix}</div>
+          <input
+            type="text"
+            id="registrationSuffix"
+            placeholder="${registrationPrefix === 'N-' ? '12345' : 'ABCD'}"
+            maxlength="6"
+            style="flex: 1; padding: 0.75rem; background: transparent; border: none; color: var(--text-primary); font-size: 1rem; outline: none;"
+          />
+        </div>
+        <div style="margin-top: 0.25rem; color: var(--text-muted); font-size: 0.8rem;">Based on ${baseCountry || 'your base location'}</div>
         <div id="registrationError" style="margin-top: 0.5rem; color: var(--warning-color); font-size: 0.85rem; display: none;"></div>
       </div>
 
@@ -536,34 +559,43 @@ function showConfirmationDialog(title, aircraftName, condition, price, actionTyp
 
   document.body.appendChild(overlay);
 
-  const registrationInput = document.getElementById('registrationInput');
+  const registrationSuffix = document.getElementById('registrationSuffix');
   const registrationError = document.getElementById('registrationError');
   const confirmBtn = document.getElementById('confirmActionBtn');
+  const inputContainer = registrationSuffix.parentElement;
 
-  // Validate registration format (alphanumeric, starts with letter, 3-10 chars)
-  function validateRegistration(registration) {
-    const trimmed = registration.trim().toUpperCase();
-    if (trimmed.length < 3) {
-      return { valid: false, message: 'Registration must be at least 3 characters' };
+  // Validate registration suffix and combine with prefix
+  function validateRegistration(suffix) {
+    const trimmedSuffix = suffix.trim().toUpperCase();
+
+    if (trimmedSuffix.length < 1) {
+      return { valid: false, message: 'Please enter a registration suffix' };
     }
-    if (!/^[A-Z]/.test(trimmed)) {
-      return { valid: false, message: 'Registration must start with a letter' };
-    }
-    if (!/^[A-Z0-9-]+$/.test(trimmed)) {
+
+    // Suffix should be alphanumeric (and hyphens for some countries)
+    if (!/^[A-Z0-9-]+$/.test(trimmedSuffix)) {
       return { valid: false, message: 'Registration can only contain letters, numbers, and hyphens' };
     }
-    return { valid: true, value: trimmed };
+
+    // Combine prefix and suffix
+    const fullRegistration = registrationPrefix + trimmedSuffix;
+
+    if (fullRegistration.length > 10) {
+      return { valid: false, message: 'Registration is too long (max 10 characters)' };
+    }
+
+    return { valid: true, value: fullRegistration };
   }
 
   // Add event listener for confirm button
   confirmBtn.addEventListener('click', () => {
-    const registration = registrationInput.value.trim();
-    const validation = validateRegistration(registration);
+    const suffix = registrationSuffix.value.trim();
+    const validation = validateRegistration(suffix);
 
     if (!validation.valid) {
       registrationError.textContent = validation.message;
       registrationError.style.display = 'block';
-      registrationInput.style.borderColor = 'var(--warning-color)';
+      inputContainer.style.borderColor = 'var(--warning-color)';
       return;
     }
 
@@ -578,20 +610,20 @@ function showConfirmationDialog(title, aircraftName, condition, price, actionTyp
   });
 
   // Clear error on input
-  registrationInput.addEventListener('input', () => {
+  registrationSuffix.addEventListener('input', () => {
     registrationError.style.display = 'none';
-    registrationInput.style.borderColor = 'var(--border-color)';
+    inputContainer.style.borderColor = 'var(--border-color)';
   });
 
   // Allow Enter key to submit
-  registrationInput.addEventListener('keypress', (e) => {
+  registrationSuffix.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
       confirmBtn.click();
     }
   });
 
-  // Auto-focus the input
-  registrationInput.focus();
+  // Auto-focus the suffix input
+  registrationSuffix.focus();
 }
 
 // Show lease confirmation dialog
@@ -792,6 +824,7 @@ async function loadMarketplaceInfo() {
 
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', () => {
+  fetchRegistrationPrefix(); // Load registration prefix from world info
   loadAircraft();
   loadMarketplaceInfo();
 });

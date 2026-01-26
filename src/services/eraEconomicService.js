@@ -55,38 +55,31 @@ class EraEconomicService {
   }
 
   /**
-   * Get starting capital based on airline type and world year
+   * Get starting capital based on world year
+   * All players start with the same capital, scaled by era
    *
-   * @param {string} airlineType - 'regional', 'medium-haul', or 'long-haul'
    * @param {number} year - World start year
    * @returns {number} - Starting capital in era-appropriate dollars
    *
    * @example
-   * getStartingCapital('regional', 1950)    // Returns $500,000
-   * getStartingCapital('regional', 2020)    // Returns $150,000,000
-   * getStartingCapital('long-haul', 1950)   // Returns $10,000,000
-   * getStartingCapital('long-haul', 2020)   // Returns $2,500,000,000
+   * getStartingCapital(1950)    // Returns $3,750,000 (Propeller Era)
+   * getStartingCapital(1970)    // Returns $9,375,000 (Widebody Era)
+   * getStartingCapital(2020)    // Returns $37,500,000 (Contemporary)
    */
-  getStartingCapital(airlineType, year) {
-    // Base capital in 2024 USD
-    const baseCapital = {
-      'regional': 150000000,      // $150M - Small regional ops
-      'medium-haul': 600000000,   // $600M - Medium carrier
-      'long-haul': 2500000000     // $2.5B - National/international carrier
-    };
+  getStartingCapital(year) {
+    // Base capital in 2024 USD - scaled down by 75% from original design
+    const baseCapital2024 = 37500000; // $37.5M base (was $150M, then $75M)
 
-    const capital = baseCapital[airlineType] || baseCapital['regional'];
-    return Math.round(capital * this.getEraMultiplier(year));
+    return Math.round(baseCapital2024 * this.getEraMultiplier(year));
   }
 
   /**
    * Get starting capital info for display
-   * @param {string} airlineType
    * @param {number} year
    * @returns {object}
    */
-  getStartingCapitalInfo(airlineType, year) {
-    const capital = this.getStartingCapital(airlineType, year);
+  getStartingCapitalInfo(year) {
+    const capital = this.getStartingCapital(year);
     const multiplier = this.getEraMultiplier(year);
 
     return {
@@ -282,11 +275,7 @@ class EraEconomicService {
       expectedLoadFactor: this.getExpectedLoadFactor(year),
       pilotSalaryAnnual: this.getPilotSalary(year),
       crewSalaryAnnual: this.getCrewSalary(year),
-      startingCapital: {
-        regional: this.getStartingCapital('regional', year),
-        mediumHaul: this.getStartingCapital('medium-haul', year),
-        longHaul: this.getStartingCapital('long-haul', year)
-      },
+      startingCapital: this.getStartingCapital(year),
       exampleTicketPrices: {
         shortHaul: this.calculateTicketPrice(500, year, 'economy'),
         mediumHaul: this.calculateTicketPrice(2000, year, 'economy'),

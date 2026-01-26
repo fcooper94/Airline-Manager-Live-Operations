@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const worldTimeService = require('../services/worldTimeService');
+const airportGrowthService = require('../services/airportGrowthService');
+const historicalCountryService = require('../services/historicalCountryService');
 const { World, WorldMembership, User, Airport } = require('../models');
 
 /**
@@ -30,12 +32,21 @@ router.get('/info', async (req, res) => {
 
     // Get user's membership data for this world (for balance info)
     let membership = null;
+    let baseAirport = null;
     if (req.user) {
       const user = await User.findOne({ where: { vatsimId: req.user.vatsimId } });
       if (user) {
         membership = await WorldMembership.findOne({
-          where: { userId: user.id, worldId: activeWorldId }
+          where: { userId: user.id, worldId: activeWorldId },
+          include: [{
+            model: Airport,
+            as: 'baseAirport'
+          }]
         });
+
+        if (membership && membership.baseAirport) {
+          baseAirport = membership.baseAirport;
+        }
       }
     }
 
@@ -65,7 +76,13 @@ router.get('/info', async (req, res) => {
       airlineName: membership?.airlineName,
       airlineCode: membership?.airlineCode,
       balance: membership?.balance || 0,
-      reputation: membership?.reputation || 0
+      reputation: membership?.reputation || 0,
+      // Include base airport info for registration prefix
+      baseAirport: baseAirport ? {
+        icaoCode: baseAirport.icaoCode,
+        name: baseAirport.name,
+        country: baseAirport.country
+      } : null
     };
 
     res.json(worldInfo);
@@ -299,21 +316,150 @@ router.get('/airports', async (req, res) => {
       }
     }
 
-    const airports = await Airport.findAll({
-      where: whereClause,
-      order: [
-        ['type', 'ASC'], // International Hubs first
-        ['name', 'ASC']
-      ],
-      limit: 200 // Limit results to prevent overwhelming response
+    // Use a more efficient query with LEFT JOIN to get airline counts
+    const sequelize = require('../config/database');
+    const { QueryTypes } = require('sequelize');
+
+    // Build the SQL query dynamically based on whereClause
+    let whereClauses = ['a.is_active = true'];
+    let replacements = {};
+
+    if (type) {
+      whereClauses.push('a.type = :type');
+      replacements.type = type;
+    }
+
+    if (country) {
+      whereClauses.push('a.country = :country');
+      replacements.country = country;
+    }
+
+    if (search) {
+      whereClauses.push(`(
+        a.name ILIKE :search OR
+        a.city ILIKE :search OR
+        a.icao_code ILIKE :search OR
+        a.iata_code ILIKE :search
+      )`);
+      replacements.search = `%${search}%`;
+    }
+
+    // Add world year filtering if applicable
+    if (worldId) {
+      const world = await World.findByPk(worldId);
+      if (world && world.currentTime) {
+        const worldYear = world.currentTime.getFullYear();
+        whereClauses.push(`(
+          (a.operational_from IS NULL OR a.operational_from <= :worldYear) AND
+          (a.operational_until IS NULL OR a.operational_until >= :worldYear)
+        )`);
+        replacements.worldYear = worldYear;
+      }
+    } else if (req.session?.activeWorldId) {
+      const world = await World.findByPk(req.session.activeWorldId);
+      if (world && world.currentTime) {
+        const worldYear = world.currentTime.getFullYear();
+        whereClauses.push(`(
+          (a.operational_from IS NULL OR a.operational_from <= :worldYear) AND
+          (a.operational_until IS NULL OR a.operational_until >= :worldYear)
+        )`);
+        replacements.worldYear = worldYear;
+      }
+    }
+
+    const whereSQL = whereClauses.join(' AND ');
+
+    // Use different limits based on whether this is a search or browse all
+    // For search queries, limit to 200 for performance
+    // For browsing all airports, return up to 5000 (or unlimited)
+    const limit = search ? 200 : 5000;
+
+    const airportsWithData = await sequelize.query(`
+      SELECT
+        a.id,
+        a.icao_code as "icaoCode",
+        a.iata_code as "iataCode",
+        a.name,
+        a.city,
+        a.country,
+        a.latitude,
+        a.longitude,
+        a.elevation,
+        a.type,
+        a.timezone,
+        a.is_active as "isActive",
+        a.operational_from as "operationalFrom",
+        a.operational_until as "operationalUntil",
+        a.traffic_demand as "trafficDemand",
+        a.infrastructure_level as "infrastructureLevel",
+        a.created_at as "createdAt",
+        a.updated_at as "updatedAt",
+        COALESCE(COUNT(wm.id), 0)::int as "airlinesBasedHere"
+      FROM airports a
+      LEFT JOIN world_memberships wm ON wm.base_airport_id = a.id
+      WHERE ${whereSQL}
+      GROUP BY a.id
+      ORDER BY
+        CASE a.type
+          WHEN 'International Hub' THEN 1
+          WHEN 'Major' THEN 2
+          WHEN 'Regional' THEN 3
+          WHEN 'Small Regional' THEN 4
+          ELSE 5
+        END,
+        a.name ASC
+      LIMIT ${limit}
+    `, {
+      replacements,
+      type: QueryTypes.SELECT
     });
 
-    res.json(airports);
-  } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Error fetching airports:', error);
+    // Calculate dynamic traffic and infrastructure based on world year
+    let worldYear = 2024; // Default to current year
+    if (worldId) {
+      const world = await World.findByPk(worldId);
+      if (world && world.currentTime) {
+        worldYear = world.currentTime.getFullYear();
+      }
+    } else if (req.session?.activeWorldId) {
+      const world = await World.findByPk(req.session.activeWorldId);
+      if (world && world.currentTime) {
+        worldYear = world.currentTime.getFullYear();
+      }
     }
-    res.status(500).json({ error: 'Failed to fetch airports' });
+
+    // Apply dynamic metrics and historical country names to each airport
+    const airportsWithDynamicData = airportsWithData.map(airport => {
+      const metrics = airportGrowthService.getAirportMetrics(airport, worldYear);
+      const historicalCountry = historicalCountryService.getHistoricalCountryName(airport.country, worldYear);
+
+      return {
+        ...airport,
+        country: historicalCountry, // Use era-appropriate country name
+        trafficDemand: metrics.trafficDemand,
+        infrastructureLevel: metrics.infrastructureLevel,
+        annualPassengers: metrics.annualPassengers,
+        runways: metrics.runways,
+        stands: metrics.stands
+      };
+    });
+
+    // Sort by annual passengers (descending) for browse all, or keep search order for searches
+    if (!search) {
+      airportsWithDynamicData.sort((a, b) => {
+        const paxA = Number(a.annualPassengers) || 0;
+        const paxB = Number(b.annualPassengers) || 0;
+        return paxB - paxA;
+      });
+    }
+
+    res.json(airportsWithDynamicData);
+  } catch (error) {
+    console.error('Error fetching airports:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Full error details:', error.stack);
+    }
+    res.status(500).json({ error: 'Failed to fetch airports', details: error.message });
   }
 });
 
