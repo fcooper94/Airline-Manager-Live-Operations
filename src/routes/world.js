@@ -50,12 +50,19 @@ router.get('/info', async (req, res) => {
       }
     }
 
+    // Get the current time from worldTimeService (always up-to-date in memory)
+    // instead of reading from database which is only saved every 10 seconds
+    let currentTime = world.currentTime;
+    if (worldTimeService.activeWorld && worldTimeService.activeWorld.id === activeWorldId) {
+      currentTime = worldTimeService.activeWorld.currentTime;
+    }
+
     // Calculate elapsed days based on the world's dates
-    const elapsedMs = world.currentTime.getTime() - world.startDate.getTime();
+    const elapsedMs = currentTime.getTime() - world.startDate.getTime();
     const elapsedDays = Math.floor(elapsedMs / (1000 * 60 * 60 * 24));
 
     // Calculate the decade from currentTime (e.g., 1995 -> "90's")
-    const currentYear = world.currentTime.getFullYear();
+    const currentYear = currentTime.getFullYear();
     const decade = Math.floor(currentYear / 10) * 10;
     const decadeString = `${decade.toString().slice(-2)}'s`;
 
@@ -64,7 +71,7 @@ router.get('/info', async (req, res) => {
       id: world.id,
       name: world.name,
       description: world.description,
-      currentTime: world.currentTime,
+      currentTime: currentTime,
       startDate: world.startDate,
       timeAcceleration: world.timeAcceleration,
       era: decadeString,
@@ -77,11 +84,16 @@ router.get('/info', async (req, res) => {
       airlineCode: membership?.airlineCode,
       balance: membership?.balance || 0,
       reputation: membership?.reputation || 0,
-      // Include base airport info for registration prefix
+      // Include base airport info for registration prefix and route planning
       baseAirport: baseAirport ? {
+        id: baseAirport.id,
         icaoCode: baseAirport.icaoCode,
+        iataCode: baseAirport.iataCode,
         name: baseAirport.name,
-        country: baseAirport.country
+        city: baseAirport.city,
+        country: baseAirport.country,
+        latitude: parseFloat(baseAirport.latitude),
+        longitude: parseFloat(baseAirport.longitude)
       } : null
     };
 

@@ -1,0 +1,108 @@
+<!-- TITLE: Route Management - Airline Manager -->
+<!-- SUBTITLE: Manage Routes -->
+<!-- SCRIPTS: /js/routes.js -->
+
+<div class="dashboard-container">
+  <aside class="sidebar">
+    <div class="sidebar-header">OPERATIONS</div>
+    <ul class="nav-menu">
+      <li class="nav-item">
+        <a href="/dashboard">
+          <span class="nav-text">Dashboard</span>
+        </a>
+      </li>
+      <li class="nav-item parent active">
+        <a href="#" onclick="return false;">
+          <span class="nav-text">Flight Operations</span>
+        </a>
+        <ul class="nav-submenu">
+          <li class="nav-item active">
+            <a href="/routes">
+              <span class="nav-text">Manage Routes</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="/scheduling">
+              <span class="nav-text">Scheduling</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="/pricing">
+              <span class="nav-text">Price Management</span>
+            </a>
+          </li>
+        </ul>
+      </li>
+      <li class="nav-item">
+        <a href="/fleet">
+          <span class="nav-text">Fleet Management</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="/finances">
+          <span class="nav-text">Financial Reports</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="/aircraft-marketplace">
+          <span class="nav-text">Aircraft Marketplace</span>
+        </a>
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <a href="/world-selection" class="btn btn-secondary btn-full-width">
+        <span class="nav-text">SELECT WORLD</span>
+      </a>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h1 id="routesTitle">ROUTE MANAGEMENT</h1>
+      <p class="subtitle">MANAGE YOUR AIRLINE ROUTES</p>
+    </div>
+
+    <!-- Performance Summary Section -->
+    <div class="ops-panel full-width" style="margin-bottom: 2rem;">
+      <div class="panel-header">
+        <h2>ROUTE PERFORMANCE SUMMARY</h2>
+        <span class="panel-badge" id="totalRoutesBadge">0 ROUTES</span>
+      </div>
+      <div class="panel-body">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+          <!-- Best Performing Routes -->
+          <div>
+            <h3 style="color: var(--success-color); margin-bottom: 1rem; font-size: 1.1rem;">BEST PERFORMING ROUTES</h3>
+            <div id="bestRoutesContainer">
+              <div class="empty-message">Loading...</div>
+            </div>
+          </div>
+
+          <!-- Worst Performing Routes -->
+          <div>
+            <h3 style="color: var(--warning-color); margin-bottom: 1rem; font-size: 1.1rem;">WORST PERFORMING ROUTES</h3>
+            <div id="worstRoutesContainer">
+              <div class="empty-message">Loading...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- All Routes Section -->
+    <div class="ops-panel full-width">
+      <div class="panel-header">
+        <h2>ALL ROUTES</h2>
+        <button class="btn btn-primary" onclick="createNewRoute()">CREATE NEW ROUTE</button>
+      </div>
+      <div class="panel-body">
+        <div id="routesTable">
+          <div class="table-empty">
+            <div class="empty-message">LOADING ROUTES...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>

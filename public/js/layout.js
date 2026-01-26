@@ -55,7 +55,8 @@ async function loadUserInfo() {
 }
 
 // Global variables for world time tracking
-let currentWorldTime = null;
+let serverReferenceTime = null; // Server's game time at a specific moment
+let serverReferenceTimestamp = null; // Real-world timestamp when serverReferenceTime was valid
 let worldTimeAcceleration = 60;
 let worldClockInterval = null;
 
@@ -82,28 +83,26 @@ async function loadWorldInfo() {
         worldNameEl.textContent = worldInfo.name || '--';
       }
 
-      // Store current world time and acceleration
-      currentWorldTime = new Date(worldInfo.currentTime);
+      // Store server reference time and acceleration
+      serverReferenceTime = new Date(worldInfo.currentTime);
+      serverReferenceTimestamp = Date.now(); // Capture the real-world time when we got this data
       worldTimeAcceleration = worldInfo.timeAcceleration || 60;
 
-      // Format the world date and time separately
+      // Calculate and display current world time
+      const currentWorldTime = calculateCurrentWorldTime();
       const worldDateEl = document.getElementById('worldDate');
       const worldTimeEl = document.getElementById('worldTime');
-      if (worldDateEl && worldTimeEl) {
-        worldDateEl.textContent = currentWorldTime.toLocaleDateString();
-        worldTimeEl.textContent = currentWorldTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-      }
+      const worldDayEl = document.getElementById('worldDay');
 
-      // Update era
-      const worldEraEl = document.getElementById('worldEra');
-      if (worldEraEl) {
-        worldEraEl.textContent = worldInfo.era || '--';
-      }
+      if (worldDateEl && worldTimeEl && currentWorldTime) {
+        worldDateEl.textContent = currentWorldTime.toLocaleDateString('en-GB');
+        worldTimeEl.textContent = currentWorldTime.toLocaleTimeString('en-GB', {hour: '2-digit', minute:'2-digit'});
 
-      // Update elapsed time
-      const worldElapsedEl = document.getElementById('worldElapsed');
-      if (worldElapsedEl) {
-        worldElapsedEl.textContent = `${worldInfo.elapsedDays || 0} days`;
+        // Update day of week
+        if (worldDayEl) {
+          const dayNames = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+          worldDayEl.textContent = dayNames[currentWorldTime.getDay()];
+        }
       }
 
       // Update balance
@@ -122,8 +121,8 @@ async function loadWorldInfo() {
         }
       }
 
-      // Set up real-time clock with correct acceleration
-      startRealTimeClock(worldTimeAcceleration);
+      // Set up real-time clock
+      startRealTimeClock();
     }
     // If no world data, just leave placeholder values visible - no need to hide container
   } catch (error) {
@@ -137,8 +136,24 @@ function updateWorldTime() {
   loadWorldInfo();
 }
 
-// More efficient real-time clock that increments time locally
-function startRealTimeClock(accelerationFactor) {
+// Calculate current world time based on server reference
+function calculateCurrentWorldTime() {
+  if (!serverReferenceTime || !serverReferenceTimestamp) {
+    return null;
+  }
+
+  // Calculate real-world time elapsed since we got the reference
+  const realElapsedMs = Date.now() - serverReferenceTimestamp;
+
+  // Calculate game time advancement (accelerated)
+  const gameElapsedMs = realElapsedMs * worldTimeAcceleration;
+
+  // Calculate current game time
+  return new Date(serverReferenceTime.getTime() + gameElapsedMs);
+}
+
+// More efficient real-time clock that calculates time rather than incrementing
+function startRealTimeClock() {
   // Clear any existing interval
   if (worldClockInterval) {
     clearInterval(worldClockInterval);
@@ -146,21 +161,24 @@ function startRealTimeClock(accelerationFactor) {
 
   // Update the clock every 100ms for smooth progression
   worldClockInterval = setInterval(() => {
-    if (currentWorldTime) {
-      // Advance game time based on acceleration (100ms real time)
-      // If acceleration is 60x: 100ms real = 6000ms game time (6 seconds)
-      // If acceleration is 120x: 100ms real = 12000ms game time (12 seconds)
-      currentWorldTime = new Date(currentWorldTime.getTime() + (100 * accelerationFactor));
+    const currentWorldTime = calculateCurrentWorldTime();
 
+    if (currentWorldTime) {
       const worldTimeEl = document.getElementById('worldTime');
       const worldDateEl = document.getElementById('worldDate');
+      const worldDayEl = document.getElementById('worldDay');
 
       if (worldTimeEl) {
-        worldTimeEl.textContent = currentWorldTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        worldTimeEl.textContent = currentWorldTime.toLocaleTimeString('en-GB', {hour: '2-digit', minute:'2-digit'});
       }
 
       if (worldDateEl) {
-        worldDateEl.textContent = currentWorldTime.toLocaleDateString();
+        worldDateEl.textContent = currentWorldTime.toLocaleDateString('en-GB');
+      }
+
+      if (worldDayEl) {
+        const dayNames = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+        worldDayEl.textContent = dayNames[currentWorldTime.getDay()];
       }
     }
   }, 100); // Update every 100ms

@@ -616,7 +616,7 @@ function renderWorldsTable(worlds) {
     const currentTime = new Date(world.currentTime);
     console.log('Parsed currentTime as Date:', currentTime.toString());
 
-    const formattedTime = currentTime.toLocaleDateString() + ' ' + currentTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    const formattedTime = currentTime.toLocaleDateString('en-GB') + ' ' + currentTime.toLocaleTimeString('en-GB', {hour: '2-digit', minute:'2-digit'});
 
     return `
       <tr style="border-bottom: 1px solid var(--border-color);">

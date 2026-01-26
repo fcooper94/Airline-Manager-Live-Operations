@@ -213,12 +213,12 @@ function showAircraftDetails(userAircraftId) {
         <h3 style="margin: 0 0 1rem 0; color: var(--accent-color); font-size: 1rem;">FINANCIAL DETAILS</h3>
         ${userAircraft.acquisitionType === 'purchase' ? `
           <div class="info-row"><span class="info-label">Purchase Price:</span> <strong style="color: var(--success-color);">$${formatCurrency(userAircraft.purchasePrice || 0)}</strong></div>
-          <div class="info-row"><span class="info-label">Acquired On:</span> ${new Date(userAircraft.acquiredAt).toLocaleDateString()}</div>
+          <div class="info-row"><span class="info-label">Acquired On:</span> ${new Date(userAircraft.acquiredAt).toLocaleDateString('en-GB')}</div>
         ` : `
           <div class="info-row"><span class="info-label">Monthly Payment:</span> <strong style="color: var(--accent-color);">$${formatCurrency(userAircraft.leaseMonthlyPayment || 0)}/mo</strong></div>
           <div class="info-row"><span class="info-label">Lease Duration:</span> ${userAircraft.leaseDurationMonths || 0} months</div>
-          <div class="info-row"><span class="info-label">Lease Start:</span> ${new Date(userAircraft.leaseStartDate).toLocaleDateString()}</div>
-          <div class="info-row"><span class="info-label">Lease End:</span> ${new Date(userAircraft.leaseEndDate).toLocaleDateString()}</div>
+          <div class="info-row"><span class="info-label">Lease Start:</span> ${new Date(userAircraft.leaseStartDate).toLocaleDateString('en-GB')}</div>
+          <div class="info-row"><span class="info-label">Lease End:</span> ${new Date(userAircraft.leaseEndDate).toLocaleDateString('en-GB')}</div>
         `}
       </div>
 

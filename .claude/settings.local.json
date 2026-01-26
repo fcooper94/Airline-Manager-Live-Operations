@@ -18,7 +18,9 @@
       "Bash(node src/scripts/syncUserAircraft.js:*)",
       "Bash(psql:*)",
       "Bash(node src/scripts/addOperationalDates.js:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(taskkill //F //PID 49168)",
+      "Bash(taskkill //F //PID 49004 //PID 37124)"
     ]
   }
 }

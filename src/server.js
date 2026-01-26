@@ -48,8 +48,17 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Serve static files
-app.use(express.static(path.join(__dirname, '../public')));
+// Serve static files with cache control
+app.use(express.static(path.join(__dirname, '../public'), {
+  setHeaders: (res, path) => {
+    // Disable caching for JS files to prevent stale code issues
+    if (path.endsWith('.js')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
+}));
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
@@ -81,6 +90,8 @@ const adminRoutes = require('./routes/admin');
 const aircraftRoutes = require('./routes/aircraft');
 const fleetRoutes = require('./routes/fleet');
 const financesRoutes = require('./routes/finances');
+const routesRoutes = require('./routes/routes');
+const schedulingRoutes = require('./routes/scheduling');
 
 // Import services
 const worldTimeService = require('./services/worldTimeService');
@@ -144,6 +155,8 @@ app.use('/api/worlds', worldSelectionRoutes);
 app.use('/api/aircraft', aircraftRoutes);
 app.use('/api/fleet', requireWorld, fleetRoutes);
 app.use('/api/finances', requireWorld, financesRoutes);
+app.use('/api/routes', requireWorld, routesRoutes);
+app.use('/api/schedule', requireWorld, schedulingRoutes);
 app.use('/api/admin', requireAuth, adminRoutes);
 
 // Page routes
@@ -200,6 +213,42 @@ app.get('/fleet', requireWorld, async (req, res) => {
 app.get('/finances', requireWorld, async (req, res) => {
   try {
     const html = await renderPage(path.join(__dirname, '../public/finances.html'));
+    res.send(html);
+  } catch (error) {
+    res.status(500).send('Error loading page');
+  }
+});
+
+app.get('/routes', requireWorld, async (req, res) => {
+  try {
+    const html = await renderPage(path.join(__dirname, '../public/routes.html'));
+    res.send(html);
+  } catch (error) {
+    res.status(500).send('Error loading page');
+  }
+});
+
+app.get('/routes/create', requireWorld, async (req, res) => {
+  try {
+    const html = await renderPage(path.join(__dirname, '../public/routes-create.html'));
+    res.send(html);
+  } catch (error) {
+    res.status(500).send('Error loading page');
+  }
+});
+
+app.get('/scheduling', requireWorld, async (req, res) => {
+  try {
+    const html = await renderPage(path.join(__dirname, '../public/scheduling.html'));
+    res.send(html);
+  } catch (error) {
+    res.status(500).send('Error loading page');
+  }
+});
+
+app.get('/routes/edit', requireWorld, async (req, res) => {
+  try {
+    const html = await renderPage(path.join(__dirname, '../public/routes-edit.html'));
     res.send(html);
   } catch (error) {
     res.status(500).send('Error loading page');

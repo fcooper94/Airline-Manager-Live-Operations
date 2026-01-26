@@ -1,0 +1,346 @@
+<!-- TITLE: Edit Route - Airline Manager -->
+<!-- SUBTITLE: Edit Route -->
+<!-- SCRIPTS: /js/routes-edit.js -->
+
+<div class="dashboard-container">
+  <aside class="sidebar">
+    <div class="sidebar-header">OPERATIONS</div>
+    <ul class="nav-menu">
+      <li class="nav-item">
+        <a href="/dashboard">
+          <span class="nav-text">Dashboard</span>
+        </a>
+      </li>
+      <li class="nav-item parent active">
+        <a href="#" onclick="return false;">
+          <span class="nav-text">Flight Operations</span>
+        </a>
+        <ul class="nav-submenu">
+          <li class="nav-item active">
+            <a href="/routes">
+              <span class="nav-text">Manage Routes</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="/scheduling">
+              <span class="nav-text">Scheduling</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="/pricing">
+              <span class="nav-text">Price Management</span>
+            </a>
+          </li>
+        </ul>
+      </li>
+      <li class="nav-item">
+        <a href="/fleet">
+          <span class="nav-text">Fleet Management</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="/finances">
+          <span class="nav-text">Financial Reports</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="/aircraft-marketplace">
+          <span class="nav-text">Aircraft Marketplace</span>
+        </a>
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <a href="/world-selection" class="btn btn-secondary btn-full-width">
+        <span class="nav-text">SELECT WORLD</span>
+      </a>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h1 id="routesTitle">EDIT ROUTE</h1>
+      <p class="subtitle">MODIFY ROUTE CONFIGURATION AND DESTINATION</p>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loadingState" style="padding: 4rem; text-align: center;">
+      <div style="color: var(--text-muted); font-size: 1.1rem;">Loading route data...</div>
+    </div>
+
+    <!-- Edit Form (hidden until loaded) -->
+    <div id="editForm" style="display: none;">
+      <!-- Route Configuration Panel -->
+      <div class="ops-panel full-width" style="margin-bottom: 2rem;">
+        <div class="panel-header">
+          <h2>ROUTE CONFIGURATION</h2>
+        </div>
+        <div class="panel-body">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 600;">Route Number *</label>
+              <input
+                type="text"
+                id="routeNumber"
+                placeholder="e.g., BA123"
+                maxlength="10"
+                style="width: 100%; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 1rem;"
+              />
+            </div>
+
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 600;">Departure Airport</label>
+              <input
+                type="text"
+                id="departureAirport"
+                value="Loading..."
+                readonly
+                style="width: 100%; padding: 0.75rem; background: var(--surface); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-muted); cursor: not-allowed; font-size: 1rem;"
+              />
+            </div>
+          </div>
+
+          <div style="margin-bottom: 1.5rem;">
+            <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 600;">Assigned Aircraft (Optional)</label>
+            <select
+              id="assignedAircraft"
+              style="width: 100%; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 1rem;"
+            >
+              <option value="">-- Not assigned --</option>
+            </select>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin-bottom: 1rem;">
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 600;">Departure Time *</label>
+              <input
+                type="time"
+                id="departureTime"
+                value="08:00"
+                style="width: 100%; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 1rem;"
+              />
+            </div>
+
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 600;">Ticket Price ($) *</label>
+              <input
+                type="number"
+                id="ticketPrice"
+                placeholder="150"
+                min="1"
+                step="1"
+                style="width: 100%; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 1rem;"
+              />
+            </div>
+
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 600;">Frequency</label>
+              <select
+                id="frequency"
+                style="width: 100%; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 1rem;"
+              >
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="biweekly">Bi-weekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-secondary); cursor: pointer;">
+              <input
+                type="checkbox"
+                id="isActive"
+                style="width: 1.2rem; height: 1.2rem; cursor: pointer;"
+              />
+              <span>Route is active</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Current Destination Panel -->
+      <div id="currentDestinationPanel" class="ops-panel full-width" style="margin-bottom: 2rem; border: 2px solid var(--success-color);">
+        <div class="panel-header" style="background: rgba(5, 150, 105, 0.15);">
+          <h2 style="color: var(--success-color);">CURRENT DESTINATION</h2>
+          <button onclick="changeDestination()" class="btn btn-secondary btn-sm">CHANGE DESTINATION</button>
+        </div>
+        <div class="panel-body">
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem;">
+            <div>
+              <div style="color: var(--success-color); font-weight: 600; font-size: 1.3rem; margin-bottom: 0.5rem;" id="currentDestName"></div>
+              <div style="color: var(--text-secondary); font-size: 1rem;" id="currentDestDetails"></div>
+            </div>
+            <div style="text-align: right;">
+              <div style="color: var(--text-muted); font-size: 0.9rem;">Distance from base</div>
+              <div style="color: var(--success-color); font-weight: 600; font-size: 1.5rem;" id="currentDestDistance"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- New Destination Selection Panel (hidden by default) -->
+      <div id="destinationSelectionPanel" class="ops-panel full-width" style="margin-bottom: 2rem; display: none;">
+        <div class="panel-header">
+          <h2>SELECT NEW DESTINATION AERODROME</h2>
+          <span class="panel-badge" id="airportCountBadge">0 AIRPORTS</span>
+        </div>
+        <div class="panel-body">
+          <!-- Filters Grid -->
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.9rem;">Continent</label>
+              <select
+                id="continentFilter"
+                onchange="filterAirportsByContinent()"
+                style="width: 100%; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary);"
+              >
+                <option value="">-- All continents --</option>
+                <option value="Africa">Africa</option>
+                <option value="Asia">Asia</option>
+                <option value="Europe">Europe</option>
+                <option value="North America">North America</option>
+                <option value="South America">South America</option>
+                <option value="Oceania">Oceania</option>
+              </select>
+            </div>
+
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.9rem;">Country</label>
+              <select
+                id="countryFilter"
+                onchange="applyDestinationFilters()"
+                style="width: 100%; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary);"
+              >
+                <option value="">-- All countries --</option>
+              </select>
+            </div>
+
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.9rem;">Search keyword (airport code or name)</label>
+              <input
+                type="text"
+                id="searchKeyword"
+                oninput="applyDestinationFilters()"
+                placeholder="Enter ICAO, IATA, or airport name"
+                style="width: 100%; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary);"
+              />
+            </div>
+
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.9rem;">Infrastructure level</label>
+              <div style="display: flex; gap: 0.5rem;">
+                <select
+                  id="infraOperator"
+                  onchange="applyDestinationFilters()"
+                  style="width: 60px; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary);"
+                >
+                  <option value="=">=</option>
+                  <option value=">=">&ge;</option>
+                  <option value="<=">&le;</option>
+                </select>
+                <input
+                  type="number"
+                  id="infraLevel"
+                  oninput="applyDestinationFilters()"
+                  placeholder="All"
+                  min="1"
+                  max="20"
+                  style="flex: 1; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary);"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.9rem;">Traffic level</label>
+              <div style="display: flex; gap: 0.5rem;">
+                <select
+                  id="trafficOperator"
+                  onchange="applyDestinationFilters()"
+                  style="width: 60px; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary);"
+                >
+                  <option value="=">=</option>
+                  <option value=">=">&ge;</option>
+                  <option value="<=">&le;</option>
+                </select>
+                <input
+                  type="number"
+                  id="trafficLevel"
+                  oninput="applyDestinationFilters()"
+                  placeholder="All"
+                  min="1"
+                  max="20"
+                  style="flex: 1; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary);"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.9rem;">Time zone</label>
+              <select
+                id="timezoneFilter"
+                onchange="applyDestinationFilters()"
+                style="width: 100%; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary);"
+              >
+                <option value="">Any</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 1rem; align-items: flex-end; margin-bottom: 1.5rem;">
+            <div style="flex: 1;">
+              <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.9rem;">Range filter (NM, enter 0 for no filtering)</label>
+              <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <input
+                  type="number"
+                  id="minRange"
+                  oninput="applyDestinationFilters()"
+                  placeholder="min 0"
+                  min="0"
+                  value="0"
+                  style="flex: 1; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary);"
+                />
+                <span style="color: var(--text-muted);">to</span>
+                <input
+                  type="number"
+                  id="maxRange"
+                  oninput="applyDestinationFilters()"
+                  placeholder="max 0"
+                  min="0"
+                  value="0"
+                  style="flex: 1; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary);"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-secondary); cursor: pointer; padding: 0.75rem 0;">
+                <input
+                  type="checkbox"
+                  id="excludeExistingRoutes"
+                  onchange="applyDestinationFilters()"
+                  style="width: 1.2rem; height: 1.2rem; cursor: pointer;"
+                />
+                <span style="font-size: 0.9rem;">Do not show destinations to which I fly</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Available Airports List -->
+          <div id="availableAirportsList" style="border: 1px solid var(--border-color); border-radius: 4px; max-height: 500px; overflow-y: auto;">
+            <div style="padding: 3rem; text-align: center; color: var(--text-muted);">
+              Loading airports...
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-bottom: 2rem;">
+        <a href="/routes" class="btn btn-secondary" style="padding: 0.75rem 2rem; text-decoration: none;">CANCEL</a>
+        <button onclick="submitRouteUpdate()" class="btn btn-primary" style="padding: 0.75rem 2rem;">SAVE CHANGES</button>
+      </div>
+    </div>
+  </main>
+</div>

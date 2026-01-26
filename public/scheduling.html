@@ -1,0 +1,178 @@
+<!-- TITLE: Scheduling - Airline Manager -->
+<!-- SUBTITLE: Aircraft Scheduling & Utilization -->
+<!-- SCRIPTS: /js/scheduling-v3.js -->
+
+<div class="dashboard-container">
+  <aside class="sidebar">
+    <div class="sidebar-header">OPERATIONS</div>
+    <ul class="nav-menu">
+      <li class="nav-item">
+        <a href="/dashboard">
+          <span class="nav-text">Dashboard</span>
+        </a>
+      </li>
+      <li class="nav-item parent active">
+        <a href="#" onclick="return false;">
+          <span class="nav-text">Flight Operations</span>
+        </a>
+        <ul class="nav-submenu">
+          <li class="nav-item">
+            <a href="/routes">
+              <span class="nav-text">Manage Routes</span>
+            </a>
+          </li>
+          <li class="nav-item active">
+            <a href="/scheduling">
+              <span class="nav-text">Scheduling</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="/pricing">
+              <span class="nav-text">Price Management</span>
+            </a>
+          </li>
+        </ul>
+      </li>
+      <li class="nav-item">
+        <a href="/fleet">
+          <span class="nav-text">Fleet Management</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="/finances">
+          <span class="nav-text">Financial Reports</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="/aircraft-marketplace">
+          <span class="nav-text">Aircraft Marketplace</span>
+        </a>
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <a href="/world-selection" class="btn btn-secondary btn-full-width">
+        <span class="nav-text">SELECT WORLD</span>
+      </a>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h1>AIRCRAFT SCHEDULING</h1>
+      <p class="subtitle">MANAGE FLEET UTILIZATION AND ROUTE ASSIGNMENTS</p>
+    </div>
+
+    <!-- Controls Panel -->
+    <div class="ops-panel full-width" style="margin-bottom: 1.5rem;">
+      <div class="panel-body" style="padding: 1rem;">
+        <div style="display: flex; gap: 1.5rem; align-items: center;">
+          <div>
+            <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase; font-weight: 600; letter-spacing: 1px;">Viewing Day</label>
+            <select
+              id="dayOfWeek"
+              onchange="loadSchedule()"
+              style="padding: 0.5rem 1rem; background: var(--accent-color); border: 1px solid var(--accent-color); border-radius: 3px; color: white; font-size: 0.9rem; font-weight: 600; cursor: pointer;"
+            >
+              <option value="1">MONDAY</option>
+              <option value="2">TUESDAY</option>
+              <option value="3">WEDNESDAY</option>
+              <option value="4">THURSDAY</option>
+              <option value="5">FRIDAY</option>
+              <option value="6">SATURDAY</option>
+              <option value="0">SUNDAY</option>
+            </select>
+          </div>
+
+          <div>
+            <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase; font-weight: 600; letter-spacing: 1px;">Group By</label>
+            <select
+              id="groupBy"
+              onchange="loadSchedule()"
+              style="padding: 0.5rem 1rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 3px; color: var(--text-primary); font-size: 0.9rem; cursor: pointer;"
+            >
+              <option value="type">Aircraft Type</option>
+              <option value="none">No Grouping</option>
+            </select>
+          </div>
+
+          <div style="flex: 1;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Schedule Grid -->
+    <div class="ops-panel full-width">
+      <div class="panel-header">
+        <h2>FLEET SCHEDULE</h2>
+        <span class="panel-badge" id="fleetCountBadge">0 AIRCRAFT</span>
+      </div>
+      <div class="panel-body" style="padding: 0; overflow-x: auto;">
+        <div id="scheduleGrid" style="min-width: 100%;">
+          <div style="padding: 3rem; text-align: center; color: var(--text-muted);">
+            Loading schedule...
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Add Route Modal -->
+  <div id="addRouteModal" style="display: none; position: fixed; bottom: 2rem; right: 2rem; z-index: 1000; width: 350px; max-height: 500px; background: var(--surface); border-radius: 8px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3); overflow: hidden; flex-direction: column;">
+    <div style="padding: 1rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: var(--surface-elevated);">
+      <h3 style="margin: 0; color: var(--text-primary); font-size: 0.95rem; font-weight: 600;">DRAG ROUTE TO SCHEDULE</h3>
+      <button onclick="closeAddRouteModal()" style="background: none; border: none; color: var(--text-muted); font-size: 1.3rem; cursor: pointer; padding: 0; width: 1.5rem; height: 1.5rem; line-height: 1;">&times;</button>
+    </div>
+    <div style="padding: 1rem; overflow-y: auto; flex: 1;">
+      <div id="unassignedRoutesList">
+        <div style="padding: 2rem; text-align: center; color: var(--text-muted); font-size: 0.9rem;">
+          Loading routes...
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Drag Preview -->
+  <div id="dragPreview" style="display: none; position: fixed; pointer-events: none; z-index: 2000; background: var(--accent-color); color: white; padding: 0.5rem 1rem; border-radius: 4px; font-weight: 600; font-size: 0.9rem; white-space: nowrap; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);"></div>
+</div>
+
+<style>
+  .route-draggable {
+    cursor: grab;
+    user-select: none;
+  }
+  .route-draggable:active {
+    cursor: grabbing;
+  }
+
+  .schedule-cell {
+    position: relative;
+    cursor: pointer;
+  }
+  .schedule-cell.drag-over {
+    background: rgba(0, 102, 204, 0.2) !important;
+    outline: 2px solid var(--accent-color);
+  }
+
+  .flight-block {
+    position: absolute;
+    top: 3px;
+    height: calc(100% - 6px);
+    background: var(--accent-color);
+    border-radius: 3px;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.4rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .flight-block:hover {
+    opacity: 0.9;
+  }
+</style>

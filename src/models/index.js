@@ -5,6 +5,8 @@ const Flight = require('./Flight');
 const Aircraft = require('./Aircraft');
 const UserAircraft = require('./UserAircraft');
 const Airport = require('./Airport');
+const Route = require('./Route');
+const ScheduledFlight = require('./ScheduledFlight');
 
 // Define associations
 User.belongsToMany(World, {
@@ -35,6 +37,21 @@ Aircraft.hasMany(UserAircraft, { foreignKey: 'aircraft_id', as: 'userAircraft' }
 WorldMembership.belongsTo(Airport, { foreignKey: 'base_airport_id', as: 'baseAirport' });
 Airport.hasMany(WorldMembership, { foreignKey: 'base_airport_id', as: 'airlines' });
 
+// Route associations
+WorldMembership.hasMany(Route, { foreignKey: 'world_membership_id', as: 'routes' });
+Route.belongsTo(WorldMembership, { foreignKey: 'world_membership_id', as: 'membership' });
+Route.belongsTo(Airport, { foreignKey: 'departure_airport_id', as: 'departureAirport' });
+Route.belongsTo(Airport, { foreignKey: 'arrival_airport_id', as: 'arrivalAirport' });
+Route.belongsTo(UserAircraft, { foreignKey: 'assigned_aircraft_id', as: 'assignedAircraft' });
+Airport.hasMany(Route, { foreignKey: 'departure_airport_id', as: 'departingRoutes' });
+Airport.hasMany(Route, { foreignKey: 'arrival_airport_id', as: 'arrivingRoutes' });
+
+// ScheduledFlight associations
+Route.hasMany(ScheduledFlight, { foreignKey: 'route_id', as: 'scheduledFlights' });
+ScheduledFlight.belongsTo(Route, { foreignKey: 'route_id', as: 'route' });
+UserAircraft.hasMany(ScheduledFlight, { foreignKey: 'aircraft_id', as: 'scheduledFlights' });
+ScheduledFlight.belongsTo(UserAircraft, { foreignKey: 'aircraft_id', as: 'aircraft' });
+
 module.exports = {
   User,
   World,
@@ -42,5 +59,7 @@ module.exports = {
   Flight,
   Aircraft,
   UserAircraft,
-  Airport
+  Airport,
+  Route,
+  ScheduledFlight
 };
