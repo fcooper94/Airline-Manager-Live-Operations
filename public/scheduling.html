@@ -69,19 +69,39 @@
         <div style="display: flex; gap: 1.5rem; align-items: center;">
           <div>
             <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase; font-weight: 600; letter-spacing: 1px;">Viewing Day</label>
-            <select
-              id="dayOfWeek"
-              onchange="loadSchedule()"
-              style="padding: 0.5rem 1rem; background: var(--accent-color); border: 1px solid var(--accent-color); border-radius: 3px; color: white; font-size: 0.9rem; font-weight: 600; cursor: pointer;"
-            >
-              <option value="1">MONDAY</option>
-              <option value="2">TUESDAY</option>
-              <option value="3">WEDNESDAY</option>
-              <option value="4">THURSDAY</option>
-              <option value="5">FRIDAY</option>
-              <option value="6">SATURDAY</option>
-              <option value="0">SUNDAY</option>
-            </select>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <button
+                onclick="previousDay()"
+                style="padding: 0.5rem 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 3px; color: var(--text-primary); font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.2s;"
+                onmouseover="this.style.background='var(--surface)'"
+                onmouseout="this.style.background='var(--surface-elevated)'"
+                title="Previous day"
+              >
+                ◀
+              </button>
+              <select
+                id="dayOfWeek"
+                onchange="loadSchedule()"
+                style="padding: 0.5rem 1rem; background: var(--accent-color); border: 1px solid var(--accent-color); border-radius: 3px; color: white; font-size: 0.9rem; font-weight: 600; cursor: pointer;"
+              >
+                <option value="1">MONDAY</option>
+                <option value="2">TUESDAY</option>
+                <option value="3">WEDNESDAY</option>
+                <option value="4">THURSDAY</option>
+                <option value="5">FRIDAY</option>
+                <option value="6">SATURDAY</option>
+                <option value="0">SUNDAY</option>
+              </select>
+              <button
+                onclick="nextDay()"
+                style="padding: 0.5rem 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 3px; color: var(--text-primary); font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.2s;"
+                onmouseover="this.style.background='var(--surface)'"
+                onmouseout="this.style.background='var(--surface-elevated)'"
+                title="Next day"
+              >
+                ▶
+              </button>
+            </div>
           </div>
 
           <div>

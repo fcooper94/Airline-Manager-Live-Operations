@@ -59,7 +59,7 @@ router.get('/', async (req, res) => {
           include: [{
             model: Aircraft,
             as: 'aircraft',
-            attributes: ['manufacturer', 'model', 'variant']
+            attributes: ['manufacturer', 'model', 'variant', 'type', 'cruiseSpeed']
           }]
         }
       ],
@@ -371,7 +371,7 @@ router.post('/', async (req, res) => {
           include: [{
             model: Aircraft,
             as: 'aircraft',
-            attributes: ['manufacturer', 'model', 'variant']
+            attributes: ['manufacturer', 'model', 'variant', 'type', 'cruiseSpeed']
           }]
         }
       ]
@@ -457,7 +457,7 @@ router.put('/:id', async (req, res) => {
           include: [{
             model: Aircraft,
             as: 'aircraft',
-            attributes: ['manufacturer', 'model', 'variant']
+            attributes: ['manufacturer', 'model', 'variant', 'type', 'cruiseSpeed']
           }]
         }
       ]

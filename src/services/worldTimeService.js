@@ -259,7 +259,8 @@ class WorldTimeService {
   getCurrentTime(worldId) {
     const worldState = this.worlds.get(worldId);
     if (worldState) {
-      return worldState.inMemoryTime;
+      // Return a new Date object to prevent external modifications
+      return new Date(worldState.inMemoryTime.getTime());
     }
     return null;
   }

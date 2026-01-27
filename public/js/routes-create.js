@@ -1190,7 +1190,7 @@ async function submitNewRoute() {
             departureAirportId: baseAirport.id,
             arrivalAirportId: selectedDestinationAirport.id,
             techStopAirportId: selectedTechStopAirport ? selectedTechStopAirport.id : null,
-            assignedAircraftId: null,
+            assignedAircraftId: assignedAircraftId,
             distance: selectedTechStopAirport && selectedDestinationAirport.routingDistance
               ? selectedDestinationAirport.routingDistance
               : selectedDestinationAirport.distance,
@@ -1235,7 +1235,7 @@ async function submitNewRoute() {
           departureAirportId: baseAirport.id,
           arrivalAirportId: selectedDestinationAirport.id,
           techStopAirportId: selectedTechStopAirport ? selectedTechStopAirport.id : null,
-          assignedAircraftId: null,
+          assignedAircraftId: assignedAircraftId,
           distance: selectedTechStopAirport && selectedDestinationAirport.routingDistance
             ? selectedDestinationAirport.routingDistance
             : selectedDestinationAirport.distance,

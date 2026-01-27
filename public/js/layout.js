@@ -59,9 +59,16 @@ let serverReferenceTime = null; // Server's game time at a specific moment
 let serverReferenceTimestamp = null; // Real-world timestamp when serverReferenceTime was valid
 let worldTimeAcceleration = 60;
 let worldClockInterval = null;
+let worldInfoFetchInProgress = false; // Prevent concurrent fetches
+let worldInfoFetchSequence = 0; // Track request order to ignore stale responses
 
 // Load world information for navigation bar
 async function loadWorldInfo() {
+  // Prevent concurrent fetches to avoid race conditions
+  if (worldInfoFetchInProgress) {
+    return;
+  }
+
   try {
     // Don't show world info on world selection page
     if (window.location.pathname === '/world-selection') {
@@ -72,9 +79,17 @@ async function loadWorldInfo() {
       return;
     }
 
+    worldInfoFetchInProgress = true;
+    const currentSequence = ++worldInfoFetchSequence;
+
     // Get world info from the dedicated API endpoint
     const response = await fetch('/api/world/info');
     const worldInfo = await response.json();
+
+    // Ignore this response if a newer request has been made
+    if (currentSequence !== worldInfoFetchSequence) {
+      return;
+    }
 
     if (response.ok && worldInfo && !worldInfo.error) {
       // Update world information
@@ -84,9 +99,30 @@ async function loadWorldInfo() {
       }
 
       // Store server reference time and acceleration
+      // Always use client-side time to avoid clock skew issues
+      const clientReceiveTime = Date.now();
       serverReferenceTime = new Date(worldInfo.currentTime);
-      serverReferenceTimestamp = Date.now(); // Capture the real-world time when we got this data
+      serverReferenceTimestamp = clientReceiveTime;
       worldTimeAcceleration = worldInfo.timeAcceleration || 60;
+
+      // console.log('[Layout] Time reference updated:', {
+      //   serverTime: serverReferenceTime.toLocaleTimeString(),
+      //   clientTimestamp: new Date(serverReferenceTimestamp).toLocaleTimeString(),
+      //   acceleration: worldTimeAcceleration,
+      //   source: worldInfo.timeSource || 'unknown'
+      // });
+
+      // Broadcast time update event for other scripts to sync
+      window.dispatchEvent(new CustomEvent('worldTimeUpdated', {
+        detail: {
+          referenceTime: serverReferenceTime,
+          referenceTimestamp: serverReferenceTimestamp,
+          acceleration: worldTimeAcceleration,
+          source: worldInfo.timeSource
+        }
+      }));
+
+      // console.log('[Layout] worldTimeUpdated event broadcast');
 
       // Calculate and display current world time
       const currentWorldTime = calculateCurrentWorldTime();
@@ -128,6 +164,8 @@ async function loadWorldInfo() {
   } catch (error) {
     console.error('Error loading world info:', error);
     // On error, just leave placeholder values visible - no need to hide container
+  } finally {
+    worldInfoFetchInProgress = false;
   }
 }
 
@@ -151,6 +189,17 @@ function calculateCurrentWorldTime() {
   // Calculate current game time
   return new Date(serverReferenceTime.getTime() + gameElapsedMs);
 }
+
+// Export world time functions and reference times globally for other pages to use
+window.getGlobalWorldTime = calculateCurrentWorldTime;
+window.getWorldTimeAcceleration = () => worldTimeAcceleration;
+// Also export the raw reference times so other pages can sync exactly
+Object.defineProperty(window, 'serverReferenceTime', {
+  get: () => serverReferenceTime
+});
+Object.defineProperty(window, 'serverReferenceTimestamp', {
+  get: () => serverReferenceTimestamp
+});
 
 // More efficient real-time clock that calculates time rather than incrementing
 function startRealTimeClock() {
@@ -186,6 +235,8 @@ function startRealTimeClock() {
 
 // Universal page initialization
 function initializeLayout() {
+  // console.log('[Layout] Initializing layout.js...');
+  // console.log('[Layout] Starting loadUserInfo()...');
   loadUserInfo();
 
   // Sync world time with server every 30 seconds to avoid drift
@@ -213,6 +264,8 @@ function initializeLayout() {
 
   // Add common functionality that should be available on all pages
   initializeCommonComponents();
+
+  // console.log('[Layout] ✓ Layout initialization complete');
 }
 
 // Initialize common components across all pages
@@ -318,4 +371,7 @@ function showAircraftMarketplaceOptions() {
 }
 
 // Call initialize function when DOM is loaded
-document.addEventListener('DOMContentLoaded', initializeLayout);
+document.addEventListener('DOMContentLoaded', () => {
+  // console.log('[Layout] DOMContentLoaded event fired');
+  initializeLayout();
+});

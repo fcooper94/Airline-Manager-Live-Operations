@@ -326,7 +326,7 @@ server.listen(PORT, async () => {
 // Graceful shutdown
 process.on('SIGINT', () => {
   console.log('\n\nShutting down gracefully...');
-  worldTimeService.stop();
+  worldTimeService.stopAll();
   server.close(() => {
     console.log('Server closed');
     process.exit(0);

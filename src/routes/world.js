@@ -53,9 +53,33 @@ router.get('/info', async (req, res) => {
     // Get the current time from worldTimeService (always up-to-date in memory)
     // instead of reading from database which is only saved every 10 seconds
     let currentTime = worldTimeService.getCurrentTime(activeWorldId);
+    let timeSource = 'memory';
+
     if (!currentTime) {
       // Fall back to database time if world not loaded in memory
+      timeSource = 'database';
       currentTime = world.currentTime;
+
+      const timeDiffMs = Date.now() - world.lastTickAt?.getTime();
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(`⚠ World ${activeWorldId} (${world.name}) not in memory, using database time`);
+        console.warn(`  Database time: ${currentTime.toISOString()}`);
+        console.warn(`  Last tick: ${world.lastTickAt ? world.lastTickAt.toISOString() : 'never'} (${timeDiffMs ? Math.round(timeDiffMs / 1000) : '?'}s ago)`);
+        console.warn(`  Time may be stale - attempting to start world...`);
+      }
+
+      // Try to start the world in memory for future requests
+      worldTimeService.startWorld(activeWorldId).catch(err => {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Failed to start world:', err.message);
+        }
+      });
+    } else if (process.env.NODE_ENV === 'development') {
+      // Log successful in-memory time fetch
+      const dbDiff = currentTime.getTime() - world.currentTime.getTime();
+      if (Math.abs(dbDiff) > 60000) { // More than 1 minute difference
+        console.log(`ℹ World ${world.name} in-memory time: ${currentTime.toISOString()}, DB time: ${world.currentTime.toISOString()} (diff: ${Math.round(dbDiff / 1000)}s)`);
+      }
     }
 
     // Calculate elapsed days based on the world's dates
@@ -73,6 +97,8 @@ router.get('/info', async (req, res) => {
       name: world.name,
       description: world.description,
       currentTime: currentTime,
+      serverTimestamp: Date.now(), // Include server timestamp for accurate client-side calculation
+      timeSource: timeSource, // 'memory' or 'database' - helps debug time issues
       startDate: world.startDate,
       timeAcceleration: world.timeAcceleration,
       era: decadeString,
