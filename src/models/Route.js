@@ -57,6 +57,16 @@ const Route = sequelize.define('Route', {
       key: 'id'
     }
   },
+  techStopAirportId: {
+    type: DataTypes.UUID,
+    allowNull: true,
+    field: 'tech_stop_airport_id',
+    comment: 'Optional technical stop airport for refuelling',
+    references: {
+      model: 'airports',
+      key: 'id'
+    }
+  },
   assignedAircraftId: {
     type: DataTypes.UUID,
     allowNull: true,
@@ -94,7 +104,58 @@ const Route = sequelize.define('Route', {
     type: DataTypes.DECIMAL(10, 2),
     allowNull: false,
     field: 'ticket_price',
-    comment: 'Price per ticket'
+    comment: 'Price per ticket (legacy - use class-based prices)'
+  },
+  // Class-based ticket pricing
+  economyPrice: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0,
+    field: 'economy_price',
+    comment: 'Economy class ticket price'
+  },
+  economyPlusPrice: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0,
+    field: 'economy_plus_price',
+    comment: 'Economy Plus class ticket price'
+  },
+  businessPrice: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0,
+    field: 'business_price',
+    comment: 'Business class ticket price'
+  },
+  firstPrice: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0,
+    field: 'first_price',
+    comment: 'First class ticket price'
+  },
+  // Cargo rates (per ton)
+  cargoLightRate: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0,
+    field: 'cargo_light_rate',
+    comment: 'Light cargo rate per ton'
+  },
+  cargoStandardRate: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0,
+    field: 'cargo_standard_rate',
+    comment: 'Standard cargo rate per ton'
+  },
+  cargoHeavyRate: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0,
+    field: 'cargo_heavy_rate',
+    comment: 'Heavy cargo rate per ton'
+  },
+  // Transport type
+  transportType: {
+    type: DataTypes.ENUM('both', 'passengers_only', 'cargo_only'),
+    defaultValue: 'both',
+    field: 'transport_type',
+    comment: 'Type of transport: both, passengers only, or cargo only'
   },
   demand: {
     type: DataTypes.INTEGER,
@@ -146,12 +207,12 @@ const Route = sequelize.define('Route', {
     {
       fields: ['world_membership_id']
     },
+    // Note: Route numbers can be reused on different operating days
+    // Uniqueness is validated at application level based on days_of_week overlap
     {
-      unique: true,
       fields: ['world_membership_id', 'route_number']
     },
     {
-      unique: true,
       fields: ['world_membership_id', 'return_route_number']
     }
   ]

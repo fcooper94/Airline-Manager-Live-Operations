@@ -3,48 +3,37 @@ const { WorldMembership, User } = require('../models');
 
 /**
  * World Time Service
- * Manages the continuous progression of game time with acceleration
+ * Manages the continuous progression of game time with acceleration for multiple worlds
  */
 class WorldTimeService {
   constructor() {
-    this.tickInterval = null;
     this.tickRate = 1000; // Update every 1 second (real time)
-    this.activeWorld = null;
+    this.worlds = new Map(); // Map of worldId -> { world, tickInterval, inMemoryTime, lastTickAt }
   }
 
   /**
-   * Start the world time progression
+   * Start time progression for all active worlds
    */
-  async start(worldId = null) {
+  async startAll() {
     try {
-      // Load the active world
-      if (worldId) {
-        this.activeWorld = await World.findByPk(worldId);
-      } else {
-        this.activeWorld = await World.findOne({
-          where: { status: 'active' }
-        });
-      }
+      const activeWorlds = await World.findAll({
+        where: { status: 'active' }
+      });
 
-      if (!this.activeWorld) {
+      if (activeWorlds.length === 0) {
         if (process.env.NODE_ENV === 'development') {
-        console.log('⚠ No active world found. Create a world first.');
-      }
+          console.log('⚠ No active worlds found. Create a world first.');
+        }
         return false;
       }
 
-      // Update last tick time
-      this.activeWorld.lastTickAt = new Date();
-      await this.activeWorld.save();
-
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`✓ World Time Service started for: ${this.activeWorld.name}`);
-        console.log(`  Current game time: ${this.activeWorld.currentTime.toISOString()}`);
-        console.log(`  Time acceleration: ${this.activeWorld.timeAcceleration}x`);
+      for (const world of activeWorlds) {
+        await this.startWorld(world.id);
       }
 
-      // Start the tick loop
-      this.tickInterval = setInterval(() => this.tick(), this.tickRate);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`✓ World Time Service started for ${activeWorlds.length} world(s)`);
+      }
 
       return true;
     } catch (error) {
@@ -54,91 +43,167 @@ class WorldTimeService {
   }
 
   /**
-   * Stop the world time progression
+   * Start time progression for a specific world
    */
-  stop() {
-    if (this.tickInterval) {
-      clearInterval(this.tickInterval);
-      this.tickInterval = null;
+  async startWorld(worldId) {
+    try {
+      // Don't start if already running
+      if (this.worlds.has(worldId)) {
+        return true;
+      }
+
+      const world = await World.findByPk(worldId);
+      if (!world || world.status !== 'active') {
+        return false;
+      }
+
+      // Update last tick time in database
+      const now = new Date();
+      await world.sequelize.query(
+        'UPDATE worlds SET last_tick_at = :lastTickAt WHERE id = :worldId',
+        {
+          replacements: {
+            lastTickAt: now,
+            worldId: world.id
+          }
+        }
+      );
+
+      // Store world state in memory
+      const worldState = {
+        world: world,
+        inMemoryTime: new Date(world.currentTime),
+        lastTickAt: now,
+        tickInterval: null
+      };
+
+      this.worlds.set(worldId, worldState);
+
+      // Start the tick loop for this world
+      worldState.tickInterval = setInterval(() => this.tick(worldId), this.tickRate);
+
       if (process.env.NODE_ENV === 'development') {
-        console.log('✓ World Time Service stopped');
+        console.log(`✓ Started world: ${world.name} (${world.timeAcceleration}x)`);
+      }
+
+      return true;
+    } catch (error) {
+      console.error(`✗ Failed to start world ${worldId}:`, error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Stop time progression for a specific world
+   */
+  stopWorld(worldId) {
+    const worldState = this.worlds.get(worldId);
+    if (worldState && worldState.tickInterval) {
+      clearInterval(worldState.tickInterval);
+      this.worlds.delete(worldId);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`✓ Stopped world: ${worldState.world.name}`);
       }
     }
   }
 
   /**
-   * Main tick function - advances game time
+   * Stop all worlds
    */
-  async tick() {
-    if (!this.activeWorld) return;
+  stopAll() {
+    for (const [worldId, worldState] of this.worlds.entries()) {
+      if (worldState.tickInterval) {
+        clearInterval(worldState.tickInterval);
+      }
+    }
+    this.worlds.clear();
+    if (process.env.NODE_ENV === 'development') {
+      console.log('✓ World Time Service stopped all worlds');
+    }
+  }
+
+  /**
+   * Main tick function - advances game time for a specific world
+   */
+  async tick(worldId) {
+    const worldState = this.worlds.get(worldId);
+    if (!worldState) return;
+
+    const { world, inMemoryTime, lastTickAt } = worldState;
 
     try {
       // Check if world should be operating
-      if (!this.activeWorld.isOperating()) {
+      if (world.isPaused) {
         return;
       }
 
       const now = new Date();
-      const lastTick = this.activeWorld.lastTickAt || now;
-
-      // Calculate real elapsed time in seconds
-      const realElapsedSeconds = (now.getTime() - lastTick.getTime()) / 1000;
+      const realElapsedSeconds = (now.getTime() - lastTickAt.getTime()) / 1000;
 
       // Calculate game time advancement (in seconds)
-      const gameTimeAdvancement = realElapsedSeconds * this.activeWorld.timeAcceleration;
+      const gameTimeAdvancement = realElapsedSeconds * world.timeAcceleration;
 
-      // Update current game time
-      const newGameTime = new Date(
-        this.activeWorld.currentTime.getTime() + (gameTimeAdvancement * 1000)
-      );
+      // Update in-memory time
+      const newGameTime = new Date(inMemoryTime.getTime() + (gameTimeAdvancement * 1000));
+      worldState.inMemoryTime = newGameTime;
+      worldState.lastTickAt = now;
 
-      // Update world
-      this.activeWorld.currentTime = newGameTime;
-      this.activeWorld.lastTickAt = now;
+      // Save to database every 10 seconds to reduce DB load
+      const shouldSave = Math.floor(now.getTime() / 10000) !== Math.floor(lastTickAt.getTime() / 10000);
 
-      // Save to database (every 10 seconds to reduce DB load)
-      if (Math.floor(now.getTime() / 10000) !== Math.floor(lastTick.getTime() / 10000)) {
-        await this.activeWorld.save();
+      if (shouldSave) {
+        await world.sequelize.query(
+          'UPDATE worlds SET current_time = :currentTime, last_tick_at = :lastTickAt, updated_at = :updatedAt WHERE id = :worldId',
+          {
+            replacements: {
+              currentTime: newGameTime,
+              lastTickAt: now,
+              updatedAt: now,
+              worldId: world.id
+            }
+          }
+        );
       }
 
       // Emit tick event for other systems to react
-      this.onTick(newGameTime, gameTimeAdvancement);
+      this.onTick(worldId, newGameTime, gameTimeAdvancement);
 
     } catch (error) {
-      console.error('World tick error:', error.message);
+      console.error(`World tick error (${world.name}):`, error.message);
     }
   }
 
   /**
    * Hook for other systems to react to time progression
    */
-  onTick(gameTime, advancementSeconds) {
-    // This will be used by flight scheduler, resource manager, etc.
-    // For now, just emit via Socket.IO if available
+  onTick(worldId, gameTime, advancementSeconds) {
+    // Emit via Socket.IO if available
     if (global.io) {
       global.io.emit('world:tick', {
+        worldId: worldId,
         gameTime: gameTime.toISOString(),
         advancement: advancementSeconds
       });
     }
 
     // Check for credit deductions (asynchronously, don't block tick)
-    this.processCredits(gameTime).catch(err => {
+    this.processCredits(worldId, gameTime).catch(err => {
       console.error('Error processing credits:', err.message);
     });
   }
 
   /**
-   * Process credit deductions for all active memberships
+   * Process credit deductions for all active memberships in a world
    */
-  async processCredits(currentGameTime) {
-    if (!this.activeWorld) return;
+  async processCredits(worldId, currentGameTime) {
+    const worldState = this.worlds.get(worldId);
+    if (!worldState) return;
 
     try {
       // Get all active memberships for this world
       const memberships = await WorldMembership.findAll({
         where: {
-          worldId: this.activeWorld.id,
+          worldId: worldId,
           isActive: true
         },
         include: [{
@@ -170,7 +235,7 @@ class WorldTimeService {
             await membership.save();
 
             if (process.env.NODE_ENV === 'development') {
-              console.log(`Deducted ${weeksPassed} credits from user ${membership.user.id} for world ${this.activeWorld.name}. New balance: ${membership.user.credits}`);
+              console.log(`Deducted ${weeksPassed} credits from user ${membership.user.id} for world ${worldState.world.name}. New balance: ${membership.user.credits}`);
             }
 
             // Check if user has fallen below -4 (enter administration)
@@ -189,105 +254,113 @@ class WorldTimeService {
   }
 
   /**
-   * Get current world time
+   * Get current time for a specific world
    */
-  async getCurrentTime() {
-    if (!this.activeWorld) {
-      await this.start();
+  getCurrentTime(worldId) {
+    const worldState = this.worlds.get(worldId);
+    if (worldState) {
+      return worldState.inMemoryTime;
     }
-    return this.activeWorld ? this.activeWorld.currentTime : null;
+    return null;
   }
 
   /**
-   * Get active world information
+   * Get world information for a specific world
    */
-  async getWorldInfo() {
-    if (!this.activeWorld) {
-      await this.start();
+  async getWorldInfo(worldId) {
+    const worldState = this.worlds.get(worldId);
+
+    if (!worldState) {
+      // World not loaded in memory, load from database
+      const world = await World.findByPk(worldId);
+      if (!world) return null;
+
+      const elapsedMs = world.currentTime.getTime() - world.startDate.getTime();
+      const elapsedDays = Math.floor(elapsedMs / (1000 * 60 * 60 * 24));
+
+      return {
+        id: world.id,
+        name: world.name,
+        description: world.description,
+        currentTime: world.currentTime,
+        startDate: world.startDate,
+        timeAcceleration: world.timeAcceleration,
+        era: world.era,
+        status: world.status,
+        isPaused: world.isPaused,
+        isOperating: world.isOperating ? world.isOperating() : false,
+        elapsedDays: elapsedDays
+      };
     }
 
-    if (!this.activeWorld) {
-      return null;
-    }
-
-    return {
-      id: this.activeWorld.id,
-      name: this.activeWorld.name,
-      description: this.activeWorld.description,
-      currentTime: this.activeWorld.currentTime,
-      startDate: this.activeWorld.startDate,
-      timeAcceleration: this.activeWorld.timeAcceleration,
-      era: this.activeWorld.era,
-      status: this.activeWorld.status,
-      isPaused: this.activeWorld.isPaused,
-      isOperating: this.activeWorld.isOperating(),
-      elapsedDays: Math.floor(this.activeWorld.getElapsedGameTime() / (1000 * 60 * 60 * 24))
-    };
-  }
-
-  /**
-   * Get information for a specific world
-   */
-  async getWorldInfoForWorld(world) {
-    if (!world) {
-      return null;
-    }
-
-    // Calculate elapsed days based on the world's dates
-    const elapsedMs = world.currentTime.getTime() - world.startDate.getTime();
+    // Use in-memory time for running worlds
+    const { world, inMemoryTime } = worldState;
+    const elapsedMs = inMemoryTime.getTime() - world.startDate.getTime();
     const elapsedDays = Math.floor(elapsedMs / (1000 * 60 * 60 * 24));
 
     return {
       id: world.id,
       name: world.name,
       description: world.description,
-      currentTime: world.currentTime,
+      currentTime: inMemoryTime,
       startDate: world.startDate,
       timeAcceleration: world.timeAcceleration,
       era: world.era,
       status: world.status,
       isPaused: world.isPaused,
-      isOperating: world.isOperating ? world.isOperating() : false,
+      isOperating: !world.isPaused && world.status === 'active',
       elapsedDays: elapsedDays
     };
   }
 
   /**
-   * Pause the world
+   * Pause a world
    */
-  async pauseWorld() {
-    if (this.activeWorld) {
-      this.activeWorld.isPaused = true;
-      await this.activeWorld.save();
+  async pauseWorld(worldId) {
+    const worldState = this.worlds.get(worldId);
+    if (worldState) {
+      worldState.world.isPaused = true;
+      await worldState.world.sequelize.query(
+        'UPDATE worlds SET is_paused = true WHERE id = :worldId',
+        { replacements: { worldId } }
+      );
       if (process.env.NODE_ENV === 'development') {
-        console.log('⏸ World paused');
+        console.log(`⏸ World paused: ${worldState.world.name}`);
       }
     }
   }
 
   /**
-   * Resume the world
+   * Resume a world
    */
-  async resumeWorld() {
-    if (this.activeWorld) {
-      this.activeWorld.isPaused = false;
-      this.activeWorld.lastTickAt = new Date();
-      await this.activeWorld.save();
+  async resumeWorld(worldId) {
+    const worldState = this.worlds.get(worldId);
+    if (worldState) {
+      worldState.world.isPaused = false;
+      worldState.lastTickAt = new Date();
+      await worldState.world.sequelize.query(
+        'UPDATE worlds SET is_paused = false, last_tick_at = :lastTickAt WHERE id = :worldId',
+        { replacements: { worldId, lastTickAt: worldState.lastTickAt } }
+      );
       if (process.env.NODE_ENV === 'development') {
-        console.log('▶ World resumed');
+        console.log(`▶ World resumed: ${worldState.world.name}`);
       }
     }
   }
 
   /**
-   * Set time acceleration
+   * Set time acceleration for a world
    */
-  async setTimeAcceleration(factor) {
-    if (this.activeWorld) {
-      this.activeWorld.timeAcceleration = factor;
-      await this.activeWorld.save();
+  async setTimeAcceleration(worldId, factor) {
+    const worldState = this.worlds.get(worldId);
+    if (worldState) {
+      worldState.world.timeAcceleration = factor;
+      await worldState.world.sequelize.query(
+        'UPDATE worlds SET time_acceleration = :factor WHERE id = :worldId',
+        { replacements: { worldId, factor } }
+      );
       if (process.env.NODE_ENV === 'development') {
-        console.log(`⏱ Time acceleration set to ${factor}x`);
+        console.log(`⏱ Time acceleration set to ${factor}x for ${worldState.world.name}`);
       }
     }
   }

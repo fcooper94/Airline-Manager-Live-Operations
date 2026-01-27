@@ -9,6 +9,25 @@ function formatDaysOfWeek(daysArray) {
   return daysArray.map(d => dayLabels[d]).join(' ');
 }
 
+// Display days of week as visual indicators (M T W T F S S)
+function displayDaysOfWeek(daysArray) {
+  if (!daysArray || daysArray.length === 0) {
+    return '<span style="color: var(--text-muted);">No days</span>';
+  }
+
+  const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  const dayOrder = [1, 2, 3, 4, 5, 6, 0]; // M T W T F S S
+
+  return dayOrder.map(dayIndex => {
+    const isActive = daysArray.includes(dayIndex);
+    const label = dayLabels[dayIndex];
+    const color = isActive ? 'var(--success-color)' : 'var(--border-color)';
+    const fontWeight = isActive ? '700' : '400';
+
+    return `<span style="color: ${color}; font-weight: ${fontWeight}; margin: 0 0.15rem;">${label}</span>`;
+  }).join('');
+}
+
 // Load route performance summary
 async function loadRouteSummary() {
   try {
@@ -67,7 +86,10 @@ function displayBestRoutes(routes) {
         </div>
       </div>
       <div style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">
-        ${route.departureAirport.icaoCode} → ${route.arrivalAirport.icaoCode} → ${route.departureAirport.icaoCode}
+        ${route.techStopAirport
+          ? `${route.departureAirport.icaoCode} → <span style="color: var(--accent-color); font-weight: 600;" title="Technical stop for refuelling">${route.techStopAirport.icaoCode}</span> → ${route.arrivalAirport.icaoCode} → <span style="color: var(--accent-color); font-weight: 600;" title="Technical stop for refuelling">${route.techStopAirport.icaoCode}</span> → ${route.departureAirport.icaoCode}`
+          : `${route.departureAirport.icaoCode} → ${route.arrivalAirport.icaoCode} → ${route.departureAirport.icaoCode}`
+        }
       </div>
       <div style="display: flex; gap: 1.5rem; font-size: 0.85rem;">
         <div>
@@ -112,7 +134,10 @@ function displayWorstRoutes(routes) {
         </div>
       </div>
       <div style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">
-        ${route.departureAirport.icaoCode} → ${route.arrivalAirport.icaoCode} → ${route.departureAirport.icaoCode}
+        ${route.techStopAirport
+          ? `${route.departureAirport.icaoCode} → <span style="color: var(--accent-color); font-weight: 600;" title="Technical stop for refuelling">${route.techStopAirport.icaoCode}</span> → ${route.arrivalAirport.icaoCode} → <span style="color: var(--accent-color); font-weight: 600;" title="Technical stop for refuelling">${route.techStopAirport.icaoCode}</span> → ${route.departureAirport.icaoCode}`
+          : `${route.departureAirport.icaoCode} → ${route.arrivalAirport.icaoCode} → ${route.departureAirport.icaoCode}`
+        }
       </div>
       <div style="display: flex; gap: 1.5rem; font-size: 0.85rem;">
         <div>
@@ -176,7 +201,7 @@ function displayAllRoutes(routes) {
         <tr style="background: var(--surface-elevated); border-bottom: 2px solid var(--border-color);">
           <th style="padding: 1rem; text-align: left; color: var(--text-secondary); font-weight: 600;">ROUTE</th>
           <th style="padding: 1rem; text-align: left; color: var(--text-secondary); font-weight: 600;">FROM → TO</th>
-          <th style="padding: 1rem; text-align: left; color: var(--text-secondary); font-weight: 600;">AIRCRAFT</th>
+          <th style="padding: 1rem; text-align: center; color: var(--text-secondary); font-weight: 600;">OPERATING DAYS</th>
           <th style="padding: 1rem; text-align: center; color: var(--text-secondary); font-weight: 600;">DISTANCE</th>
           <th style="padding: 1rem; text-align: center; color: var(--text-secondary); font-weight: 600;">PRICE</th>
           <th style="padding: 1rem; text-align: center; color: var(--text-secondary); font-weight: 600;">FLIGHTS</th>
@@ -193,22 +218,27 @@ function displayAllRoutes(routes) {
           const statusColor = route.isActive ? 'var(--success-color)' : 'var(--text-muted)';
           const statusText = route.isActive ? 'ACTIVE' : 'INACTIVE';
 
-          const aircraftText = route.assignedAircraft
-            ? `${route.assignedAircraft.registration}`
-            : '<span style="color: var(--text-muted);">Not assigned</span>';
-
           return `
             <tr style="border-bottom: 1px solid var(--border-color);">
               <td style="padding: 1rem; color: var(--accent-color); font-weight: 600;">
                 ${route.routeNumber}${route.returnRouteNumber ? ' / ' + route.returnRouteNumber : ''}
               </td>
               <td style="padding: 1rem;">
-                <div style="color: var(--text-primary);">${route.departureAirport.icaoCode} → ${route.arrivalAirport.icaoCode} → ${route.departureAirport.icaoCode}</div>
-                <div style="color: var(--text-muted); font-size: 0.85rem;">${route.departureAirport.city} → ${route.arrivalAirport.city} → ${route.departureAirport.city}</div>
+                <div style="color: var(--text-primary);">
+                  ${route.techStopAirport
+                    ? `${route.departureAirport.icaoCode} → <span style="color: var(--accent-color); font-weight: 600;" title="Technical stop for refuelling">${route.techStopAirport.icaoCode}</span> → ${route.arrivalAirport.icaoCode} → <span style="color: var(--accent-color); font-weight: 600;" title="Technical stop for refuelling">${route.techStopAirport.icaoCode}</span> → ${route.departureAirport.icaoCode}`
+                    : `${route.departureAirport.icaoCode} → ${route.arrivalAirport.icaoCode} → ${route.departureAirport.icaoCode}`
+                  }
+                </div>
+                <div style="color: var(--text-muted); font-size: 0.85rem;">
+                  ${route.techStopAirport
+                    ? `${route.departureAirport.city} → ${route.techStopAirport.city} → ${route.arrivalAirport.city} → ${route.techStopAirport.city} → ${route.departureAirport.city}`
+                    : `${route.departureAirport.city} → ${route.arrivalAirport.city} → ${route.departureAirport.city}`
+                  }
+                </div>
               </td>
-              <td style="padding: 1rem; color: var(--text-primary);">
-                <div>${aircraftText}</div>
-                <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.25rem;">${formatDaysOfWeek(route.daysOfWeek)}</div>
+              <td style="padding: 1rem; text-align: center; color: var(--text-primary); font-size: 0.95rem;">
+                ${displayDaysOfWeek(route.daysOfWeek)}
               </td>
               <td style="padding: 1rem; text-align: center; color: var(--text-primary);">
                 ${Math.round(route.distance)} NM
@@ -260,17 +290,40 @@ function editRoute(routeId) {
   window.location.href = `/routes/edit?id=${routeId}`;
 }
 
-// Delete route
-async function deleteRoute(routeId) {
+// Store route to be deleted
+let pendingDeleteRoute = null;
+
+// Delete route - show modal
+function deleteRoute(routeId) {
   const route = allRoutes.find(r => r.id === routeId);
   if (!route) return;
 
-  if (!confirm(`Are you sure you want to delete route ${route.routeNumber}?\n\nThis action cannot be undone.`)) {
-    return;
-  }
+  pendingDeleteRoute = route;
+
+  // Show modal
+  const modal = document.getElementById('deleteModal');
+  const message = document.getElementById('deleteModalMessage');
+  message.textContent = `Are you sure you want to delete route ${route.routeNumber}${route.returnRouteNumber ? ' / ' + route.returnRouteNumber : ''}? This action cannot be undone.`;
+  modal.style.display = 'flex';
+}
+
+// Close delete modal
+function closeDeleteModal() {
+  document.getElementById('deleteModal').style.display = 'none';
+  pendingDeleteRoute = null;
+}
+
+// Confirm and execute delete
+async function confirmDeleteRoute() {
+  if (!pendingDeleteRoute) return;
+
+  const route = pendingDeleteRoute;
+  const routeNumber = route.routeNumber;
+
+  closeDeleteModal();
 
   try {
-    const response = await fetch(`/api/routes/${routeId}`, {
+    const response = await fetch(`/api/routes/${route.id}`, {
       method: 'DELETE'
     });
 
@@ -284,15 +337,80 @@ async function deleteRoute(routeId) {
     await loadAllRoutes();
     await loadRouteSummary();
 
-    alert(`Route ${route.routeNumber} deleted successfully`);
+    // Show success banner
+    showSuccessBanner('deleted', routeNumber);
   } catch (error) {
     console.error('Error deleting route:', error);
     alert(`Error: ${error.message}`);
   }
 }
 
+// Show success banner (from URL params or direct call)
+function showSuccessBanner(type = null, route = null) {
+  // Check URL params if not provided directly
+  if (!type || !route) {
+    const urlParams = new URLSearchParams(window.location.search);
+    type = urlParams.get('success');
+    route = urlParams.get('route');
+  }
+
+  if (!type || !route) return;
+
+  const container = document.getElementById('successBannerContainer');
+  if (!container) return;
+
+  // Clear any existing banners
+  container.innerHTML = '';
+
+  const routeNumber = decodeURIComponent(route);
+  let message = '';
+  let link = '';
+
+  if (type === 'created') {
+    message = `✓ Route ${routeNumber} created successfully!`;
+    link = `<a href="/scheduling" style="color: var(--success-color); text-decoration: underline; margin-left: 1rem;">Assign it on the scheduling page</a>`;
+  } else if (type === 'deleted') {
+    message = `✓ Route ${routeNumber} deleted successfully!`;
+    link = '';
+  }
+
+  const banner = document.createElement('div');
+  banner.style.cssText = `
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid var(--success-color);
+    border-radius: 4px;
+    color: var(--success-color);
+    padding: 1rem 1.5rem;
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  `;
+  banner.innerHTML = `
+    <div>
+      <span style="font-weight: 600;">${message}</span>
+      ${link}
+    </div>
+    <button onclick="this.parentElement.remove()" style="background: none; border: none; color: var(--success-color); font-size: 1.5rem; cursor: pointer; padding: 0 0.5rem; line-height: 1;">×</button>
+  `;
+  container.appendChild(banner);
+
+  // Auto-dismiss after 10 seconds
+  setTimeout(() => {
+    if (banner.parentElement) {
+      banner.remove();
+    }
+  }, 10000);
+
+  // Clean up URL if it came from URL params
+  if (window.location.search) {
+    window.history.replaceState({}, '', '/routes');
+  }
+}
+
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', () => {
+  showSuccessBanner();
   loadRouteSummary();
   loadAllRoutes();
 });

@@ -1,0 +1,306 @@
+<!-- TITLE: Price Management - Airline Manager -->
+<!-- SUBTITLE: Manage Pricing Strategy -->
+<!-- SCRIPTS: /js/pricing.js -->
+
+<style>
+  .pricing-card {
+    background: var(--surface-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .pricing-card.active {
+    border: 2px solid var(--accent-color);
+    background: var(--accent-color-dim);
+  }
+
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  .price-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .price-input-group label {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  .price-input-wrapper {
+    position: relative;
+  }
+
+  .price-input-wrapper input {
+    width: 100%;
+    padding: 0.75rem 0.75rem 0.75rem 2rem;
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .price-input-wrapper::before {
+    content: '$';
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+
+  .pricing-level-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .pricing-level-badge.global {
+    background: #4caf50;
+    color: white;
+  }
+
+  .pricing-level-badge.aircraft {
+    background: #2196f3;
+    color: white;
+  }
+
+  .pricing-level-badge.route {
+    background: #ff9800;
+    color: white;
+  }
+
+  .override-status {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: 0.5rem;
+  }
+
+  .override-status .overridden {
+    color: var(--warning-color);
+  }
+</style>
+
+<div class="dashboard-container">
+  <aside class="sidebar">
+    <div class="sidebar-header">OPERATIONS</div>
+    <ul class="nav-menu">
+      <li class="nav-item">
+        <a href="/dashboard">
+          <span class="nav-text">Dashboard</span>
+        </a>
+      </li>
+      <li class="nav-item parent active">
+        <a href="#" onclick="return false;">
+          <span class="nav-text">Flight Operations</span>
+        </a>
+        <ul class="nav-submenu">
+          <li class="nav-item">
+            <a href="/routes">
+              <span class="nav-text">Manage Routes</span>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="/scheduling">
+              <span class="nav-text">Scheduling</span>
+            </a>
+          </li>
+          <li class="nav-item active">
+            <a href="/pricing">
+              <span class="nav-text">Price Management</span>
+            </a>
+          </li>
+        </ul>
+      </li>
+      <li class="nav-item">
+        <a href="/fleet">
+          <span class="nav-text">Fleet Management</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="/finances">
+          <span class="nav-text">Financial Reports</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="/aircraft-marketplace">
+          <span class="nav-text">Aircraft Marketplace</span>
+        </a>
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <a href="/world-selection" class="btn btn-secondary btn-full-width">
+        <span class="nav-text">SELECT WORLD</span>
+      </a>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h1>PRICE MANAGEMENT</h1>
+      <p class="subtitle">Manage ticket and cargo pricing across your airline</p>
+    </div>
+
+    <!-- Pricing Strategy Info -->
+    <div class="ops-panel full-width" style="margin-bottom: 2rem;">
+      <div class="panel-header">
+        <h2>PRICING HIERARCHY</h2>
+      </div>
+      <div class="panel-body">
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem;">
+          <div style="text-align: center; padding: 1rem;">
+            <div class="pricing-level-badge global" style="font-size: 0.9rem; padding: 0.5rem 1rem;">1. GLOBAL DEFAULT</div>
+            <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 1rem;">
+              Base prices applied to all routes unless overridden
+            </p>
+          </div>
+          <div style="text-align: center; padding: 1rem;">
+            <div class="pricing-level-badge aircraft" style="font-size: 0.9rem; padding: 0.5rem 1rem;">2. AIRCRAFT TYPE</div>
+            <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 1rem;">
+              Overrides global prices for specific aircraft types
+            </p>
+          </div>
+          <div style="text-align: center; padding: 1rem;">
+            <div class="pricing-level-badge route" style="font-size: 0.9rem; padding: 0.5rem 1rem;">3. ROUTE SPECIFIC</div>
+            <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 1rem;">
+              Overrides all other prices for individual routes
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Global Pricing -->
+    <div class="ops-panel full-width" style="margin-bottom: 2rem;">
+      <div class="panel-header">
+        <h2>
+          <span class="pricing-level-badge global">GLOBAL</span>
+          GLOBAL DEFAULT PRICING
+        </h2>
+        <button onclick="saveGlobalPricing()" class="btn btn-primary">SAVE GLOBAL PRICES</button>
+      </div>
+      <div class="panel-body">
+        <div style="margin-bottom: 2rem;">
+          <h3 style="color: var(--text-primary); font-size: 1rem; margin-bottom: 1rem; font-weight: 600;">PASSENGER CLASSES</h3>
+          <div class="pricing-grid">
+            <div class="price-input-group">
+              <label>Economy Class</label>
+              <div class="price-input-wrapper">
+                <input type="number" id="global-economy" min="0" step="1" placeholder="0" />
+              </div>
+            </div>
+            <div class="price-input-group">
+              <label>Economy Plus</label>
+              <div class="price-input-wrapper">
+                <input type="number" id="global-economyPlus" min="0" step="1" placeholder="0" />
+              </div>
+            </div>
+            <div class="price-input-group">
+              <label>Business Class</label>
+              <div class="price-input-wrapper">
+                <input type="number" id="global-business" min="0" step="1" placeholder="0" />
+              </div>
+            </div>
+            <div class="price-input-group">
+              <label>First Class</label>
+              <div class="price-input-wrapper">
+                <input type="number" id="global-first" min="0" step="1" placeholder="0" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
+          <h3 style="color: var(--text-primary); font-size: 1rem; margin-bottom: 1rem; font-weight: 600;">CARGO RATES (per ton)</h3>
+          <div class="pricing-grid">
+            <div class="price-input-group">
+              <label>Light Cargo</label>
+              <div class="price-input-wrapper">
+                <input type="number" id="global-cargoLight" min="0" step="10" placeholder="0" />
+              </div>
+            </div>
+            <div class="price-input-group">
+              <label>Standard Cargo</label>
+              <div class="price-input-wrapper">
+                <input type="number" id="global-cargoStandard" min="0" step="10" placeholder="0" />
+              </div>
+            </div>
+            <div class="price-input-group">
+              <label>Heavy Cargo</label>
+              <div class="price-input-wrapper">
+                <input type="number" id="global-cargoHeavy" min="0" step="10" placeholder="0" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Aircraft Type Pricing -->
+    <div class="ops-panel full-width" style="margin-bottom: 2rem;">
+      <div class="panel-header">
+        <h2>
+          <span class="pricing-level-badge aircraft">AIRCRAFT TYPE</span>
+          AIRCRAFT TYPE PRICING
+        </h2>
+      </div>
+      <div class="panel-body">
+        <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+          Set custom pricing for specific aircraft types. Leave blank to use global defaults.
+        </p>
+        <div id="aircraftTypePricingList">
+          <div style="padding: 2rem; text-align: center; color: var(--text-muted);">
+            Loading aircraft types...
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Route-Specific Pricing -->
+    <div class="ops-panel full-width" style="margin-bottom: 2rem;">
+      <div class="panel-header">
+        <h2>
+          <span class="pricing-level-badge route">ROUTE</span>
+          ROUTE-SPECIFIC PRICING
+        </h2>
+      </div>
+      <div class="panel-body">
+        <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+          Override pricing for individual routes. Click on a route to manage its pricing.
+        </p>
+
+        <!-- Search/Filter -->
+        <div style="margin-bottom: 1.5rem;">
+          <input
+            type="text"
+            id="routeSearchInput"
+            placeholder="Search routes by number, airport, or destination..."
+            oninput="filterRoutes()"
+            style="width: 100%; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary);"
+          />
+        </div>
+
+        <div id="routePricingList">
+          <div style="padding: 2rem; text-align: center; color: var(--text-muted);">
+            Loading routes...
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>

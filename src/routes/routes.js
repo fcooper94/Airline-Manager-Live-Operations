@@ -47,6 +47,12 @@ router.get('/', async (req, res) => {
           attributes: ['id', 'icaoCode', 'iataCode', 'name', 'city', 'country']
         },
         {
+          model: Airport,
+          as: 'techStopAirport',
+          required: false,
+          attributes: ['id', 'icaoCode', 'iataCode', 'name', 'city', 'country']
+        },
+        {
           model: UserAircraft,
           as: 'assignedAircraft',
           required: false,
@@ -73,6 +79,7 @@ router.get('/', async (req, res) => {
         returnRouteNumber: route.returnRouteNumber,
         departureAirport: route.departureAirport,
         arrivalAirport: route.arrivalAirport,
+        techStopAirport: route.techStopAirport || null,
         assignedAircraftId: route.assignedAircraftId,
         assignedAircraft: route.assignedAircraft ? {
           id: route.assignedAircraft.id,
@@ -228,6 +235,7 @@ router.post('/', async (req, res) => {
       returnRouteNumber,
       departureAirportId,
       arrivalAirportId,
+      techStopAirportId,
       assignedAircraftId,
       distance,
       scheduledDepartureTime,
@@ -235,7 +243,15 @@ router.post('/', async (req, res) => {
       frequency,
       daysOfWeek,
       ticketPrice,
-      demand
+      demand,
+      economyPrice,
+      economyPlusPrice,
+      businessPrice,
+      firstPrice,
+      cargoLightRate,
+      cargoStandardRate,
+      cargoHeavyRate,
+      transportType
     } = req.body;
 
     // Get active world from session
@@ -262,6 +278,47 @@ router.post('/', async (req, res) => {
       return res.status(404).json({ error: 'Not a member of this world' });
     }
 
+    // Validate tech stop airport exists if provided
+    if (techStopAirportId) {
+      const techStopAirport = await Airport.findByPk(techStopAirportId);
+      if (!techStopAirport) {
+        return res.status(404).json({ error: 'Tech stop airport not found' });
+      }
+    }
+
+    // Check for route number conflicts on same operating days
+    const requestedDays = daysOfWeek || [0, 1, 2, 3, 4, 5, 6];
+    const { Op } = require('sequelize');
+
+    const conflictingRoutes = await Route.findAll({
+      where: {
+        worldMembershipId: membership.id,
+        [Op.or]: [
+          { routeNumber: routeNumber },
+          { returnRouteNumber: routeNumber },
+          { routeNumber: returnRouteNumber },
+          { returnRouteNumber: returnRouteNumber }
+        ]
+      }
+    });
+
+    // Check if any conflicting route operates on the same days
+    for (const existingRoute of conflictingRoutes) {
+      const existingDays = existingRoute.daysOfWeek || [];
+      const hasOverlap = requestedDays.some(day => existingDays.includes(day));
+
+      if (hasOverlap) {
+        const conflictingNumber =
+          existingRoute.routeNumber === routeNumber || existingRoute.returnRouteNumber === routeNumber
+            ? routeNumber
+            : returnRouteNumber;
+
+        return res.status(400).json({
+          error: `Route number ${conflictingNumber} already operates on one or more of the selected days`
+        });
+      }
+    }
+
     // Create the route
     const route = await Route.create({
       worldMembershipId: membership.id,
@@ -269,6 +326,7 @@ router.post('/', async (req, res) => {
       returnRouteNumber,
       departureAirportId,
       arrivalAirportId,
+      techStopAirportId: techStopAirportId || null,
       assignedAircraftId: assignedAircraftId || null,
       distance,
       scheduledDepartureTime,
@@ -276,7 +334,15 @@ router.post('/', async (req, res) => {
       frequency: frequency || 'daily',
       daysOfWeek: daysOfWeek || [0, 1, 2, 3, 4, 5, 6],
       ticketPrice,
-      demand: demand || 0
+      demand: demand || 0,
+      economyPrice: economyPrice || 0,
+      economyPlusPrice: economyPlusPrice || 0,
+      businessPrice: businessPrice || 0,
+      firstPrice: firstPrice || 0,
+      cargoLightRate: cargoLightRate || 0,
+      cargoStandardRate: cargoStandardRate || 0,
+      cargoHeavyRate: cargoHeavyRate || 0,
+      transportType: transportType || 'both'
     });
 
     // Fetch the created route with associations
@@ -290,6 +356,12 @@ router.post('/', async (req, res) => {
         {
           model: Airport,
           as: 'arrivalAirport',
+          attributes: ['icaoCode', 'iataCode', 'name', 'city', 'country']
+        },
+        {
+          model: Airport,
+          as: 'techStopAirport',
+          required: false,
           attributes: ['icaoCode', 'iataCode', 'name', 'city', 'country']
         },
         {
@@ -308,7 +380,17 @@ router.post('/', async (req, res) => {
     res.status(201).json(createdRoute);
   } catch (error) {
     console.error('Error creating route:', error);
-    res.status(500).json({ error: 'Failed to create route' });
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    if (error.original) {
+      console.error('Original error:', error.original);
+    }
+    if (error.sql) {
+      console.error('SQL:', error.sql);
+    }
+    console.error('Request body:', JSON.stringify(req.body, null, 2));
+    res.status(500).json({ error: 'Failed to create route', details: error.message });
   }
 });
 

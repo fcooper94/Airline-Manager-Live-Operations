@@ -27,7 +27,7 @@ router.get('/available', async (req, res) => {
     if (user) {
       userMemberships = await WorldMembership.findAll({
         where: { userId: user.id },
-        attributes: ['worldId', 'airlineName', 'airlineCode']
+        attributes: ['worldId', 'airlineName', 'airlineCode', 'iataCode']
       });
     }
 
@@ -49,7 +49,8 @@ router.get('/available', async (req, res) => {
         memberCount,
         isMember: !!membership,
         airlineName: membership?.airlineName,
-        airlineCode: membership?.airlineCode
+        airlineCode: membership?.airlineCode,
+        iataCode: membership?.iataCode
       };
     }));
 
@@ -71,15 +72,20 @@ router.post('/join', async (req, res) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const { worldId, airlineName, airlineCode, baseAirportId } = req.body;
+    const { worldId, airlineName, airlineCode, iataCode, baseAirportId } = req.body;
 
-    if (!worldId || !airlineName || !airlineCode || !baseAirportId) {
+    if (!worldId || !airlineName || !airlineCode || !iataCode || !baseAirportId) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Validate airline code format (3 letters)
+    // Validate airline code format (3 letters ICAO)
     if (!/^[A-Z]{3}$/.test(airlineCode)) {
-      return res.status(400).json({ error: 'Airline code must be 3 uppercase letters' });
+      return res.status(400).json({ error: 'ICAO code must be 3 uppercase letters' });
+    }
+
+    // Validate IATA code format (2 letters)
+    if (!/^[A-Z]{2}$/.test(iataCode)) {
+      return res.status(400).json({ error: 'IATA code must be 2 uppercase letters' });
     }
 
     // Verify airport exists and get region from airport
@@ -133,13 +139,22 @@ router.post('/join', async (req, res) => {
       return res.status(400).json({ error: 'Already a member of this world' });
     }
 
-    // Check if airline code is taken
-    const codeTaken = await WorldMembership.findOne({
+    // Check if ICAO airline code is taken
+    const icaoCodeTaken = await WorldMembership.findOne({
       where: { worldId, airlineCode }
     });
 
-    if (codeTaken) {
-      return res.status(400).json({ error: 'Airline code already taken in this world' });
+    if (icaoCodeTaken) {
+      return res.status(400).json({ error: 'ICAO code already taken in this world' });
+    }
+
+    // Check if IATA code is taken
+    const iataCodeTaken = await WorldMembership.findOne({
+      where: { worldId, iataCode }
+    });
+
+    if (iataCodeTaken) {
+      return res.status(400).json({ error: 'IATA code already taken in this world' });
     }
 
     // Create membership
@@ -148,6 +163,7 @@ router.post('/join', async (req, res) => {
       worldId,
       airlineName,
       airlineCode,
+      iataCode,
       region,
       baseAirportId,
       balance: startingBalance,
@@ -160,6 +176,7 @@ router.post('/join', async (req, res) => {
         worldId: membership.worldId,
         airlineName: membership.airlineName,
         airlineCode: membership.airlineCode,
+        iataCode: membership.iataCode,
         balance: membership.balance
       }
     });

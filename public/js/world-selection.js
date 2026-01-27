@@ -341,6 +341,7 @@ function openJoinModal(worldId, worldName) {
   document.getElementById('selectedWorldName').textContent = worldName;
   document.getElementById('airlineName').value = '';
   document.getElementById('airlineCode').value = '';
+  document.getElementById('iataCode').value = '';
   document.getElementById('baseAirport').value = '';
   document.getElementById('airportSearch').value = '';
   document.getElementById('airportSearch').style.display = 'block';
@@ -364,11 +365,12 @@ function closeJoinModal() {
 async function confirmJoin() {
   const airlineName = document.getElementById('airlineName').value.trim();
   const airlineCode = document.getElementById('airlineCode').value.trim().toUpperCase();
+  const iataCode = document.getElementById('iataCode').value.trim().toUpperCase();
   const baseAirportId = document.getElementById('baseAirport').value;
   const errorDiv = document.getElementById('joinError');
 
   // Validation
-  if (!airlineName || !airlineCode) {
+  if (!airlineName || !airlineCode || !iataCode) {
     errorDiv.textContent = 'Please fill in all required fields';
     errorDiv.style.display = 'block';
     return;
@@ -381,7 +383,13 @@ async function confirmJoin() {
   }
 
   if (!/^[A-Z]{3}$/.test(airlineCode)) {
-    errorDiv.textContent = 'Airline code must be exactly 3 uppercase letters';
+    errorDiv.textContent = 'ICAO code must be exactly 3 uppercase letters';
+    errorDiv.style.display = 'block';
+    return;
+  }
+
+  if (!/^[A-Z]{2}$/.test(iataCode)) {
+    errorDiv.textContent = 'IATA code must be exactly 2 uppercase letters';
     errorDiv.style.display = 'block';
     return;
   }
@@ -396,6 +404,7 @@ async function confirmJoin() {
         worldId: selectedWorldId,
         airlineName,
         airlineCode,
+        iataCode,
         baseAirportId
       })
     });

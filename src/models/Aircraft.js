@@ -132,6 +132,57 @@ const Aircraft = sequelize.define('Aircraft', {
   description: {
     type: DataTypes.TEXT,
     comment: 'Additional description or notes'
+  },
+  // Passenger class availability
+  hasEconomy: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
+    allowNull: false,
+    field: 'has_economy',
+    comment: 'Whether this aircraft has Economy class seating'
+  },
+  hasEconomyPlus: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    allowNull: false,
+    field: 'has_economy_plus',
+    comment: 'Whether this aircraft has Economy Plus class seating'
+  },
+  hasBusiness: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    allowNull: false,
+    field: 'has_business',
+    comment: 'Whether this aircraft has Business class seating'
+  },
+  hasFirst: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    allowNull: false,
+    field: 'has_first',
+    comment: 'Whether this aircraft has First class seating'
+  },
+  // Cargo type availability
+  hasCargoLight: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
+    allowNull: false,
+    field: 'has_cargo_light',
+    comment: 'Whether this aircraft can carry light cargo'
+  },
+  hasCargoStandard: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
+    allowNull: false,
+    field: 'has_cargo_standard',
+    comment: 'Whether this aircraft can carry standard cargo'
+  },
+  hasCargoHeavy: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    allowNull: false,
+    field: 'has_cargo_heavy',
+    comment: 'Whether this aircraft can carry heavy cargo'
   }
 }, {
   tableName: 'aircraft',

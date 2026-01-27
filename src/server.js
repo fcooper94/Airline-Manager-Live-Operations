@@ -92,6 +92,7 @@ const fleetRoutes = require('./routes/fleet');
 const financesRoutes = require('./routes/finances');
 const routesRoutes = require('./routes/routes');
 const schedulingRoutes = require('./routes/scheduling');
+const pricingRoutes = require('./routes/pricing');
 
 // Import services
 const worldTimeService = require('./services/worldTimeService');
@@ -136,7 +137,11 @@ async function renderPage(pagePath) {
     if (scriptsMatch) {
       const scripts = scriptsMatch[1].split(',').map(s => s.trim());
       const scriptTags = scripts.map(src => `  <script src="${src}"></script>`).join('\n');
-      result = result.replace('</body>', `${scriptTags}\n</body>`);
+      // Replace the LAST occurrence of </body> to ensure we add scripts to the actual body closing tag
+      const lastBodyIndex = result.lastIndexOf('</body>');
+      if (lastBodyIndex !== -1) {
+        result = result.substring(0, lastBodyIndex) + scriptTags + '\n' + result.substring(lastBodyIndex);
+      }
     }
 
     return result;
@@ -157,6 +162,7 @@ app.use('/api/fleet', requireWorld, fleetRoutes);
 app.use('/api/finances', requireWorld, financesRoutes);
 app.use('/api/routes', requireWorld, routesRoutes);
 app.use('/api/schedule', requireWorld, schedulingRoutes);
+app.use('/api/pricing', requireWorld, pricingRoutes);
 app.use('/api/admin', requireAuth, adminRoutes);
 
 // Page routes
@@ -246,6 +252,15 @@ app.get('/scheduling', requireWorld, async (req, res) => {
   }
 });
 
+app.get('/pricing', requireWorld, async (req, res) => {
+  try {
+    const html = await renderPage(path.join(__dirname, '../public/pricing.html'));
+    res.send(html);
+  } catch (error) {
+    res.status(500).send('Error loading page');
+  }
+});
+
 app.get('/routes/edit', requireWorld, async (req, res) => {
   try {
     const html = await renderPage(path.join(__dirname, '../public/routes-edit.html'));
@@ -301,8 +316,8 @@ server.listen(PORT, async () => {
     console.log(`Server running on port ${PORT}`);
   }
 
-  // Start world time service
-  const worldStarted = await worldTimeService.start();
+  // Start world time service for all active worlds
+  const worldStarted = await worldTimeService.startAll();
   if (!worldStarted && process.env.NODE_ENV === 'development') {
     console.log('\n💡 Tip: Create a world with "npm run world:create"\n');
   }

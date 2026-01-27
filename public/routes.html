@@ -90,6 +90,9 @@
       </div>
     </div>
 
+    <!-- Success Banner Container -->
+    <div id="successBannerContainer"></div>
+
     <!-- All Routes Section -->
     <div class="ops-panel full-width">
       <div class="panel-header">
@@ -105,4 +108,16 @@
       </div>
     </div>
   </main>
+
+  <!-- Delete Confirmation Modal -->
+  <div id="deleteModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); z-index: 10000; align-items: center; justify-content: center;">
+    <div style="background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 8px; padding: 2rem; max-width: 500px; width: 90%;">
+      <h3 style="margin: 0 0 1rem 0; color: var(--text-primary); font-weight: 600;">Delete Route</h3>
+      <p id="deleteModalMessage" style="color: var(--text-secondary); margin-bottom: 1.5rem;"></p>
+      <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+        <button class="btn btn-secondary" onclick="closeDeleteModal()">CANCEL</button>
+        <button class="btn btn-danger" onclick="confirmDeleteRoute()">DELETE ROUTE</button>
+      </div>
+    </div>
+  </div>
 </div>

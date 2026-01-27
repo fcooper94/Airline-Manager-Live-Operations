@@ -36,8 +36,13 @@ const WorldMembership = sequelize.define('WorldMembership', {
   },
   airlineCode: {
     type: DataTypes.STRING(3),
-    comment: 'ICAO airline code',
+    comment: 'ICAO airline code (3 letters)',
     field: 'airline_code'
+  },
+  iataCode: {
+    type: DataTypes.STRING(2),
+    comment: 'IATA airline code (2 letters) - used for flight number prefix',
+    field: 'iata_code'
   },
   region: {
     type: DataTypes.STRING,
@@ -100,6 +105,15 @@ const WorldMembership = sequelize.define('WorldMembership', {
       fields: ['world_id', 'airline_code'],
       where: {
         airline_code: {
+          [sequelize.Sequelize.Op.ne]: null
+        }
+      }
+    },
+    {
+      unique: true,
+      fields: ['world_id', 'iata_code'],
+      where: {
+        iata_code: {
           [sequelize.Sequelize.Op.ne]: null
         }
       }

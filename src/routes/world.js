@@ -52,9 +52,10 @@ router.get('/info', async (req, res) => {
 
     // Get the current time from worldTimeService (always up-to-date in memory)
     // instead of reading from database which is only saved every 10 seconds
-    let currentTime = world.currentTime;
-    if (worldTimeService.activeWorld && worldTimeService.activeWorld.id === activeWorldId) {
-      currentTime = worldTimeService.activeWorld.currentTime;
+    let currentTime = worldTimeService.getCurrentTime(activeWorldId);
+    if (!currentTime) {
+      // Fall back to database time if world not loaded in memory
+      currentTime = world.currentTime;
     }
 
     // Calculate elapsed days based on the world's dates
@@ -82,6 +83,7 @@ router.get('/info', async (req, res) => {
       // Include user's membership data
       airlineName: membership?.airlineName,
       airlineCode: membership?.airlineCode,
+      iataCode: membership?.iataCode,
       balance: membership?.balance || 0,
       reputation: membership?.reputation || 0,
       // Include base airport info for registration prefix and route planning

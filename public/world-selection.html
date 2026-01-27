@@ -43,6 +43,14 @@
       </div>
 
       <div class="form-group">
+        <label for="iataCode">IATA CODE * (2 letters)</label>
+        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+          This 2-letter code will be used as your flight number prefix (e.g., BA for BA123)
+        </div>
+        <input type="text" id="iataCode" maxlength="2" placeholder="e.g., TR" style="text-transform: uppercase;">
+      </div>
+
+      <div class="form-group">
         <label for="baseAirport">BASE AIRPORT *</label>
         <div style="position: relative;">
           <input

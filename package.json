@@ -21,6 +21,12 @@
     "db:check-yssy": "node src/scripts/checkYSSY.js",
     "test:airport-growth": "node src/scripts/testAirportGrowth.js",
     "world:create": "node src/scripts/createWorld.js",
+    "db:add-iata": "node src/scripts/addIataCode.js",
+    "db:check-route-constraints": "node src/scripts/checkRouteConstraints.js",
+    "db:remove-route-constraints": "node src/scripts/removeRouteNumberConstraints.js",
+    "db:force-remove-constraints": "node src/scripts/forceRemoveConstraints.js",
+    "db:check-world-time": "node src/scripts/checkWorldTime.js",
+    "db:fix-multiple-worlds": "node src/scripts/fixMultipleActiveWorlds.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
