@@ -7,6 +7,7 @@ let newDestinationAirport = null;
 let userFleet = [];
 let allRoutes = [];
 let isChangingDestination = false;
+let selectedDaysOfWeek = [];
 
 // Get route ID from URL
 function getRouteIdFromUrl() {
@@ -97,11 +98,50 @@ function populateFleetDropdown() {
 
 // Populate form fields with existing route data
 function populateFormFields() {
-  document.getElementById('routeNumber').value = existingRoute.routeNumber;
+  // Set prefix fields
+  if (worldInfo && worldInfo.iataCode) {
+    document.getElementById('routePrefix').value = worldInfo.iataCode;
+    document.getElementById('returnRoutePrefix').value = worldInfo.iataCode;
+  }
+
+  // Extract route number suffix (remove prefix)
+  const prefix = worldInfo?.iataCode || '';
+  const routeNumSuffix = existingRoute.routeNumber.startsWith(prefix)
+    ? existingRoute.routeNumber.substring(prefix.length)
+    : existingRoute.routeNumber;
+  const returnRouteNumSuffix = existingRoute.returnRouteNumber && existingRoute.returnRouteNumber.startsWith(prefix)
+    ? existingRoute.returnRouteNumber.substring(prefix.length)
+    : existingRoute.returnRouteNumber || '';
+
+  document.getElementById('routeNumber').value = routeNumSuffix;
+  document.getElementById('returnRouteNumber').value = returnRouteNumSuffix;
   document.getElementById('departureTime').value = existingRoute.scheduledDepartureTime;
-  document.getElementById('ticketPrice').value = existingRoute.ticketPrice;
-  document.getElementById('frequency').value = existingRoute.frequency;
   document.getElementById('isActive').checked = existingRoute.isActive;
+
+  // Set turnaround time
+  document.getElementById('turnaroundTime').value = existingRoute.turnaroundTime || 45;
+
+  // Set transport type
+  document.getElementById('transportType').value = existingRoute.transportType || 'both';
+
+  // Set pricing values
+  document.getElementById('economyPrice').value = existingRoute.economyPrice || 0;
+  document.getElementById('economyPlusPrice').value = existingRoute.economyPlusPrice || 0;
+  document.getElementById('businessPrice').value = existingRoute.businessPrice || 0;
+  document.getElementById('firstPrice').value = existingRoute.firstPrice || 0;
+
+  // Set days of week
+  if (existingRoute.daysOfWeek && existingRoute.daysOfWeek.length > 0) {
+    selectedDaysOfWeek = [...existingRoute.daysOfWeek];
+    selectedDaysOfWeek.forEach(day => {
+      const button = document.querySelector(`button[data-day="${day}"]`);
+      if (button) {
+        button.style.background = 'var(--accent-color)';
+        button.style.borderColor = 'var(--accent-color)';
+        button.style.color = 'white';
+      }
+    });
+  }
 
   // Show current destination
   document.getElementById('currentDestName').textContent =
@@ -110,6 +150,10 @@ function populateFormFields() {
     `${existingRoute.arrivalAirport.city}, ${existingRoute.arrivalAirport.country}`;
   document.getElementById('currentDestDistance').textContent =
     `${Math.round(existingRoute.distance)} NM`;
+
+  // Show arrival airport in readonly field
+  document.getElementById('arrivalAirport').value =
+    `${existingRoute.arrivalAirport.icaoCode} - ${existingRoute.arrivalAirport.name}`;
 
   // Show the form
   document.getElementById('loadingState').style.display = 'none';
@@ -384,6 +428,10 @@ function selectDestinationAirport(airportId) {
     document.getElementById('currentDestDistance').textContent =
       `${Math.round(newDestinationAirport.distance)} NM`;
 
+    // Update arrival airport field
+    document.getElementById('arrivalAirport').value =
+      `${newDestinationAirport.icaoCode} - ${newDestinationAirport.name}`;
+
     // Hide selection panel and show updated current destination
     document.getElementById('destinationSelectionPanel').style.display = 'none';
     document.getElementById('currentDestinationPanel').style.display = 'block';
@@ -393,25 +441,76 @@ function selectDestinationAirport(airportId) {
   }
 }
 
+// Toggle day selection
+function toggleDay(day) {
+  const button = document.querySelector(`button[data-day="${day}"]`);
+  if (!button) return;
+
+  const index = selectedDaysOfWeek.indexOf(day);
+
+  if (index > -1) {
+    // Day is selected, remove it
+    selectedDaysOfWeek.splice(index, 1);
+    button.style.background = 'var(--surface-elevated)';
+    button.style.borderColor = 'var(--border-color)';
+    button.style.color = 'var(--text-muted)';
+  } else {
+    // Day is not selected, add it
+    selectedDaysOfWeek.push(day);
+    button.style.background = 'var(--accent-color)';
+    button.style.borderColor = 'var(--accent-color)';
+    button.style.color = 'white';
+  }
+}
+
+// Show confirmation modal
+function showConfirmationModal() {
+  document.getElementById('confirmationModal').style.display = 'flex';
+}
+
+// Close confirmation modal
+function closeConfirmationModal() {
+  document.getElementById('confirmationModal').style.display = 'none';
+}
+
+// Confirm and submit route update
+async function confirmRouteUpdate() {
+  closeConfirmationModal();
+  await submitRouteUpdate();
+}
+
 // Submit route update
 async function submitRouteUpdate() {
-  const routeNumber = document.getElementById('routeNumber').value.trim();
+  const prefix = worldInfo?.iataCode || '';
+  const routeNumberPart = document.getElementById('routeNumber').value.trim();
+  const returnRouteNumberPart = document.getElementById('returnRouteNumber').value.trim();
   const assignedAircraftId = document.getElementById('assignedAircraft').value || null;
   const departureTime = document.getElementById('departureTime').value;
-  const ticketPrice = parseFloat(document.getElementById('ticketPrice').value);
-  const frequency = document.getElementById('frequency').value;
+  const turnaroundTime = parseInt(document.getElementById('turnaroundTime').value) || 45;
+  const transportType = document.getElementById('transportType').value;
   const isActive = document.getElementById('isActive').checked;
 
+  // Get pricing values
+  const economyPrice = parseFloat(document.getElementById('economyPrice').value) || 0;
+  const economyPlusPrice = parseFloat(document.getElementById('economyPlusPrice').value) || 0;
+  const businessPrice = parseFloat(document.getElementById('businessPrice').value) || 0;
+  const firstPrice = parseFloat(document.getElementById('firstPrice').value) || 0;
+
   // Validation
-  if (!routeNumber) {
-    alert('Please enter a route number');
+  if (!routeNumberPart) {
+    alert('Please enter an outbound flight number');
     document.getElementById('routeNumber').focus();
     return;
   }
 
-  if (!ticketPrice || ticketPrice <= 0) {
-    alert('Please enter a valid ticket price');
-    document.getElementById('ticketPrice').focus();
+  if (!returnRouteNumberPart) {
+    alert('Please enter a return flight number');
+    document.getElementById('returnRouteNumber').focus();
+    return;
+  }
+
+  if (selectedDaysOfWeek.length === 0) {
+    alert('Please select at least one day of operation');
     return;
   }
 
@@ -421,13 +520,37 @@ async function submitRouteUpdate() {
     return;
   }
 
+  if (!economyPrice || economyPrice <= 0) {
+    alert('Please enter a valid economy class price');
+    document.getElementById('economyPrice').focus();
+    return;
+  }
+
+  if (!businessPrice || businessPrice <= 0) {
+    alert('Please enter a valid business class price');
+    document.getElementById('businessPrice').focus();
+    return;
+  }
+
+  if (!firstPrice || firstPrice <= 0) {
+    alert('Please enter a valid first class price');
+    document.getElementById('firstPrice').focus();
+    return;
+  }
+
   // Prepare update data
   const updateData = {
-    routeNumber,
+    routeNumber: prefix + routeNumberPart,
+    returnRouteNumber: prefix + returnRouteNumberPart,
     assignedAircraftId,
     scheduledDepartureTime: departureTime,
-    frequency,
-    ticketPrice,
+    turnaroundTime,
+    daysOfWeek: selectedDaysOfWeek,
+    transportType,
+    economyPrice,
+    economyPlusPrice,
+    businessPrice,
+    firstPrice,
     isActive
   };
 

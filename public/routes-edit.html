@@ -2,6 +2,15 @@
 <!-- SUBTITLE: Edit Route -->
 <!-- SCRIPTS: /js/routes-edit.js -->
 
+<style>
+  .day-button:hover {
+    opacity: 0.85;
+  }
+  .day-button:active {
+    transform: scale(0.95);
+  }
+</style>
+
 <div class="dashboard-container">
   <aside class="sidebar">
     <div class="sidebar-header">OPERATIONS</div>
@@ -76,78 +85,266 @@
           <h2>ROUTE CONFIGURATION</h2>
         </div>
         <div class="panel-body">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1rem;">
             <div>
-              <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 600;">Route Number *</label>
-              <input
-                type="text"
-                id="routeNumber"
-                placeholder="e.g., BA123"
-                maxlength="10"
-                style="width: 100%; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 1rem;"
-              />
+              <label style="display: block; margin-bottom: 0.35rem; color: var(--text-secondary); font-weight: 600; font-size: 0.8rem;">Route Number *</label>
+              <div style="display: flex; gap: 0.25rem;">
+                <input
+                  type="text"
+                  id="routePrefix"
+                  value="--"
+                  readonly
+                  maxlength="2"
+                  style="width: 3rem; padding: 0.5rem; background: var(--surface); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-muted); cursor: not-allowed; font-size: 0.9rem; text-align: center; font-weight: 600;"
+                />
+                <input
+                  type="text"
+                  id="routeNumber"
+                  placeholder="123"
+                  maxlength="7"
+                  style="flex: 1; padding: 0.5rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.9rem;"
+                />
+              </div>
             </div>
 
             <div>
-              <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 600;">Departure Airport</label>
+              <label style="display: block; margin-bottom: 0.35rem; color: var(--text-secondary); font-weight: 600; font-size: 0.8rem;">Departure Airport</label>
               <input
                 type="text"
                 id="departureAirport"
                 value="Loading..."
                 readonly
-                style="width: 100%; padding: 0.75rem; background: var(--surface); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-muted); cursor: not-allowed; font-size: 1rem;"
+                style="width: 100%; padding: 0.5rem; background: var(--surface); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-muted); cursor: not-allowed; font-size: 0.9rem;"
+              />
+            </div>
+
+            <div>
+              <label style="display: block; margin-bottom: 0.35rem; color: var(--text-secondary); font-weight: 600; font-size: 0.8rem;">Arrival Airport</label>
+              <input
+                type="text"
+                id="arrivalAirport"
+                value="--"
+                readonly
+                style="width: 100%; padding: 0.5rem; background: var(--surface); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-muted); cursor: not-allowed; font-size: 0.9rem;"
               />
             </div>
           </div>
 
-          <div style="margin-bottom: 1.5rem;">
-            <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 600;">Assigned Aircraft (Optional)</label>
+          <div style="margin-bottom: 1rem;">
+            <label style="display: block; margin-bottom: 0.35rem; color: var(--text-secondary); font-weight: 600; font-size: 0.8rem;">Assigned Aircraft (Optional)</label>
             <select
               id="assignedAircraft"
-              style="width: 100%; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 1rem;"
+              style="width: 100%; padding: 0.5rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.9rem;"
             >
               <option value="">-- Not assigned --</option>
             </select>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin-bottom: 1rem;">
-            <div>
-              <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 600;">Departure Time *</label>
-              <input
-                type="time"
-                id="departureTime"
-                value="08:00"
-                style="width: 100%; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 1rem;"
-              />
-            </div>
+          <div>
+            <label style="display: block; margin-bottom: 0.35rem; color: var(--text-secondary); font-weight: 600; font-size: 0.8rem;">Departure Time *</label>
+            <input
+              type="time"
+              id="departureTime"
+              value="08:00"
+              style="width: 100%; padding: 0.5rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.9rem;"
+            />
+          </div>
 
+          <!-- Days of Operation -->
+          <div id="daysOfWeekSection" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
             <div>
-              <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 600;">Ticket Price ($) *</label>
-              <input
-                type="number"
-                id="ticketPrice"
-                placeholder="150"
-                min="1"
-                step="1"
-                style="width: 100%; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 1rem;"
-              />
-            </div>
-
-            <div>
-              <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 600;">Frequency</label>
-              <select
-                id="frequency"
-                style="width: 100%; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 1rem;"
-              >
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="biweekly">Bi-weekly</option>
-                <option value="monthly">Monthly</option>
-              </select>
+              <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 600; font-size: 0.8rem;">Days of Operation *</label>
+              <div style="display: flex; gap: 0.5rem;" id="daysOfWeekContainer">
+                <button
+                  type="button"
+                  class="day-button"
+                  data-day="1"
+                  onclick="toggleDay(1)"
+                  style="flex: 1; padding: 0.75rem; background: var(--surface-elevated); border: 2px solid var(--border-color); border-radius: 4px; color: var(--text-muted); font-weight: 600; cursor: pointer; transition: all 0.2s;"
+                >
+                  M
+                </button>
+                <button
+                  type="button"
+                  class="day-button"
+                  data-day="2"
+                  onclick="toggleDay(2)"
+                  style="flex: 1; padding: 0.75rem; background: var(--surface-elevated); border: 2px solid var(--border-color); border-radius: 4px; color: var(--text-muted); font-weight: 600; cursor: pointer; transition: all 0.2s;"
+                >
+                  T
+                </button>
+                <button
+                  type="button"
+                  class="day-button"
+                  data-day="3"
+                  onclick="toggleDay(3)"
+                  style="flex: 1; padding: 0.75rem; background: var(--surface-elevated); border: 2px solid var(--border-color); border-radius: 4px; color: var(--text-muted); font-weight: 600; cursor: pointer; transition: all 0.2s;"
+                >
+                  W
+                </button>
+                <button
+                  type="button"
+                  class="day-button"
+                  data-day="4"
+                  onclick="toggleDay(4)"
+                  style="flex: 1; padding: 0.75rem; background: var(--surface-elevated); border: 2px solid var(--border-color); border-radius: 4px; color: var(--text-muted); font-weight: 600; cursor: pointer; transition: all 0.2s;"
+                >
+                  T
+                </button>
+                <button
+                  type="button"
+                  class="day-button"
+                  data-day="5"
+                  onclick="toggleDay(5)"
+                  style="flex: 1; padding: 0.75rem; background: var(--surface-elevated); border: 2px solid var(--border-color); border-radius: 4px; color: var(--text-muted); font-weight: 600; cursor: pointer; transition: all 0.2s;"
+                >
+                  F
+                </button>
+                <button
+                  type="button"
+                  class="day-button"
+                  data-day="6"
+                  onclick="toggleDay(6)"
+                  style="flex: 1; padding: 0.75rem; background: var(--surface-elevated); border: 2px solid var(--border-color); border-radius: 4px; color: var(--text-muted); font-weight: 600; cursor: pointer; transition: all 0.2s;"
+                >
+                  S
+                </button>
+                <button
+                  type="button"
+                  class="day-button"
+                  data-day="0"
+                  onclick="toggleDay(0)"
+                  style="flex: 1; padding: 0.75rem; background: var(--surface-elevated); border: 2px solid var(--border-color); border-radius: 4px; color: var(--text-muted); font-weight: 600; cursor: pointer; transition: all 0.2s;"
+                >
+                  S
+                </button>
+              </div>
             </div>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <!-- Return Sector Configuration -->
+          <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+            <div style="margin-bottom: 0.75rem;">
+              <h3 style="color: var(--text-primary); font-weight: 600; font-size: 0.9rem; margin: 0;">RETURN SECTOR</h3>
+              <p style="margin: 0.25rem 0 0 0; color: var(--text-muted); font-size: 0.75rem;">
+                All routes include a return flight back to base
+              </p>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div>
+                <label style="display: block; margin-bottom: 0.35rem; color: var(--text-secondary); font-weight: 600; font-size: 0.8rem;">Turnaround Time (minutes) *</label>
+                <input
+                  type="number"
+                  id="turnaroundTime"
+                  value="45"
+                  min="15"
+                  step="5"
+                  style="width: 100%; padding: 0.5rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.9rem;"
+                />
+              </div>
+
+              <div>
+                <label style="display: block; margin-bottom: 0.35rem; color: var(--text-secondary); font-weight: 600; font-size: 0.8rem;">Return Flight Number *</label>
+                <div style="display: flex; gap: 0.25rem;">
+                  <input
+                    type="text"
+                    id="returnRoutePrefix"
+                    value="--"
+                    readonly
+                    maxlength="2"
+                    style="width: 3rem; padding: 0.5rem; background: var(--surface); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-muted); cursor: not-allowed; font-size: 0.9rem; text-align: center; font-weight: 600;"
+                  />
+                  <input
+                    type="text"
+                    id="returnRouteNumber"
+                    placeholder="124"
+                    maxlength="7"
+                    style="flex: 1; padding: 0.5rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.9rem;"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pricing Configuration -->
+          <div id="pricingConfigSection" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+            <div style="margin-bottom: 0.75rem;">
+              <h3 style="color: var(--text-primary); font-weight: 600; font-size: 0.9rem; margin: 0;">PRICING & CARGO</h3>
+              <p style="margin: 0.25rem 0 0 0; color: var(--text-muted); font-size: 0.75rem;">
+                Configure class-based ticket pricing and cargo rates
+              </p>
+            </div>
+
+            <!-- Transport Type -->
+            <div style="margin-bottom: 1rem;">
+              <label style="display: block; margin-bottom: 0.35rem; color: var(--text-secondary); font-weight: 600; font-size: 0.8rem;">Transport Type *</label>
+              <select
+                id="transportType"
+                style="width: 100%; padding: 0.5rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.9rem;"
+              >
+                <option value="both">Transport both passengers and cargo</option>
+                <option value="passengers_only">Transport only passengers (block all cargo capacity)</option>
+                <option value="cargo_only">Transport only cargo (block all passenger capacity)</option>
+              </select>
+            </div>
+
+            <!-- Passenger Pricing -->
+            <div id="passengerPricingSection">
+              <h4 style="color: var(--text-secondary); font-size: 0.8rem; margin: 0 0 0.75rem 0; font-weight: 600;">PASSENGER CLASS PRICING</h4>
+              <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                  <label style="display: block; margin-bottom: 0.35rem; color: var(--text-secondary); font-weight: 600; font-size: 0.8rem;">Economy Class ($) *</label>
+                  <input
+                    type="number"
+                    id="economyPrice"
+                    placeholder="180"
+                    min="1"
+                    step="1"
+                    style="width: 100%; padding: 0.5rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.9rem;"
+                  />
+                </div>
+
+                <div>
+                  <label style="display: block; margin-bottom: 0.35rem; color: var(--text-secondary); font-weight: 600; font-size: 0.8rem;">Economy Plus ($)</label>
+                  <input
+                    type="number"
+                    id="economyPlusPrice"
+                    placeholder="250"
+                    min="0"
+                    step="1"
+                    style="width: 100%; padding: 0.5rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.9rem;"
+                  />
+                </div>
+
+                <div>
+                  <label style="display: block; margin-bottom: 0.35rem; color: var(--text-secondary); font-weight: 600; font-size: 0.8rem;">Business Class ($) *</label>
+                  <input
+                    type="number"
+                    id="businessPrice"
+                    placeholder="470"
+                    min="1"
+                    step="1"
+                    style="width: 100%; padding: 0.5rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.9rem;"
+                  />
+                </div>
+
+                <div>
+                  <label style="display: block; margin-bottom: 0.35rem; color: var(--text-secondary); font-weight: 600; font-size: 0.8rem;">First Class ($) *</label>
+                  <input
+                    type="number"
+                    id="firstPrice"
+                    placeholder="830"
+                    min="1"
+                    step="1"
+                    style="width: 100%; padding: 0.5rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.9rem;"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 0.75rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
             <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-secondary); cursor: pointer;">
               <input
                 type="checkbox"
@@ -339,8 +536,28 @@
       <!-- Action Buttons -->
       <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-bottom: 2rem;">
         <a href="/routes" class="btn btn-secondary" style="padding: 0.75rem 2rem; text-decoration: none;">CANCEL</a>
-        <button onclick="submitRouteUpdate()" class="btn btn-primary" style="padding: 0.75rem 2rem;">SAVE CHANGES</button>
+        <button onclick="showConfirmationModal()" class="btn btn-primary" style="padding: 0.75rem 2rem;">SAVE CHANGES</button>
       </div>
     </div>
   </main>
+
+  <!-- Confirmation Modal -->
+  <div id="confirmationModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); z-index: 10000; align-items: center; justify-content: center;">
+    <div style="background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 8px; padding: 2rem; max-width: 550px; width: 90%;">
+      <h3 style="margin: 0 0 1rem 0; color: var(--text-primary); font-weight: 600;">Confirm Route Changes</h3>
+      <div style="background: rgba(255, 193, 7, 0.1); border: 1px solid var(--warning-color); border-radius: 6px; padding: 1rem; margin-bottom: 1.5rem;">
+        <p style="color: var(--warning-color); margin: 0; font-weight: 600; font-size: 0.9rem;">⚠ Important Notice</p>
+        <p style="color: var(--text-secondary); margin: 0.5rem 0 0 0; font-size: 0.85rem;">
+          Editing this route will automatically remove it from all existing schedules. You will need to re-assign this route in the scheduling page after saving changes.
+        </p>
+      </div>
+      <p id="confirmationMessage" style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.9rem;">
+        Are you sure you want to save these changes?
+      </p>
+      <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+        <button class="btn btn-secondary" onclick="closeConfirmationModal()">CANCEL</button>
+        <button class="btn btn-primary" onclick="confirmRouteUpdate()">CONFIRM & SAVE CHANGES</button>
+      </div>
+    </div>
+  </div>
 </div>
