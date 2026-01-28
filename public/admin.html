@@ -134,7 +134,10 @@
           <label for="searchAirportInput">SEARCH AIRPORT</label>
           <input type="text" id="searchAirportInput" placeholder="Search by name, city, or code..." onkeyup="searchAirports()">
         </div>
-        <button class="btn btn-primary" onclick="openAddAirportModal()" style="margin-left: 1rem;">+ ADD AIRPORT</button>
+        <div style="display: flex; gap: 0.5rem; margin-left: 1rem;">
+          <button class="btn btn-secondary" onclick="clearAirportCache()" title="Clear airport cache to force refresh data">REFRESH CACHE</button>
+          <button class="btn btn-primary" onclick="openAddAirportModal()">+ ADD AIRPORT</button>
+        </div>
       </div>
 
       <h2 class="section-title">AIRPORT DATABASE</h2>

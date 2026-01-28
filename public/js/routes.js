@@ -39,6 +39,7 @@ async function loadAllRoutes() {
     }
 
     allRoutes = routes;
+    populateAircraftTypeFilter(routes);
     displayAllRoutes(routes);
   } catch (error) {
     console.error('Error loading routes:', error);
@@ -46,6 +47,29 @@ async function loadAllRoutes() {
       <div class="empty-message">Error loading routes</div>
     `;
   }
+}
+
+// Populate aircraft type filter dropdown
+function populateAircraftTypeFilter(routes) {
+  const filterSelect = document.getElementById('aircraftTypeFilter');
+  if (!filterSelect) return;
+
+  // Extract unique aircraft types from routes
+  const aircraftTypes = new Set();
+  routes.forEach(route => {
+    if (route.assignedAircraft && route.assignedAircraft.aircraft) {
+      const aircraft = route.assignedAircraft.aircraft;
+      const typeName = `${aircraft.manufacturer} ${aircraft.model}${aircraft.variant ? '-' + aircraft.variant : ''}`;
+      aircraftTypes.add(typeName);
+    }
+  });
+
+  // Sort aircraft types alphabetically
+  const sortedTypes = Array.from(aircraftTypes).sort();
+
+  // Keep the "All Aircraft Types" option and add the sorted types
+  filterSelect.innerHTML = '<option value="">All Aircraft Types</option>' +
+    sortedTypes.map(type => `<option value="${type}">${type}</option>`).join('');
 }
 
 // Display all routes in a table
@@ -141,47 +165,61 @@ function displayAllRoutes(routes) {
   container.innerHTML = tableHtml;
 }
 
-// Filter routes based on search input
+// Filter routes based on search input and aircraft type
 function filterRoutes() {
   const searchInput = document.getElementById('routeSearchInput');
-  if (!searchInput) return;
+  const aircraftTypeFilter = document.getElementById('aircraftTypeFilter');
+
+  if (!searchInput || !aircraftTypeFilter) return;
 
   const searchTerm = searchInput.value.toLowerCase().trim();
+  const selectedAircraftType = aircraftTypeFilter.value;
 
-  // If search is empty, show all routes
-  if (searchTerm === '') {
-    displayAllRoutes(allRoutes);
-    return;
+  // Filter routes based on both search term and aircraft type
+  let filtered = allRoutes;
+
+  // Apply aircraft type filter
+  if (selectedAircraftType !== '') {
+    filtered = filtered.filter(route => {
+      if (!route.assignedAircraft || !route.assignedAircraft.aircraft) return false;
+
+      const aircraft = route.assignedAircraft.aircraft;
+      const typeName = `${aircraft.manufacturer} ${aircraft.model}${aircraft.variant ? '-' + aircraft.variant : ''}`;
+
+      return typeName === selectedAircraftType;
+    });
   }
 
-  // Filter routes based on search term
-  const filtered = allRoutes.filter(route => {
-    // Search in flight numbers
-    if (route.routeNumber?.toLowerCase().includes(searchTerm)) return true;
-    if (route.returnRouteNumber?.toLowerCase().includes(searchTerm)) return true;
+  // Apply search term filter
+  if (searchTerm !== '') {
+    filtered = filtered.filter(route => {
+      // Search in flight numbers
+      if (route.routeNumber?.toLowerCase().includes(searchTerm)) return true;
+      if (route.returnRouteNumber?.toLowerCase().includes(searchTerm)) return true;
 
-    // Search in departure airport
-    if (route.departureAirport?.icaoCode?.toLowerCase().includes(searchTerm)) return true;
-    if (route.departureAirport?.iataCode?.toLowerCase().includes(searchTerm)) return true;
-    if (route.departureAirport?.name?.toLowerCase().includes(searchTerm)) return true;
-    if (route.departureAirport?.city?.toLowerCase().includes(searchTerm)) return true;
+      // Search in departure airport
+      if (route.departureAirport?.icaoCode?.toLowerCase().includes(searchTerm)) return true;
+      if (route.departureAirport?.iataCode?.toLowerCase().includes(searchTerm)) return true;
+      if (route.departureAirport?.name?.toLowerCase().includes(searchTerm)) return true;
+      if (route.departureAirport?.city?.toLowerCase().includes(searchTerm)) return true;
 
-    // Search in arrival airport
-    if (route.arrivalAirport?.icaoCode?.toLowerCase().includes(searchTerm)) return true;
-    if (route.arrivalAirport?.iataCode?.toLowerCase().includes(searchTerm)) return true;
-    if (route.arrivalAirport?.name?.toLowerCase().includes(searchTerm)) return true;
-    if (route.arrivalAirport?.city?.toLowerCase().includes(searchTerm)) return true;
+      // Search in arrival airport
+      if (route.arrivalAirport?.icaoCode?.toLowerCase().includes(searchTerm)) return true;
+      if (route.arrivalAirport?.iataCode?.toLowerCase().includes(searchTerm)) return true;
+      if (route.arrivalAirport?.name?.toLowerCase().includes(searchTerm)) return true;
+      if (route.arrivalAirport?.city?.toLowerCase().includes(searchTerm)) return true;
 
-    // Search in tech stop airport (if present)
-    if (route.techStopAirport) {
-      if (route.techStopAirport?.icaoCode?.toLowerCase().includes(searchTerm)) return true;
-      if (route.techStopAirport?.iataCode?.toLowerCase().includes(searchTerm)) return true;
-      if (route.techStopAirport?.name?.toLowerCase().includes(searchTerm)) return true;
-      if (route.techStopAirport?.city?.toLowerCase().includes(searchTerm)) return true;
-    }
+      // Search in tech stop airport (if present)
+      if (route.techStopAirport) {
+        if (route.techStopAirport?.icaoCode?.toLowerCase().includes(searchTerm)) return true;
+        if (route.techStopAirport?.iataCode?.toLowerCase().includes(searchTerm)) return true;
+        if (route.techStopAirport?.name?.toLowerCase().includes(searchTerm)) return true;
+        if (route.techStopAirport?.city?.toLowerCase().includes(searchTerm)) return true;
+      }
 
-    return false;
-  });
+      return false;
+    });
+  }
 
   displayAllRoutes(filtered);
 }

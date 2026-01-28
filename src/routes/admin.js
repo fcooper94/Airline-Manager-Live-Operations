@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { User, WorldMembership, World, Aircraft, Airport } = require('../models');
+const airportCacheService = require('../services/airportCacheService');
 
 /**
  * Get all users with their credit information
@@ -586,6 +587,9 @@ router.post('/airports', async (req, res) => {
       operationalUntil: operationalUntil ? parseInt(operationalUntil) : null
     });
 
+    // Clear airport cache since data changed
+    airportCacheService.clearAll();
+
     res.json({
       message: 'Airport created successfully',
       airport
@@ -643,6 +647,9 @@ router.put('/airports/:airportId', async (req, res) => {
     // Update fields
     await airport.update(req.body);
 
+    // Clear airport cache since data changed
+    airportCacheService.clearAll();
+
     res.json({
       message: 'Airport updated successfully',
       airport
@@ -684,12 +691,57 @@ router.delete('/airports/:airportId', async (req, res) => {
 
     await airport.destroy();
 
+    // Clear airport cache since data changed
+    airportCacheService.clearAll();
+
     res.json({ message: 'Airport deleted successfully' });
   } catch (error) {
     if (process.env.NODE_ENV === 'development') {
       console.error('Error deleting airport:', error);
     }
     res.status(500).json({ error: 'Failed to delete airport' });
+  }
+});
+
+/**
+ * Clear airport cache (force refresh)
+ */
+router.post('/airports/clear-cache', async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const cleared = airportCacheService.clearAll();
+
+    res.json({
+      message: 'Airport cache cleared successfully',
+      entriesCleared: cleared
+    });
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error clearing airport cache:', error);
+    }
+    res.status(500).json({ error: 'Failed to clear airport cache' });
+  }
+});
+
+/**
+ * Get airport cache statistics
+ */
+router.get('/airports/cache-stats', async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const stats = airportCacheService.getStats();
+    res.json(stats);
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error getting cache stats:', error);
+    }
+    res.status(500).json({ error: 'Failed to get cache stats' });
   }
 });
 

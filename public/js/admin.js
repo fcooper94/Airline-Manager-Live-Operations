@@ -927,6 +927,30 @@ function searchAirports() {
   renderAirportsTable(filteredAirports);
 }
 
+// Clear airport cache
+async function clearAirportCache() {
+  try {
+    const confirmed = confirm('This will clear the cached airport data and force all clients to reload. Continue?');
+    if (!confirmed) return;
+
+    const response = await fetch('/api/admin/airports/clear-cache', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to clear cache');
+    }
+
+    alert(`✓ Cache cleared successfully! (${data.entriesCleared} entries removed)`);
+  } catch (error) {
+    console.error('Error clearing airport cache:', error);
+    alert(`Error: ${error.message}`);
+  }
+}
+
 // Open add airport modal
 function openAddAirportModal() {
   selectedAirportId = null;

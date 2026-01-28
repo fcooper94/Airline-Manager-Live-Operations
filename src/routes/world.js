@@ -3,6 +3,7 @@ const router = express.Router();
 const worldTimeService = require('../services/worldTimeService');
 const airportGrowthService = require('../services/airportGrowthService');
 const historicalCountryService = require('../services/historicalCountryService');
+const airportCacheService = require('../services/airportCacheService');
 const { World, WorldMembership, User, Airport } = require('../models');
 
 /**
@@ -281,219 +282,29 @@ router.get('/:worldId/info', async (req, res) => {
 });
 
 /**
- * Get all airports for base selection
+ * Get all airports for base selection (with caching)
  */
 router.get('/airports', async (req, res) => {
   try {
     const { type, search, country, worldId } = req.query;
-    const { Op } = require('sequelize');
 
-    // Build where clause
-    const whereClause = { isActive: true };
+    // Determine effective world ID
+    const effectiveWorldId = worldId || req.session?.activeWorldId;
 
-    if (type) {
-      whereClause.type = type;
+    // Try to get from cache first
+    let airportsData = airportCacheService.get(effectiveWorldId, type, country, search);
+
+    // If not in cache, fetch from database and cache it
+    if (!airportsData) {
+      airportsData = await airportCacheService.fetchAndCacheAirports(
+        effectiveWorldId,
+        type,
+        country,
+        search
+      );
     }
 
-    if (country) {
-      whereClause.country = country;
-    }
-
-    if (search) {
-      whereClause[Op.or] = [
-        { name: { [Op.iLike]: `%${search}%` } },
-        { city: { [Op.iLike]: `%${search}%` } },
-        { icaoCode: { [Op.iLike]: `%${search}%` } },
-        { iataCode: { [Op.iLike]: `%${search}%` } }
-      ];
-    }
-
-    // Filter by operational dates based on world's current time
-    if (worldId) {
-      const world = await World.findByPk(worldId);
-      if (world && world.currentTime) {
-        const worldYear = world.currentTime.getFullYear();
-
-        // Airport must have opened before or during the world year
-        whereClause[Op.and] = [
-          {
-            [Op.or]: [
-              { operationalFrom: null }, // No start date specified
-              { operationalFrom: { [Op.lte]: worldYear } } // Opened on or before world year
-            ]
-          },
-          {
-            [Op.or]: [
-              { operationalUntil: null }, // Still operational
-              { operationalUntil: { [Op.gte]: worldYear } } // Closed on or after world year
-            ]
-          }
-        ];
-      }
-    } else {
-      // If no worldId, use session's active world
-      const activeWorldId = req.session?.activeWorldId;
-      if (activeWorldId) {
-        const world = await World.findByPk(activeWorldId);
-        if (world && world.currentTime) {
-          const worldYear = world.currentTime.getFullYear();
-
-          whereClause[Op.and] = [
-            {
-              [Op.or]: [
-                { operationalFrom: null },
-                { operationalFrom: { [Op.lte]: worldYear } }
-              ]
-            },
-            {
-              [Op.or]: [
-                { operationalUntil: null },
-                { operationalUntil: { [Op.gte]: worldYear } }
-              ]
-            }
-          ];
-        }
-      }
-    }
-
-    // Use a more efficient query with LEFT JOIN to get airline counts
-    const sequelize = require('../config/database');
-    const { QueryTypes } = require('sequelize');
-
-    // Build the SQL query dynamically based on whereClause
-    let whereClauses = ['a.is_active = true'];
-    let replacements = {};
-
-    if (type) {
-      whereClauses.push('a.type = :type');
-      replacements.type = type;
-    }
-
-    if (country) {
-      whereClauses.push('a.country = :country');
-      replacements.country = country;
-    }
-
-    if (search) {
-      whereClauses.push(`(
-        a.name ILIKE :search OR
-        a.city ILIKE :search OR
-        a.icao_code ILIKE :search OR
-        a.iata_code ILIKE :search
-      )`);
-      replacements.search = `%${search}%`;
-    }
-
-    // Add world year filtering if applicable
-    if (worldId) {
-      const world = await World.findByPk(worldId);
-      if (world && world.currentTime) {
-        const worldYear = world.currentTime.getFullYear();
-        whereClauses.push(`(
-          (a.operational_from IS NULL OR a.operational_from <= :worldYear) AND
-          (a.operational_until IS NULL OR a.operational_until >= :worldYear)
-        )`);
-        replacements.worldYear = worldYear;
-      }
-    } else if (req.session?.activeWorldId) {
-      const world = await World.findByPk(req.session.activeWorldId);
-      if (world && world.currentTime) {
-        const worldYear = world.currentTime.getFullYear();
-        whereClauses.push(`(
-          (a.operational_from IS NULL OR a.operational_from <= :worldYear) AND
-          (a.operational_until IS NULL OR a.operational_until >= :worldYear)
-        )`);
-        replacements.worldYear = worldYear;
-      }
-    }
-
-    const whereSQL = whereClauses.join(' AND ');
-
-    // Use different limits based on whether this is a search or browse all
-    // For search queries, limit to 200 for performance
-    // For browsing all airports, return up to 5000 (or unlimited)
-    const limit = search ? 200 : 5000;
-
-    const airportsWithData = await sequelize.query(`
-      SELECT
-        a.id,
-        a.icao_code as "icaoCode",
-        a.iata_code as "iataCode",
-        a.name,
-        a.city,
-        a.country,
-        a.latitude,
-        a.longitude,
-        a.elevation,
-        a.type,
-        a.timezone,
-        a.is_active as "isActive",
-        a.operational_from as "operationalFrom",
-        a.operational_until as "operationalUntil",
-        a.traffic_demand as "trafficDemand",
-        a.infrastructure_level as "infrastructureLevel",
-        a.created_at as "createdAt",
-        a.updated_at as "updatedAt",
-        COALESCE(COUNT(wm.id), 0)::int as "airlinesBasedHere"
-      FROM airports a
-      LEFT JOIN world_memberships wm ON wm.base_airport_id = a.id
-      WHERE ${whereSQL}
-      GROUP BY a.id
-      ORDER BY
-        CASE a.type
-          WHEN 'International Hub' THEN 1
-          WHEN 'Major' THEN 2
-          WHEN 'Regional' THEN 3
-          WHEN 'Small Regional' THEN 4
-          ELSE 5
-        END,
-        a.name ASC
-      LIMIT ${limit}
-    `, {
-      replacements,
-      type: QueryTypes.SELECT
-    });
-
-    // Calculate dynamic traffic and infrastructure based on world year
-    let worldYear = 2024; // Default to current year
-    if (worldId) {
-      const world = await World.findByPk(worldId);
-      if (world && world.currentTime) {
-        worldYear = world.currentTime.getFullYear();
-      }
-    } else if (req.session?.activeWorldId) {
-      const world = await World.findByPk(req.session.activeWorldId);
-      if (world && world.currentTime) {
-        worldYear = world.currentTime.getFullYear();
-      }
-    }
-
-    // Apply dynamic metrics and historical country names to each airport
-    const airportsWithDynamicData = airportsWithData.map(airport => {
-      const metrics = airportGrowthService.getAirportMetrics(airport, worldYear);
-      const historicalCountry = historicalCountryService.getHistoricalCountryName(airport.country, worldYear);
-
-      return {
-        ...airport,
-        country: historicalCountry, // Use era-appropriate country name
-        trafficDemand: metrics.trafficDemand,
-        infrastructureLevel: metrics.infrastructureLevel,
-        annualPassengers: metrics.annualPassengers,
-        runways: metrics.runways,
-        stands: metrics.stands
-      };
-    });
-
-    // Sort by annual passengers (descending) for browse all, or keep search order for searches
-    if (!search) {
-      airportsWithDynamicData.sort((a, b) => {
-        const paxA = Number(a.annualPassengers) || 0;
-        const paxB = Number(b.annualPassengers) || 0;
-        return paxB - paxA;
-      });
-    }
-
-    res.json(airportsWithDynamicData);
+    res.json(airportsData);
   } catch (error) {
     console.error('Error fetching airports:', error);
     if (process.env.NODE_ENV === 'development') {

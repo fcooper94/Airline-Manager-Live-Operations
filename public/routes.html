@@ -99,15 +99,22 @@
         <button class="btn btn-primary" onclick="createNewRoute()">CREATE NEW ROUTE</button>
       </div>
       <div class="panel-body">
-        <!-- Search Bar -->
-        <div style="margin-bottom: 1.5rem;">
+        <!-- Search and Filter Bar -->
+        <div style="margin-bottom: 1.5rem; display: flex; gap: 1rem;">
           <input
             type="text"
             id="routeSearchInput"
             placeholder="Search routes by flight number, destination, city..."
             oninput="filterRoutes()"
-            style="width: 100%; padding: 0.75rem 1rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.95rem;"
+            style="flex: 1; padding: 0.75rem 1rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.95rem;"
           />
+          <select
+            id="aircraftTypeFilter"
+            onchange="filterRoutes()"
+            style="padding: 0.75rem 1rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.95rem; min-width: 200px;"
+          >
+            <option value="">All Aircraft Types</option>
+          </select>
         </div>
         <div id="routesTable">
           <div class="table-empty">
