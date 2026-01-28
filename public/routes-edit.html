@@ -156,6 +156,65 @@
             </div>
           </div>
 
+          <!-- Technical Stop Option -->
+          <div style="margin-top: 1rem;">
+            <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-primary); cursor: pointer; font-weight: 600; font-size: 0.85rem;">
+              <input
+                type="checkbox"
+                id="includeTechStop"
+                onchange="toggleTechStopSection()"
+                style="width: 1.1rem; height: 1.1rem; cursor: pointer;"
+              />
+              <span>Add fuelling technical stop</span>
+            </label>
+            <p style="margin: 0.25rem 0 0 1.6rem; color: var(--text-muted); font-size: 0.75rem;">
+              Add an intermediate stop for refuelling on long routes
+            </p>
+          </div>
+
+          <!-- Technical Stop Section (hidden by default) -->
+          <div id="techStopSection" style="display: none; margin-top: 1rem; padding: 1rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px;">
+            <h4 style="color: var(--text-secondary); font-size: 0.85rem; margin: 0 0 0.75rem 0; font-weight: 600;">TECHNICAL STOP AIRPORT</h4>
+
+            <!-- Search for tech stop -->
+            <div style="margin-bottom: 0.75rem;">
+              <label style="display: block; margin-bottom: 0.35rem; color: var(--text-secondary); font-size: 0.75rem;">Search for technical stop airport</label>
+              <input
+                type="text"
+                id="techStopSearch"
+                placeholder="Search by ICAO, IATA, name, or city..."
+                oninput="searchTechStopAirports()"
+                style="width: 100%; padding: 0.5rem; background: var(--surface); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.85rem;"
+              />
+            </div>
+
+            <!-- Search results -->
+            <div id="techStopResults" style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 0.75rem; display: none;">
+              <!-- Results will be populated here -->
+            </div>
+
+            <!-- Selected tech stop display -->
+            <div id="selectedTechStop" style="display: none; padding: 0.75rem; background: var(--surface); border: 1px solid var(--accent-color); border-radius: 4px;">
+              <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                <div>
+                  <div id="techStopName" style="font-weight: 600; color: var(--text-primary); font-size: 0.85rem; margin-bottom: 0.25rem;">--</div>
+                  <div id="techStopDetails" style="color: var(--text-secondary); font-size: 0.75rem;">--</div>
+                </div>
+                <button onclick="clearTechStop()" style="padding: 0.25rem 0.5rem; font-size: 0.7rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer;">Clear</button>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border-color);">
+                <div>
+                  <div style="color: var(--text-muted); font-size: 0.7rem;">From Departure</div>
+                  <div id="techStopDistanceFromDep" style="color: var(--accent-color); font-weight: 700; font-size: 1rem;">-- NM</div>
+                </div>
+                <div>
+                  <div style="color: var(--text-muted); font-size: 0.7rem;">To Destination</div>
+                  <div id="techStopDistanceToDest" style="color: var(--accent-color); font-weight: 700; font-size: 1rem;">-- NM</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div style="margin-bottom: 1rem;">
             <label style="display: block; margin-bottom: 0.35rem; color: var(--text-secondary); font-weight: 600; font-size: 0.8rem;">Assigned Aircraft (Optional)</label>
             <select
@@ -178,6 +237,35 @@
 
           <!-- Days of Operation -->
           <div id="daysOfWeekSection" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+            <div style="margin-bottom: 0.75rem;">
+              <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-primary); cursor: pointer; font-weight: 600; font-size: 0.85rem;">
+                <input
+                  type="checkbox"
+                  id="sevenDaySchedule"
+                  onchange="toggleSevenDaySchedule()"
+                  style="width: 1.1rem; height: 1.1rem; cursor: pointer;"
+                />
+                <span>7 day schedule</span>
+              </label>
+              <p style="margin: 0.25rem 0 0 1.6rem; color: var(--text-muted); font-size: 0.75rem;">
+                Route operates every day of the week
+              </p>
+            </div>
+
+            <div style="margin-bottom: 0.75rem;">
+              <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-primary); cursor: pointer; font-weight: 600; font-size: 0.85rem;">
+                <input
+                  type="checkbox"
+                  id="createSeparateDailyRoutes"
+                  style="width: 1.1rem; height: 1.1rem; cursor: pointer;"
+                />
+                <span>Create each daily service as a separate route</span>
+              </label>
+              <p style="margin: 0.25rem 0 0 1.6rem; color: var(--text-muted); font-size: 0.75rem;">
+                Creates individual route records for each selected day
+              </p>
+            </div>
+
             <div>
               <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 600; font-size: 0.8rem;">Days of Operation *</label>
               <div style="display: flex; gap: 0.5rem;" id="daysOfWeekContainer">
@@ -257,7 +345,7 @@
               </p>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
               <div>
                 <label style="display: block; margin-bottom: 0.35rem; color: var(--text-secondary); font-weight: 600; font-size: 0.8rem;">Turnaround Time (minutes) *</label>
                 <input
@@ -266,8 +354,17 @@
                   value="45"
                   min="15"
                   step="5"
+                  onchange="calculateReturnTime()"
                   style="width: 100%; padding: 0.5rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.9rem;"
                 />
+                <label style="display: flex; align-items: center; gap: 0.35rem; margin-top: 0.5rem; color: var(--text-secondary); cursor: pointer;">
+                  <input
+                    type="checkbox"
+                    id="saveDefaultTurnaround"
+                    style="width: 1rem; height: 1rem; cursor: pointer;"
+                  />
+                  <span style="font-size: 0.75rem;">Make this my default turnaround time for this aircraft type</span>
+                </label>
               </div>
 
               <div>
@@ -286,12 +383,27 @@
                     id="returnRouteNumber"
                     placeholder="124"
                     maxlength="7"
+                    oninput="validateRouteNumber('returnRouteNumber')"
                     style="flex: 1; padding: 0.5rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.9rem;"
                   />
                 </div>
               </div>
+
+              <div>
+                <label style="display: block; margin-bottom: 0.35rem; color: var(--text-secondary); font-weight: 600; font-size: 0.8rem;">Calculated Return Departure</label>
+                <input
+                  type="text"
+                  id="calculatedReturnTime"
+                  readonly
+                  value="--:--"
+                  style="width: 100%; padding: 0.5rem; background: var(--surface); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-muted); cursor: not-allowed; font-size: 0.9rem;"
+                />
+              </div>
             </div>
           </div>
+
+          <!-- Flight Timing Display -->
+          <div id="flightTimingDisplay" style="margin-top: 2rem; display: none;"></div>
 
           <!-- Pricing Configuration -->
           <div id="pricingConfigSection" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
@@ -307,6 +419,7 @@
               <label style="display: block; margin-bottom: 0.35rem; color: var(--text-secondary); font-weight: 600; font-size: 0.8rem;">Transport Type *</label>
               <select
                 id="transportType"
+                onchange="updatePricingVisibility()"
                 style="width: 100%; padding: 0.5rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.9rem;"
               >
                 <option value="both">Transport both passengers and cargo</option>
@@ -327,8 +440,15 @@
                     placeholder="180"
                     min="1"
                     step="1"
+                    onchange="autoCalculateBusinessFirst()"
                     style="width: 100%; padding: 0.5rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.9rem;"
                   />
+                  <div style="display: flex; gap: 0.25rem; margin-top: 0.35rem;">
+                    <button onclick="adjustPrice('economyPrice', -10)" style="flex: 1; padding: 0.2rem; font-size: 0.7rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">-10%</button>
+                    <button onclick="adjustPrice('economyPrice', -5)" style="flex: 1; padding: 0.2rem; font-size: 0.7rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">-5%</button>
+                    <button onclick="adjustPrice('economyPrice', 5)" style="flex: 1; padding: 0.2rem; font-size: 0.7rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">+5%</button>
+                    <button onclick="adjustPrice('economyPrice', 10)" style="flex: 1; padding: 0.2rem; font-size: 0.7rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">+10%</button>
+                  </div>
                 </div>
 
                 <div>
@@ -341,6 +461,12 @@
                     step="1"
                     style="width: 100%; padding: 0.5rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.9rem;"
                   />
+                  <div style="display: flex; gap: 0.25rem; margin-top: 0.35rem;">
+                    <button onclick="adjustPrice('economyPlusPrice', -10)" style="flex: 1; padding: 0.2rem; font-size: 0.7rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">-10%</button>
+                    <button onclick="adjustPrice('economyPlusPrice', -5)" style="flex: 1; padding: 0.25rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">-5%</button>
+                    <button onclick="adjustPrice('economyPlusPrice', 5)" style="flex: 1; padding: 0.25rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">+5%</button>
+                    <button onclick="adjustPrice('economyPlusPrice', 10)" style="flex: 1; padding: 0.25rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">+10%</button>
+                  </div>
                 </div>
 
                 <div>
@@ -351,8 +477,14 @@
                     placeholder="470"
                     min="1"
                     step="1"
-                    style="width: 100%; padding: 0.5rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.9rem;"
+                    style="width: 100%; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 1rem;"
                   />
+                  <div style="display: flex; gap: 0.25rem; margin-top: 0.5rem;">
+                    <button onclick="adjustPrice('businessPrice', -10)" style="flex: 1; padding: 0.25rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">-10%</button>
+                    <button onclick="adjustPrice('businessPrice', -5)" style="flex: 1; padding: 0.25rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">-5%</button>
+                    <button onclick="adjustPrice('businessPrice', 5)" style="flex: 1; padding: 0.25rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">+5%</button>
+                    <button onclick="adjustPrice('businessPrice', 10)" style="flex: 1; padding: 0.25rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">+10%</button>
+                  </div>
                 </div>
 
                 <div>
@@ -363,9 +495,87 @@
                     placeholder="830"
                     min="1"
                     step="1"
-                    style="width: 100%; padding: 0.5rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.9rem;"
+                    style="width: 100%; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 1rem;"
                   />
+                  <div style="display: flex; gap: 0.25rem; margin-top: 0.5rem;">
+                    <button onclick="adjustPrice('firstPrice', -10)" style="flex: 1; padding: 0.25rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">-10%</button>
+                    <button onclick="adjustPrice('firstPrice', -5)" style="flex: 1; padding: 0.25rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">-5%</button>
+                    <button onclick="adjustPrice('firstPrice', 5)" style="flex: 1; padding: 0.25rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">+5%</button>
+                    <button onclick="adjustPrice('firstPrice', 10)" style="flex: 1; padding: 0.25rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">+10%</button>
+                  </div>
                 </div>
+              </div>
+              <div style="margin-bottom: 0.75rem;">
+                <button onclick="adjustAllTicketPrices(-10)" style="padding: 0.3rem 0.6rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 4px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s; margin-right: 0.35rem;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">All Classes -10%</button>
+                <button onclick="adjustAllTicketPrices(-5)" style="padding: 0.3rem 0.6rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 4px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s; margin-right: 0.35rem;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">All Classes -5%</button>
+                <button onclick="adjustAllTicketPrices(5)" style="padding: 0.3rem 0.6rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 4px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s; margin-right: 0.35rem;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">All Classes +5%</button>
+                <button onclick="adjustAllTicketPrices(10)" style="padding: 0.3rem 0.6rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 4px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">All Classes +10%</button>
+              </div>
+            </div>
+
+            <!-- Cargo Pricing -->
+            <div id="cargoPricingSection">
+              <h4 style="color: var(--text-secondary); font-size: 0.8rem; margin: 1rem 0 0.75rem 0; font-weight: 600;">CARGO RATES (per ton)</h4>
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                  <label style="display: block; margin-bottom: 0.35rem; color: var(--text-secondary); font-weight: 600; font-size: 0.8rem;">Light Cargo ($/tn) *</label>
+                  <input
+                    type="number"
+                    id="cargoLightRate"
+                    placeholder="2470"
+                    min="0"
+                    step="10"
+                    style="width: 100%; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 1rem;"
+                  />
+                  <div style="display: flex; gap: 0.25rem; margin-top: 0.5rem;">
+                    <button onclick="adjustPrice('cargoLightRate', -10)" style="flex: 1; padding: 0.25rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">-10%</button>
+                    <button onclick="adjustPrice('cargoLightRate', -5)" style="flex: 1; padding: 0.25rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">-5%</button>
+                    <button onclick="adjustPrice('cargoLightRate', 5)" style="flex: 1; padding: 0.25rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">+5%</button>
+                    <button onclick="adjustPrice('cargoLightRate', 10)" style="flex: 1; padding: 0.25rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">+10%</button>
+                  </div>
+                </div>
+
+                <div>
+                  <label style="display: block; margin-bottom: 0.35rem; color: var(--text-secondary); font-weight: 600; font-size: 0.8rem;">Standard Cargo ($/tn) *</label>
+                  <input
+                    type="number"
+                    id="cargoStandardRate"
+                    placeholder="2860"
+                    min="0"
+                    step="10"
+                    style="width: 100%; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 1rem;"
+                  />
+                  <div style="display: flex; gap: 0.25rem; margin-top: 0.5rem;">
+                    <button onclick="adjustPrice('cargoStandardRate', -10)" style="flex: 1; padding: 0.25rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">-10%</button>
+                    <button onclick="adjustPrice('cargoStandardRate', -5)" style="flex: 1; padding: 0.25rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">-5%</button>
+                    <button onclick="adjustPrice('cargoStandardRate', 5)" style="flex: 1; padding: 0.25rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">+5%</button>
+                    <button onclick="adjustPrice('cargoStandardRate', 10)" style="flex: 1; padding: 0.25rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">+10%</button>
+                  </div>
+                </div>
+
+                <div>
+                  <label style="display: block; margin-bottom: 0.35rem; color: var(--text-secondary); font-weight: 600; font-size: 0.8rem;">Heavy Cargo ($/tn) *</label>
+                  <input
+                    type="number"
+                    id="cargoHeavyRate"
+                    placeholder="3210"
+                    min="0"
+                    step="10"
+                    style="width: 100%; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 1rem;"
+                  />
+                  <div style="display: flex; gap: 0.25rem; margin-top: 0.5rem;">
+                    <button onclick="adjustPrice('cargoHeavyRate', -10)" style="flex: 1; padding: 0.25rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">-10%</button>
+                    <button onclick="adjustPrice('cargoHeavyRate', -5)" style="flex: 1; padding: 0.25rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">-5%</button>
+                    <button onclick="adjustPrice('cargoHeavyRate', 5)" style="flex: 1; padding: 0.25rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">+5%</button>
+                    <button onclick="adjustPrice('cargoHeavyRate', 10)" style="flex: 1; padding: 0.25rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 3px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">+10%</button>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <button onclick="adjustAllCargoRates(-10)" style="padding: 0.3rem 0.6rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 4px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s; margin-right: 0.35rem;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">All Cargo -10%</button>
+                <button onclick="adjustAllCargoRates(-5)" style="padding: 0.3rem 0.6rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 4px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s; margin-right: 0.35rem;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">All Cargo -5%</button>
+                <button onclick="adjustAllCargoRates(5)" style="padding: 0.3rem 0.6rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 4px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s; margin-right: 0.35rem;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">All Cargo +5%</button>
+                <button onclick="adjustAllCargoRates(10)" style="padding: 0.3rem 0.6rem; font-size: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 4px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">All Cargo +10%</button>
               </div>
             </div>
           </div>

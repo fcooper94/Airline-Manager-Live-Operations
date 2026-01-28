@@ -69,11 +69,9 @@ function displayAllRoutes(routes) {
       <thead>
         <tr style="background: var(--surface-elevated); border-bottom: 2px solid var(--border-color);">
           <th style="padding: 1rem; text-align: left; color: var(--text-secondary); font-weight: 600;">ROUTE</th>
-          <th style="padding: 1rem; text-align: left; color: var(--text-secondary); font-weight: 600;">FROM → TO</th>
+          <th style="padding: 1rem; text-align: left; color: var(--text-secondary); font-weight: 600; white-space: nowrap;">FROM → TO</th>
           <th style="padding: 1rem; text-align: center; color: var(--text-secondary); font-weight: 600;">OPERATING DAYS</th>
           <th style="padding: 1rem; text-align: center; color: var(--text-secondary); font-weight: 600;">DISTANCE</th>
-          <th style="padding: 1rem; text-align: center; color: var(--text-secondary); font-weight: 600;">PRICE</th>
-          <th style="padding: 1rem; text-align: center; color: var(--text-secondary); font-weight: 600;">FLIGHTS</th>
           <th style="padding: 1rem; text-align: center; color: var(--text-secondary); font-weight: 600;">PROFIT</th>
           <th style="padding: 1rem; text-align: center; color: var(--text-secondary); font-weight: 600;">LOAD %</th>
           <th style="padding: 1rem; text-align: center; color: var(--text-secondary); font-weight: 600;">STATUS</th>
@@ -89,10 +87,10 @@ function displayAllRoutes(routes) {
 
           return `
             <tr style="border-bottom: 1px solid var(--border-color);">
-              <td style="padding: 1rem; color: var(--accent-color); font-weight: 600;">
+              <td style="padding: 1rem; color: var(--accent-color); font-weight: 600; white-space: nowrap;">
                 ${route.routeNumber}${route.returnRouteNumber ? ' / ' + route.returnRouteNumber : ''}
               </td>
-              <td style="padding: 1rem;">
+              <td style="padding: 1rem; white-space: nowrap;">
                 <div style="color: var(--text-primary);">
                   ${route.techStopAirport
                     ? `${route.departureAirport.icaoCode} → <span style="color: var(--accent-color); font-weight: 600;" title="Technical stop for refuelling">${route.techStopAirport.icaoCode}</span> → ${route.arrivalAirport.icaoCode} → <span style="color: var(--accent-color); font-weight: 600;" title="Technical stop for refuelling">${route.techStopAirport.icaoCode}</span> → ${route.departureAirport.icaoCode}`
@@ -106,30 +104,24 @@ function displayAllRoutes(routes) {
                   }
                 </div>
               </td>
-              <td style="padding: 1rem; text-align: center; color: var(--text-primary); font-size: 0.95rem;">
+              <td style="padding: 1rem; text-align: center; color: var(--text-primary); font-size: 0.95rem; white-space: nowrap;">
                 ${displayDaysOfWeek(route.daysOfWeek)}
               </td>
-              <td style="padding: 1rem; text-align: center; color: var(--text-primary);">
+              <td style="padding: 1rem; text-align: center; color: var(--text-primary); white-space: nowrap;">
                 ${Math.round(route.distance)} NM
               </td>
-              <td style="padding: 1rem; text-align: center; color: var(--text-primary);">
-                $${Math.round(route.ticketPrice).toLocaleString('en-US')}
-              </td>
-              <td style="padding: 1rem; text-align: center; color: var(--text-primary);">
-                ${route.totalFlights}
-              </td>
-              <td style="padding: 1rem; text-align: center; color: ${profitColor}; font-weight: 600;">
+              <td style="padding: 1rem; text-align: center; color: ${profitColor}; font-weight: 600; white-space: nowrap;">
                 ${profit >= 0 ? '+' : ''}$${Math.round(profit).toLocaleString('en-US')}
               </td>
-              <td style="padding: 1rem; text-align: center; color: var(--text-primary);">
+              <td style="padding: 1rem; text-align: center; color: var(--text-primary); white-space: nowrap;">
                 ${route.averageLoadFactor.toFixed(1)}%
               </td>
-              <td style="padding: 1rem; text-align: center;">
+              <td style="padding: 1rem; text-align: center; white-space: nowrap;">
                 <span style="color: ${statusColor}; font-weight: 600; font-size: 0.85rem;">
                   ${statusText}
                 </span>
               </td>
-              <td style="padding: 1rem; text-align: center;">
+              <td style="padding: 1rem; text-align: center; white-space: nowrap;">
                 <div style="display: flex; gap: 0.5rem; justify-content: center;">
                   <button onclick="editRoute('${route.id}')" title="Edit Route" style="background: transparent; border: none; color: var(--accent-color); cursor: pointer; padding: 0.4rem 0.8rem; font-size: 1.2rem; line-height: 1; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
                     ✎
