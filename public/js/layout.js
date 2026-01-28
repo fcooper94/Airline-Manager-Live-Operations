@@ -411,7 +411,23 @@ function initializeCommonComponents() {
   // Ensure admin link visibility is handled consistently across all pages
   ensureAdminLinkVisibility();
 
+  // Initialize submenu toggle functionality
+  initializeSubmenuToggle();
+
   // Add other universal functionality here
+}
+
+// Initialize submenu toggle functionality
+function initializeSubmenuToggle() {
+  const parentItems = document.querySelectorAll('.nav-item.parent > a');
+
+  parentItems.forEach(link => {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      const parentItem = this.parentElement;
+      parentItem.classList.toggle('active');
+    });
+  });
 }
 
 // Ensure admin link visibility is consistent across all pages

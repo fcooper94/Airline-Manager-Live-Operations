@@ -413,6 +413,23 @@
 .nav-item.parent > a {
   font-weight: 600;
   color: var(--text-primary);
+  position: relative;
+  padding-right: 2.5rem;
+}
+
+.nav-item.parent > a::after {
+  content: '›';
+  position: absolute;
+  right: 1.5rem;
+  top: 50%;
+  transform: translateY(-50%) rotate(0deg);
+  transition: transform 0.2s;
+  font-size: 1.2rem;
+  font-weight: 400;
+}
+
+.nav-item.parent.active > a::after {
+  transform: translateY(-50%) rotate(90deg);
 }
 
 .nav-submenu {
@@ -420,6 +437,11 @@
   padding: 0;
   margin: 0;
   background: var(--surface-elevated);
+  display: none;
+}
+
+.nav-item.parent.active > .nav-submenu {
+  display: block;
 }
 
 .nav-submenu .nav-item a {
