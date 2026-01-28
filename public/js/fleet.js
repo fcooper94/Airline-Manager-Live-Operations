@@ -31,11 +31,18 @@ function updateFleetStats() {
     .filter(a => a.acquisitionType === 'purchase')
     .reduce((sum, a) => sum + Number(a.purchasePrice || 0), 0);
 
-  document.getElementById('totalAircraftCount').textContent = totalAircraft;
-  document.getElementById('ownedAircraftCount').textContent = ownedAircraft;
-  document.getElementById('leasedAircraftCount').textContent = leasedAircraft;
-  document.getElementById('totalFleetValue').textContent = `$${formatCurrency(totalValue)}`;
-  document.getElementById('fleetCountBadge').textContent = `${totalAircraft} AIRCRAFT`;
+  // Update elements if they exist (fleet overview section may be removed)
+  const totalAircraftEl = document.getElementById('totalAircraftCount');
+  const ownedAircraftEl = document.getElementById('ownedAircraftCount');
+  const leasedAircraftEl = document.getElementById('leasedAircraftCount');
+  const totalFleetValueEl = document.getElementById('totalFleetValue');
+  const fleetCountBadgeEl = document.getElementById('fleetCountBadge');
+
+  if (totalAircraftEl) totalAircraftEl.textContent = totalAircraft;
+  if (ownedAircraftEl) ownedAircraftEl.textContent = ownedAircraft;
+  if (leasedAircraftEl) leasedAircraftEl.textContent = leasedAircraft;
+  if (totalFleetValueEl) totalFleetValueEl.textContent = `$${formatCurrency(totalValue)}`;
+  if (fleetCountBadgeEl) fleetCountBadgeEl.textContent = `${totalAircraft} AIRCRAFT`;
 }
 
 // Display fleet
@@ -78,7 +85,7 @@ function displayFleet() {
     // Add manufacturer header
     tableRows += `
       <tr style="background: var(--surface-elevated);">
-        <td colspan="7" style="padding: 0.75rem 1rem 0.5rem; font-weight: bold; color: var(--accent-color); border-top: 2px solid var(--border-color); font-size: 0.9rem;">
+        <td colspan="6" style="padding: 0.75rem 1rem 0.5rem; font-weight: bold; color: var(--accent-color); border-top: 2px solid var(--border-color); font-size: 0.9rem;">
           ${manufacturer}
         </td>
       </tr>
@@ -89,17 +96,16 @@ function displayFleet() {
       // Add model subheader
       tableRows += `
         <tr style="background: var(--surface);">
-          <td colspan="7" style="padding: 0.6rem 2rem; font-weight: 600; color: var(--text-primary); border-left: 3px solid var(--accent-color); font-size: 0.85rem;">
+          <td colspan="6" style="padding: 0.6rem 2rem; font-weight: 600; color: var(--text-primary); border-left: 3px solid var(--accent-color); font-size: 0.85rem;">
             ${model}
           </td>
         </tr>
         <tr style="background: var(--surface); border-bottom: 1px solid var(--border-color);">
           <th style="padding: 0.5rem 0.75rem; text-align: left; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);">REG</th>
-          <th style="padding: 0.5rem 0.75rem; text-align: left; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);">TYPE</th>
+          <th style="padding: 0.5rem 0.75rem; text-align: center; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);">PROFIT</th>
           <th style="padding: 0.5rem 0.75rem; text-align: center; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);">ACQN</th>
           <th style="padding: 0.5rem 0.75rem; text-align: center; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);">COND</th>
-          <th style="padding: 0.5rem 0.75rem; text-align: center; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);">LOC</th>
-          <th style="padding: 0.5rem 0.75rem; text-align: center; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);">VALUE</th>
+          <th style="padding: 0.5rem 0.75rem; text-align: center; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);">LOCATION</th>
           <th style="padding: 0.5rem 0.75rem; text-align: center; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);">ACTION</th>
         </tr>
       `;
@@ -109,20 +115,18 @@ function displayFleet() {
         const aircraft = userAircraft.aircraft;
         const acquisitionType = userAircraft.acquisitionType === 'purchase' ? 'Owned' : 'Leased';
         const acquisitionColor = userAircraft.acquisitionType === 'purchase' ? 'var(--success-color)' : 'var(--accent-color)';
-        const ageDisplay = userAircraft.ageYears !== undefined ? `${userAircraft.ageYears} years` : 'New';
         const conditionPercent = userAircraft.conditionPercentage || 100;
-        const status = userAircraft.status || 'active';
-        const statusColor = status === 'active' ? 'var(--success-color)' : 'var(--text-secondary)';
-        const value = userAircraft.acquisitionType === 'purchase'
-          ? (userAircraft.purchasePrice || 0)
-          : (userAircraft.leaseMonthlyPayment || 0);
+        const profit = userAircraft.profit || 0;
+        const profitColor = profit >= 0 ? 'var(--success-color)' : 'var(--warning-color)';
 
         return `
           <tr style="border-bottom: 1px solid var(--border-color); cursor: pointer;" onclick="showAircraftDetails('${userAircraft.id}')">
             <td style="padding: 0.5rem 0.75rem;">
               <div style="font-weight: 600; color: var(--text-primary); font-size: 0.9rem;">${userAircraft.registration || 'N/A'}</div>
             </td>
-            <td style="padding: 0.5rem 0.75rem; color: var(--text-secondary); font-size: 0.85rem;">${aircraft.type || 'N/A'}</td>
+            <td style="padding: 0.5rem 0.75rem; text-align: center; font-weight: 600; color: ${profitColor}; font-size: 0.85rem;">
+              ${profit !== 0 ? (profit > 0 ? '+' : '') + '$' + formatCurrency(Math.abs(profit)) : '$0'}
+            </td>
             <td style="padding: 0.5rem 0.75rem; text-align: center;">
               <span style="padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.7rem; background: ${acquisitionColor}; color: white;">${acquisitionType}</span>
             </td>
@@ -135,9 +139,6 @@ function displayFleet() {
               }">${conditionPercent}%</span>
             </td>
             <td style="padding: 0.5rem 0.75rem; text-align: center; color: var(--text-primary); font-size: 0.85rem;">${userAircraft.currentAirport || 'N/A'}</td>
-            <td style="padding: 0.5rem 0.75rem; text-align: center; font-weight: 600; color: ${acquisitionColor}; font-size: 0.85rem;">
-              ${userAircraft.acquisitionType === 'purchase' ? '$' + formatCurrency(value) : '$' + formatCurrency(value) + '/mo'}
-            </td>
             <td style="padding: 0.5rem 0.75rem; text-align: center;">
               <button class="btn btn-primary" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;" onclick="event.stopPropagation(); showAircraftDetails('${userAircraft.id}')">Details</button>
             </td>
