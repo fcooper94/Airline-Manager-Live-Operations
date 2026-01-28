@@ -278,6 +278,26 @@ async function loadWorldInfo() {
         }
       }
 
+      // Update airline information in sidebar
+      const airlineInfoEl = document.getElementById('airlineInfo');
+      const airlineNameEl = document.getElementById('airlineName');
+      const airlineCodeEl = document.getElementById('airlineCode');
+
+      if (airlineInfoEl && worldInfo.airlineName) {
+        airlineInfoEl.style.display = 'block';
+
+        if (airlineNameEl) {
+          airlineNameEl.textContent = worldInfo.airlineName;
+        }
+
+        if (airlineCodeEl) {
+          const codes = [];
+          if (worldInfo.iataCode) codes.push(worldInfo.iataCode);
+          if (worldInfo.airlineCode) codes.push(worldInfo.airlineCode);
+          airlineCodeEl.textContent = codes.length > 0 ? codes.join(' / ') : '--';
+        }
+      }
+
       // Set up real-time clock if not already running
       if (!worldClockInterval) {
         startRealTimeClock();
