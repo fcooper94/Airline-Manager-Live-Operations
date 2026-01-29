@@ -286,23 +286,32 @@ router.get('/:worldId/info', async (req, res) => {
  */
 router.get('/airports', async (req, res) => {
   try {
+    const startTime = Date.now();
     const { type, search, country, worldId } = req.query;
 
     // Determine effective world ID
     const effectiveWorldId = worldId || req.session?.activeWorldId;
+
+    console.log(`[AIRPORT API] Request - worldId: ${effectiveWorldId}, type: ${type}, country: ${country}, search: ${search}`);
 
     // Try to get from cache first
     let airportsData = airportCacheService.get(effectiveWorldId, type, country, search);
 
     // If not in cache, fetch from database and cache it
     if (!airportsData) {
+      console.log('[AIRPORT API] Cache MISS - fetching from database...');
       airportsData = await airportCacheService.fetchAndCacheAirports(
         effectiveWorldId,
         type,
         country,
         search
       );
+    } else {
+      console.log('[AIRPORT API] Cache HIT - returning cached data');
     }
+
+    const duration = Date.now() - startTime;
+    console.log(`[AIRPORT API] Response time: ${duration}ms, airports: ${airportsData.length}`);
 
     res.json(airportsData);
   } catch (error) {

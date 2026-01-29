@@ -97,13 +97,6 @@
 
 <div class="dashboard-container">
   <aside class="sidebar">
-    <div style="padding: 1.5rem 1.5rem 1rem 1.5rem; border-bottom: 1px solid var(--border-color); background: var(--surface-elevated);">
-      <div id="airlineInfo" style="display: none;">
-        <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem;">MY AIRLINE</div>
-        <div id="airlineName" style="font-size: 1rem; font-weight: 700; color: var(--accent-color); margin-bottom: 0.25rem;">--</div>
-        <div id="airlineCode" style="font-size: 0.8rem; color: var(--text-secondary); font-family: 'Courier New', monospace;">--</div>
-      </div>
-    </div>
     <div class="sidebar-header">OPERATIONS</div>
     <ul class="nav-menu">
       <li class="nav-item">
@@ -150,32 +143,35 @@
       </li>
     </ul>
 
-    <div class="sidebar-footer">
-      <a href="/world-selection" class="btn btn-secondary btn-full-width" style="display: flex; align-items: center; justify-content: space-between; padding: 0.4rem 0.75rem;">
-        <span class="nav-text" style="font-size: 0.75rem;">SELECT WORLD</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <div style="padding: 1rem 1.5rem; border-top: 1px solid var(--border-color); background: var(--surface-elevated);">
+      <div id="airlineInfo" style="display: none;">
+        <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem;">MY AIRLINE</div>
+        <div id="airlineName" style="font-size: 1rem; font-weight: 700; color: var(--accent-color); margin-bottom: 0.25rem;">--</div>
+        <div id="airlineCode" style="font-size: 0.8rem; color: var(--text-secondary); font-family: 'Courier New', monospace;">--</div>
+      </div>
+    </div>
+    <div class="sidebar-footer" style="display: flex; justify-content: space-around; align-items: center; padding: 0.75rem; border-top: 1px solid var(--border-color);">
+      <a href="/world-selection" title="Select World" style="display: flex; align-items: center; justify-content: center; padding: 0.5rem; color: var(--text-secondary); transition: color 0.2s; text-decoration: none;" onmouseover="this.style.color='var(--accent-color)'" onmouseout="this.style.color='var(--text-secondary)'">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="10"></circle>
           <line x1="2" y1="12" x2="22" y2="12"></line>
           <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
         </svg>
       </a>
-      <a href="/admin" class="btn btn-secondary btn-full-width" id="sidebarAdminLink" style="display: none; margin-top: 0.35rem; padding: 0.4rem 0.75rem;">
-        <span class="nav-text" style="font-size: 0.75rem;">ADMIN PANEL</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <a href="/admin" id="sidebarAdminLink" title="Admin Panel" style="display: none; align-items: center; justify-content: center; padding: 0.5rem; color: var(--text-secondary); transition: color 0.2s; text-decoration: none;" onmouseover="this.style.color='var(--accent-color)'" onmouseout="this.style.color='var(--text-secondary)'">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
         </svg>
       </a>
-      <a href="/faqs" class="btn btn-secondary btn-full-width" style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.35rem; padding: 0.4rem 0.75rem;">
-        <span class="nav-text" style="font-size: 0.75rem;">FAQ's</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <a href="/faqs" title="FAQ's" style="display: flex; align-items: center; justify-content: center; padding: 0.5rem; color: var(--text-secondary); transition: color 0.2s; text-decoration: none;" onmouseover="this.style.color='var(--accent-color)'" onmouseout="this.style.color='var(--text-secondary)'">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="10"></circle>
           <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          <circle cx="12" cy="17" r="0.5" fill="currentColor"></circle>
         </svg>
       </a>
-      <a href="/contact" class="btn btn-secondary btn-full-width" style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.35rem; padding: 0.4rem 0.75rem;">
-        <span class="nav-text" style="font-size: 0.75rem;">CONTACT US</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <a href="/contact" title="Contact Us" style="display: flex; align-items: center; justify-content: center; padding: 0.5rem; color: var(--text-secondary); transition: color 0.2s; text-decoration: none;" onmouseover="this.style.color='var(--accent-color)'" onmouseout="this.style.color='var(--text-secondary)'">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
           <polyline points="22,6 12,13 2,6"></polyline>
         </svg>
