@@ -62,7 +62,8 @@ router.get('/flights', async (req, res) => {
           },
           include: [
             { model: Airport, as: 'departureAirport' },
-            { model: Airport, as: 'arrivalAirport' }
+            { model: Airport, as: 'arrivalAirport' },
+            { model: Airport, as: 'techStopAirport' }
           ]
         },
         {
@@ -174,7 +175,8 @@ router.post('/flight', async (req, res) => {
           as: 'route',
           include: [
             { model: Airport, as: 'departureAirport' },
-            { model: Airport, as: 'arrivalAirport' }
+            { model: Airport, as: 'arrivalAirport' },
+            { model: Airport, as: 'techStopAirport' }
           ]
         },
         {
@@ -321,7 +323,8 @@ router.put('/flight/:id', async (req, res) => {
           as: 'route',
           include: [
             { model: Airport, as: 'departureAirport' },
-            { model: Airport, as: 'arrivalAirport' }
+            { model: Airport, as: 'arrivalAirport' },
+            { model: Airport, as: 'techStopAirport' }
           ]
         },
         {

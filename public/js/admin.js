@@ -250,9 +250,10 @@ function switchTab(tab) {
   const aircraftTab = document.getElementById('aircraftTab');
   const airportsTab = document.getElementById('airportsTab');
   const worldsTab = document.getElementById('worldsTab');
+  const settingsTab = document.getElementById('settingsTab');
 
   // Remove active state from all tabs
-  [usersTab, aircraftTab, airportsTab, worldsTab].forEach(t => {
+  [usersTab, aircraftTab, airportsTab, worldsTab, settingsTab].forEach(t => {
     if (t) {
       t.classList.remove('active');
       t.style.borderBottom = '3px solid transparent';
@@ -265,6 +266,7 @@ function switchTab(tab) {
   document.getElementById('aircraftSection').style.display = 'none';
   document.getElementById('airportsSection').style.display = 'none';
   document.getElementById('worldsSection').style.display = 'none';
+  document.getElementById('settingsSection').style.display = 'none';
 
   if (tab === 'users') {
     usersTab.classList.add('active');
@@ -301,6 +303,14 @@ function switchTab(tab) {
     if (typeof allWorlds === 'undefined' || allWorlds.length === 0) {
       loadWorlds();
     }
+  } else if (tab === 'settings') {
+    settingsTab.classList.add('active');
+    settingsTab.style.borderBottom = '3px solid var(--primary-color)';
+    settingsTab.style.color = 'var(--primary-color)';
+    document.getElementById('settingsSection').style.display = 'block';
+
+    // Load current sidebar setting
+    loadSidebarSetting();
   }
 }
 
@@ -1131,3 +1141,84 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }, 10000); // Update every 10 seconds to keep clocks ticking
 });
+
+// Settings Tab Functions
+function loadSidebarSetting() {
+  const sidebarEnabled = localStorage.getItem('sidebarEnabled') !== 'false';
+  const toggleCheckbox = document.getElementById('sidebarEnabledToggle');
+  const statusDiv = document.getElementById('sidebarStatus');
+
+  if (toggleCheckbox) {
+    toggleCheckbox.checked = sidebarEnabled;
+  }
+
+  if (statusDiv) {
+    if (sidebarEnabled) {
+      statusDiv.textContent = 'ENABLED';
+      statusDiv.style.background = 'var(--success-color)';
+    } else {
+      statusDiv.textContent = 'DISABLED';
+      statusDiv.style.background = 'var(--warning-color)';
+    }
+  }
+}
+
+function toggleSidebar() {
+  const toggleCheckbox = document.getElementById('sidebarEnabledToggle');
+  const statusDiv = document.getElementById('sidebarStatus');
+  const isEnabled = toggleCheckbox.checked;
+
+  // Save setting to localStorage
+  localStorage.setItem('sidebarEnabled', isEnabled);
+
+  // Update status display
+  if (statusDiv) {
+    if (isEnabled) {
+      statusDiv.textContent = 'ENABLED';
+      statusDiv.style.background = 'var(--success-color)';
+    } else {
+      statusDiv.textContent = 'DISABLED';
+      statusDiv.style.background = 'var(--warning-color)';
+    }
+  }
+
+  // Show notification
+  const notification = document.createElement('div');
+  notification.style.cssText = `
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    padding: 1rem 1.5rem;
+    background: var(--surface-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    z-index: 10000;
+    animation: slideIn 0.3s ease-out;
+  `;
+
+  notification.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${isEnabled ? 'var(--success-color)' : 'var(--warning-color)'}" stroke-width="2">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+      </svg>
+      <div>
+        <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem;">
+          Sidebar ${isEnabled ? 'Enabled' : 'Disabled'}
+        </div>
+        <div style="font-size: 0.85rem; color: var(--text-secondary);">
+          Users need to refresh the page for changes to take effect
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(notification);
+
+  // Remove notification after 4 seconds
+  setTimeout(() => {
+    notification.style.animation = 'slideOut 0.3s ease-in';
+    setTimeout(() => notification.remove(), 300);
+  }, 4000);
+}

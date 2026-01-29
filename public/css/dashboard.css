@@ -334,15 +334,15 @@
   min-height: 42px;
 }
 
-/* Date styling - blue with border */
+/* Date styling - white with border */
 .world-date {
-  color: var(--accent-color);
+  color: white;
   font-size: 0.85rem;
   font-weight: 700;
   font-family: 'Courier New', monospace;
   padding: 0.35rem 0.5rem;
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(37, 99, 235, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 3px;
   display: flex;
   align-items: center;
@@ -362,9 +362,9 @@
   align-items: center;
 }
 
-/* Day styling - blue with border */
+/* Day styling - white with border */
 .world-day {
-  color: var(--accent-color);
+  color: white;
   font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -372,7 +372,7 @@
   font-family: 'Courier New', monospace;
   padding: 0.45rem 0.5rem;
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(37, 99, 235, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 3px;
   display: flex;
   align-items: center;
@@ -730,6 +730,7 @@
 
 .panel-body {
   padding: 2rem 1.5rem;
+  overflow-x: auto;
 }
 
 .data-table {

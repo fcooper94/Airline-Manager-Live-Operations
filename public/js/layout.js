@@ -540,19 +540,53 @@ function showAircraftMarketplaceOptions() {
 function initSidebarToggle() {
   const toggleBtn = document.getElementById('sidebarToggle');
   const dashboardContainer = document.querySelector('.dashboard-container');
+  const sidebar = document.querySelector('.sidebar');
 
-  if (toggleBtn && dashboardContainer) {
-    // Check localStorage for saved state
-    const sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
-    if (sidebarCollapsed) {
+  // Check if sidebar is disabled/hidden from admin panel
+  const sidebarEnabled = localStorage.getItem('sidebarEnabled') !== 'false';
+
+  // Hide sidebar and burger menu on admin page
+  const isAdminPage = window.location.pathname === '/admin';
+
+  if (isAdminPage) {
+    // Hide burger menu on admin page
+    if (toggleBtn) {
+      toggleBtn.style.display = 'none';
+    }
+    // Hide sidebar on admin page
+    if (sidebar) {
+      sidebar.style.display = 'none';
+    }
+    // Remove sidebar spacing from container on admin page
+    if (dashboardContainer) {
       dashboardContainer.classList.add('sidebar-collapsed');
     }
+    return;
+  }
 
-    toggleBtn.addEventListener('click', () => {
-      dashboardContainer.classList.toggle('sidebar-collapsed');
-      const isCollapsed = dashboardContainer.classList.contains('sidebar-collapsed');
-      localStorage.setItem('sidebarCollapsed', isCollapsed);
-    });
+  if (toggleBtn) {
+    if (!sidebarEnabled || !sidebar) {
+      // Hide burger menu if sidebar is disabled or doesn't exist
+      toggleBtn.style.display = 'none';
+    } else {
+      // Show burger menu
+      toggleBtn.style.display = 'flex';
+
+      // Check localStorage for saved collapsed state
+      const sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+      if (sidebarCollapsed && dashboardContainer) {
+        dashboardContainer.classList.add('sidebar-collapsed');
+      }
+
+      // Add click handler for toggle
+      toggleBtn.addEventListener('click', () => {
+        if (dashboardContainer) {
+          dashboardContainer.classList.toggle('sidebar-collapsed');
+          const isCollapsed = dashboardContainer.classList.contains('sidebar-collapsed');
+          localStorage.setItem('sidebarCollapsed', isCollapsed);
+        }
+      });
+    }
   }
 }
 

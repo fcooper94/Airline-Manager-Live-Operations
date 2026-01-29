@@ -298,6 +298,7 @@ function renderFlightBlocks(flights) {
     // Get airport codes
     const depAirport = route.departureAirport.iataCode || route.departureAirport.icaoCode;
     const arrAirport = route.arrivalAirport.iataCode || route.arrivalAirport.icaoCode;
+    const techStopAirport = route.techStopAirport ? (route.techStopAirport.iataCode || route.techStopAirport.icaoCode) : null;
 
     // Use simplified layout for short flights (under 2 hours total)
     const isShortFlight = durationHours < 2;
@@ -305,6 +306,49 @@ function renderFlightBlocks(flights) {
 
     if (isVeryShortFlight) {
       // Ultra-compact layout for very short flights - IATA codes only
+      // For tech stops, show large indicator in center only
+      if (techStopAirport) {
+        return `
+          <div
+            class="flight-block"
+            style="
+              position: absolute;
+              top: 0;
+              left: ${leftPercent}%;
+              width: ${widthPercent}%;
+              height: 100%;
+              min-height: 50px;
+              background: var(--accent-color);
+              border-radius: 3px;
+              color: white;
+              font-size: 0.55rem;
+              font-weight: 600;
+              padding: 0.2rem 0.25rem;
+              cursor: pointer;
+              z-index: 1;
+              display: grid;
+              grid-template-columns: 1fr auto 1fr;
+              grid-template-rows: auto auto auto;
+              gap: 0.05rem 0.1rem;
+              line-height: 1;
+              align-items: center;
+            "
+            onclick="viewFlightDetails('${flight.id}')"
+            title="${route.routeNumber}/${route.returnRouteNumber}: ${depAirport}→${techStopAirport}→${arrAirport}→${techStopAirport}→${depAirport} | Block-Off ${depTime} Block-On ${returnArrTime}"
+          >
+            <div style="grid-column: 1; grid-row: 1; text-align: left;">${depAirport}</div>
+            <div style="grid-column: 2; grid-row: 1; text-align: center; color: #14b8a6; font-size: 0.55rem; font-weight: 700;">${techStopAirport}</div>
+            <div style="grid-column: 3; grid-row: 1; text-align: right;">${arrAirport}</div>
+
+            <div style="grid-column: 1; grid-row: 2; text-align: left;">${arrAirport}</div>
+            <div style="grid-column: 2; grid-row: 2; text-align: center; color: #14b8a6; font-size: 0.55rem; font-weight: 700;">${techStopAirport}</div>
+            <div style="grid-column: 3; grid-row: 2; text-align: right;">${depAirport}</div>
+
+            <div style="grid-column: 1 / 4; grid-row: 3; text-align: center; font-size: 0.5rem; opacity: 0.85; margin-top: 0.05rem;">${depTime}</div>
+          </div>
+        `;
+      }
+
       return `
         <div
           class="flight-block"
@@ -313,8 +357,8 @@ function renderFlightBlocks(flights) {
             top: 0;
             left: ${leftPercent}%;
             width: ${widthPercent}%;
-            height: 100%;
-            min-height: 50px;
+            height: auto;
+            min-height: 62px;
             background: var(--accent-color);
             border-radius: 3px;
             color: white;
@@ -344,6 +388,47 @@ function renderFlightBlocks(flights) {
 
     if (isShortFlight) {
       // Compact layout for short flights - hide bottom row and return time
+      // For tech stops, show large indicator in center only
+      if (techStopAirport) {
+        return `
+          <div
+            class="flight-block"
+            style="
+              position: absolute;
+              top: 0;
+              left: ${leftPercent}%;
+              width: ${widthPercent}%;
+              height: 100%;
+              min-height: 50px;
+              background: var(--accent-color);
+              border-radius: 3px;
+              color: white;
+              font-size: 0.6rem;
+              font-weight: 600;
+              padding: 0.2rem 0.25rem;
+              cursor: pointer;
+              z-index: 1;
+              display: grid;
+              grid-template-columns: auto 1fr auto;
+              grid-template-rows: auto auto;
+              gap: 0.1rem 0.2rem;
+              line-height: 1;
+            "
+            onclick="viewFlightDetails('${flight.id}')"
+            title="${route.routeNumber}/${route.returnRouteNumber}: ${depAirport}→${techStopAirport}→${arrAirport}→${techStopAirport}→${depAirport} | Block-Off ${depTime} Block-On ${returnArrTime}"
+          >
+            <div style="grid-column: 1; grid-row: 1; text-align: left;">${depAirport}</div>
+            <div style="grid-column: 2; grid-row: 1 / 3; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.62rem; gap: 0.05rem;">
+              <div style="color: #14b8a6; font-size: 0.6rem; font-weight: 700;">${techStopAirport}</div>
+              <div>${route.routeNumber}</div>
+              <div>${route.returnRouteNumber}</div>
+            </div>
+            <div style="grid-column: 3; grid-row: 1; text-align: right;">${arrAirport}</div>
+            <div style="grid-column: 1; grid-row: 2; text-align: left; font-size: 0.52rem; opacity: 0.85;">${depTime}</div>
+          </div>
+        `;
+      }
+
       return `
         <div
           class="flight-block"
@@ -352,8 +437,8 @@ function renderFlightBlocks(flights) {
             top: 0;
             left: ${leftPercent}%;
             width: ${widthPercent}%;
-            height: 100%;
-            min-height: 50px;
+            height: auto;
+            min-height: 62px;
             background: var(--accent-color);
             border-radius: 3px;
             color: white;
@@ -383,6 +468,57 @@ function renderFlightBlocks(flights) {
     }
 
     // Full layout for longer flights
+    // For tech stops, show large indicator in center only
+    if (techStopAirport) {
+      return `
+        <div
+          class="flight-block"
+          style="
+            position: absolute;
+            top: 0;
+            left: ${leftPercent}%;
+            width: ${widthPercent}%;
+            height: auto;
+            min-height: 62px;
+            background: var(--accent-color);
+            border-radius: 3px;
+            color: white;
+            font-size: 0.65rem;
+            font-weight: 600;
+            padding: 0.25rem 0.35rem;
+            cursor: pointer;
+            z-index: 1;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            grid-template-rows: auto auto auto;
+            gap: 0.15rem 0.25rem;
+            line-height: 1.1;
+          "
+          onclick="viewFlightDetails('${flight.id}')"
+          title="${route.routeNumber}/${route.returnRouteNumber}: ${depAirport}→${techStopAirport}→${arrAirport}→${techStopAirport}→${depAirport} | Block-Off ${depTime} Block-On ${returnArrTime}"
+        >
+          <div style="grid-column: 1; grid-row: 1; text-align: left;">${depAirport}</div>
+          <div style="grid-column: 2; grid-row: 1; display: flex; align-items: center; justify-content: center;">
+            <span style="color: #14b8a6; font-size: 0.65rem; font-weight: 700;">${techStopAirport}</span>
+          </div>
+          <div style="grid-column: 3; grid-row: 1; text-align: right;">${arrAirport}</div>
+
+          <div style="grid-column: 1; grid-row: 2; text-align: left; font-size: 0.6rem; opacity: 0.85;">${depTime}</div>
+          <div style="grid-column: 2; grid-row: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.7rem; gap: 0.1rem;">
+            <div>${route.routeNumber}</div>
+            <div>${route.returnRouteNumber}</div>
+          </div>
+          <div style="grid-column: 3; grid-row: 2; text-align: right; font-size: 0.6rem; opacity: 0.85;">${returnArrTime}</div>
+
+          <div style="grid-column: 1; grid-row: 3; text-align: left;">${arrAirport}</div>
+          <div style="grid-column: 2; grid-row: 3; display: flex; align-items: center; justify-content: center;">
+            <span style="color: #14b8a6; font-size: 0.65rem; font-weight: 700;">${techStopAirport}</span>
+          </div>
+          <div style="grid-column: 3; grid-row: 3; text-align: right;">${depAirport}</div>
+        </div>
+      `;
+    }
+
     return `
       <div
         class="flight-block"
@@ -469,9 +605,9 @@ function renderMaintenanceBlocks(maintenance) {
           background: ${backgroundColor};
           border-radius: 2px;
           color: white;
-          font-size: 0.65rem;
+          font-size: 0.85rem;
           font-weight: 700;
-          padding: 0.2rem;
+          padding: 0.15rem;
           cursor: pointer;
           z-index: 1;
           display: flex;
@@ -643,7 +779,7 @@ function renderSchedule() {
   timeColumns.forEach((col, index) => {
     // Add thicker border every 6 hours for visual clarity
     const borderStyle = (col.hour % 6 === 0) ? 'border-left: 2px solid var(--border-color);' : 'border-left: 1px solid var(--border-color);';
-    html += `<th style="padding: 0.75rem 0.25rem; text-align: center; color: var(--text-secondary); font-weight: 600; min-width: 50px; ${borderStyle}">${col.label}</th>`;
+    html += `<th style="padding: 0.5rem 0.2rem; text-align: center; color: var(--text-secondary); font-weight: 600; min-width: 40px; ${borderStyle}">${col.label}</th>`;
   });
 
   html += '<th style="padding: 0.75rem 0.5rem; text-align: center; color: var(--text-secondary); font-weight: 600; min-width: 100px; border-left: 2px solid var(--border-color); position: sticky; right: 0; background: var(--surface-elevated); z-index: 11;">ACTIONS</th>';
@@ -725,30 +861,22 @@ async function loadSchedule() {
   }
 }
 
-// Generate a single aircraft row (with flights and maintenance as separate rows)
+// Generate a single aircraft row (with flights and maintenance in the same row)
 function generateAircraftRow(aircraft, timeColumns) {
   const aircraftRoutes = getAircraftRoutes(aircraft.id);
   const typeStr = `${aircraft.aircraft.manufacturer} ${aircraft.aircraft.model}${aircraft.aircraft.variant ? '-' + aircraft.aircraft.variant : ''}`;
 
   let html = '';
 
-  // FIRST ROW: Flights
-  html += '<tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">';
+  // Single row containing both flights and maintenance
+  html += '<tr style="border-bottom: 1px solid var(--border-color);">';
 
-  // Aircraft info column (sticky left) - spans 2 rows
+  // Aircraft info column (sticky left)
   html += `
-    <td rowspan="2" style="padding: 1rem; position: sticky; left: 0; background: var(--surface); border-right: 2px solid var(--border-color); z-index: 5; border-bottom: 1px solid var(--border-color);">
-      <div style="color: var(--accent-color); font-weight: 600; font-size: 1rem; margin-bottom: 0.25rem;">
+    <td style="padding: 1rem; position: sticky; left: 0; background: var(--surface); border-right: 2px solid var(--border-color); z-index: 5;">
+      <div style="color: var(--accent-color); font-weight: 600; font-size: 1rem;">
         ${aircraft.registration}
       </div>
-      <div style="color: var(--text-muted); font-size: 0.85rem;">
-        ${typeStr}
-      </div>
-      ${aircraftRoutes.length > 0 ? `
-        <div style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0.25rem;">
-          ${aircraftRoutes.length} route${aircraftRoutes.length !== 1 ? 's' : ''} assigned
-        </div>
-      ` : ''}
     </td>
   `;
 
@@ -766,16 +894,17 @@ function generateAircraftRow(aircraft, timeColumns) {
   targetDate.setDate(today.getDate() + daysUntilTarget);
   const dateStr = targetDate.toISOString().split('T')[0];
 
-  // Time slot columns - FLIGHTS ONLY
+  // Time slot columns - BOTH flights and maintenance
   timeColumns.forEach((col, index) => {
     // Add thicker border every 6 hours for visual clarity
     const borderStyle = (col.hour % 6 === 0) ? 'border-left: 2px solid var(--border-color);' : 'border-left: 1px solid var(--border-color);';
 
     const timeValue = col.hour;
-    const cellWidth = '50px';
+    const cellWidth = '40px';
 
-    // Get flights only for this aircraft on this date and hour
+    // Get both flights and maintenance for this aircraft on this date and hour
     const cellFlights = getFlightsForCell(aircraft.id, dateStr, col.hour);
+    const cellMaintenance = getMaintenanceForCell(aircraft.id, dateStr, col.hour);
 
     html += `
       <td
@@ -786,16 +915,17 @@ function generateAircraftRow(aircraft, timeColumns) {
         ondragover="handleDragOver(event)"
         ondragleave="handleDragLeave(event)"
         ondrop="handleDrop(event, '${aircraft.id}', '${timeValue}')"
-        style="padding: 0.5rem 0.25rem; text-align: center; background: var(--surface-elevated); ${borderStyle} min-height: 40px; min-width: ${cellWidth}; position: relative; vertical-align: top;"
+        style="padding: 0.3rem 0.2rem 0.3rem 0.2rem; text-align: center; background: var(--surface-elevated); ${borderStyle} height: 65px; min-width: ${cellWidth}; position: relative; vertical-align: top; overflow: visible;"
       >
         ${renderFlightBlocks(cellFlights, 'daily')}
+        ${renderMaintenanceBlocks(cellMaintenance)}
       </td>
     `;
   });
 
-  // Actions column (sticky right) - spans 2 rows
+  // Actions column (sticky right)
   html += `
-    <td rowspan="2" style="padding: 0.5rem; position: sticky; right: 0; background: var(--surface); border-left: 2px solid var(--border-color); z-index: 5; border-bottom: 1px solid var(--border-color);">
+    <td style="padding: 0.5rem; position: sticky; right: 0; background: var(--surface); border-left: 2px solid var(--border-color); z-index: 5;">
       <div style="display: flex; gap: 0.5rem; justify-content: center; align-items: center;">
         <button
           onclick="addRouteToAircraft('${aircraft.id}')"
@@ -829,7 +959,7 @@ function generateAircraftRow(aircraft, timeColumns) {
             background: transparent;
             border: 1px solid var(--border-color);
             color: var(--text-secondary);
-            font-size: 1rem;
+            font-size: 1.4rem;
             cursor: pointer;
             border-radius: 4px;
             display: flex;
@@ -865,32 +995,6 @@ function generateAircraftRow(aircraft, timeColumns) {
       </div>
     </td>
   `;
-
-  html += '</tr>';
-
-  // SECOND ROW: Maintenance
-  html += '<tr style="border-bottom: 1px solid var(--border-color);">';
-
-  // Time slot columns - MAINTENANCE ONLY
-  timeColumns.forEach((col, index) => {
-    // Add thicker border every 6 hours for visual clarity
-    const borderStyle = (col.hour % 6 === 0) ? 'border-left: 2px solid var(--border-color);' : 'border-left: 1px solid var(--border-color);';
-
-    const timeValue = col.hour;
-    const cellWidth = '50px';
-
-    // Get maintenance only for this aircraft on this date and hour
-    const cellMaintenance = getMaintenanceForCell(aircraft.id, dateStr, col.hour);
-
-    html += `
-      <td
-        class="schedule-cell-maintenance"
-        style="padding: 0.15rem; text-align: center; background: var(--surface); ${borderStyle} height: 24px; min-width: ${cellWidth}; position: relative; vertical-align: top;"
-      >
-        ${renderMaintenanceBlocks(cellMaintenance)}
-      </td>
-    `;
-  });
 
   html += '</tr>';
 

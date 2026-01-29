@@ -95,7 +95,6 @@ function displayAllRoutes(routes) {
           <th style="padding: 1rem; text-align: left; color: var(--text-secondary); font-weight: 600;">ROUTE</th>
           <th style="padding: 1rem; text-align: left; color: var(--text-secondary); font-weight: 600; white-space: nowrap;">FROM → TO</th>
           <th style="padding: 1rem; text-align: center; color: var(--text-secondary); font-weight: 600;">OPERATING DAYS</th>
-          <th style="padding: 1rem; text-align: center; color: var(--text-secondary); font-weight: 600;">DISTANCE</th>
           <th style="padding: 1rem; text-align: center; color: var(--text-secondary); font-weight: 600;">PROFIT</th>
           <th style="padding: 1rem; text-align: center; color: var(--text-secondary); font-weight: 600;">LOAD %</th>
           <th style="padding: 1rem; text-align: center; color: var(--text-secondary); font-weight: 600;">STATUS</th>
@@ -121,18 +120,9 @@ function displayAllRoutes(routes) {
                     : `${route.departureAirport.icaoCode} → ${route.arrivalAirport.icaoCode} → ${route.departureAirport.icaoCode}`
                   }
                 </div>
-                <div style="color: var(--text-muted); font-size: 0.85rem;">
-                  ${route.techStopAirport
-                    ? `${route.departureAirport.city} → ${route.techStopAirport.city} → ${route.arrivalAirport.city} → ${route.techStopAirport.city} → ${route.departureAirport.city}`
-                    : `${route.departureAirport.city} → ${route.arrivalAirport.city} → ${route.departureAirport.city}`
-                  }
-                </div>
               </td>
               <td style="padding: 1rem; text-align: center; color: var(--text-primary); font-size: 0.95rem; white-space: nowrap;">
                 ${displayDaysOfWeek(route.daysOfWeek)}
-              </td>
-              <td style="padding: 1rem; text-align: center; color: var(--text-primary); white-space: nowrap;">
-                ${Math.round(route.distance)} NM
               </td>
               <td style="padding: 1rem; text-align: center; color: ${profitColor}; font-weight: 600; white-space: nowrap;">
                 ${profit >= 0 ? '+' : ''}$${Math.round(profit).toLocaleString('en-US')}
