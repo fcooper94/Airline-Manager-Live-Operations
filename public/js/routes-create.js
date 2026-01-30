@@ -9,6 +9,75 @@ let selectedDaysOfWeek = [1, 2, 3, 4, 5, 6, 0]; // Default: all days selected (M
 let globalPricing = null;
 let aircraftTypePricing = {};
 let aircraftDataById = {}; // Store aircraft data by ID for lookup
+let demandDataCache = {}; // Cache demand data for airport pairs
+
+// Loading overlay functions
+function showLoadingOverlay(message = 'Loading...') {
+  let overlay = document.getElementById('airportLoadingOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'airportLoadingOverlay';
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(10, 15, 26, 0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      color: var(--text-primary);
+    `;
+    overlay.innerHTML = `
+      <div style="text-align: center;">
+        <div style="font-size: 1.5rem; margin-bottom: 1rem; color: var(--accent-color);">
+          <div class="spinner" style="
+            border: 4px solid var(--border-color);
+            border-top: 4px solid var(--accent-color);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1.5rem auto;
+          "></div>
+        </div>
+        <div id="loadingMessage" style="font-size: 1.2rem; font-weight: 600; color: var(--text-primary);"></div>
+      </div>
+      <style>
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      </style>
+    `;
+    document.body.appendChild(overlay);
+  }
+  const messageEl = overlay.querySelector('#loadingMessage');
+  if (messageEl) {
+    messageEl.innerHTML = message;
+  }
+  overlay.style.display = 'flex';
+}
+
+function updateLoadingOverlay(message) {
+  const overlay = document.getElementById('airportLoadingOverlay');
+  if (overlay) {
+    const messageEl = overlay.querySelector('#loadingMessage');
+    if (messageEl) {
+      messageEl.innerHTML = message;
+    }
+  }
+}
+
+function hideLoadingOverlay() {
+  const overlay = document.getElementById('airportLoadingOverlay');
+  if (overlay) {
+    overlay.style.display = 'none';
+  }
+}
 
 // Fetch world info and base airport
 async function fetchWorldInfo() {
@@ -383,10 +452,21 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 
 // Load available airports for destination selection
 async function loadAvailableAirports() {
+  // Show loading overlay
+  showLoadingOverlay('Loading airports...');
+
   try {
     const response = await fetch('/api/world/airports');
     if (response.ok) {
-      const airports = await response.json();
+      const data = await response.json();
+
+      // Update loading message if it's first load
+      if (data.isFirstLoad) {
+        updateLoadingOverlay('Loading for the first time...<br><small style="opacity: 0.7;">This may take a moment</small>');
+      }
+
+      const airports = data.airports || data; // Support both new and old format
+
       // Filter out the base airport and calculate distances
       availableAirports = airports
         .filter(airport => airport.icaoCode !== baseAirport.icaoCode)
@@ -404,16 +484,65 @@ async function loadAvailableAirports() {
       populateCountryFilter();
       populateTimezoneFilter();
 
+      // Load demand data in background
+      loadDemandForAirports(availableAirports).then(() => {
+        // Refresh display with demand data
+        applyDestinationFilters();
+      });
+
       // Display airports
       applyDestinationFilters();
+
+      // Hide loading overlay
+      hideLoadingOverlay();
     }
   } catch (error) {
     console.error('Error loading airports:', error);
+    hideLoadingOverlay();
     document.getElementById('availableAirportsList').innerHTML = `
       <div style="padding: 3rem; text-align: center; color: var(--warning-color);">
         Error loading airports
       </div>
     `;
+  }
+}
+
+// Fetch demand data for visible airports
+async function loadDemandForAirports(airports) {
+  if (!baseAirport || !airports || airports.length === 0) return;
+
+  try {
+    // Fetch top 500 destinations from base airport (increased from 100)
+    const response = await fetch(`/api/world/airports/${baseAirport.id}/demand?limit=500`);
+    if (response.ok) {
+      const data = await response.json();
+
+      // Cache demand data by destination airport ID
+      if (data.destinations) {
+        data.destinations.forEach(dest => {
+          if (dest.airport) {
+            demandDataCache[dest.airport.id] = {
+              demand: dest.demand,
+              demandCategory: dest.demandCategory,
+              routeType: dest.routeType
+            };
+          }
+        });
+      }
+
+      // Mark remaining airports as having no demand data
+      airports.forEach(airport => {
+        if (!demandDataCache[airport.id]) {
+          demandDataCache[airport.id] = {
+            demand: 0,
+            demandCategory: 'none',
+            routeType: null
+          };
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Error loading demand data:', error);
   }
 }
 
@@ -507,12 +636,12 @@ function applyDestinationFilters() {
       if (infraOperator === '<=' && airportCapacity > infraLevel) return false;
     }
 
-    // Traffic level filter
+    // Operations level filter (movements index)
     if (trafficLevel !== null) {
-      const airportTraffic = airport.trafficDemand || 0;
-      if (trafficOperator === '=' && airportTraffic !== trafficLevel) return false;
-      if (trafficOperator === '>=' && airportTraffic < trafficLevel) return false;
-      if (trafficOperator === '<=' && airportTraffic > trafficLevel) return false;
+      const airportOperations = airport.movementsIndex || airport.trafficDemand || 0;
+      if (trafficOperator === '=' && airportOperations !== trafficLevel) return false;
+      if (trafficOperator === '>=' && airportOperations < trafficLevel) return false;
+      if (trafficOperator === '<=' && airportOperations > trafficLevel) return false;
     }
 
     // Timezone filter
@@ -534,8 +663,19 @@ function applyDestinationFilters() {
     return true;
   });
 
-  // Sort by distance
-  filtered.sort((a, b) => a.distance - b.distance);
+  // Sort by demand (high to low), then distance (low to high) as tiebreaker
+  filtered.sort((a, b) => {
+    const demandA = demandDataCache[a.id]?.demand || 0;
+    const demandB = demandDataCache[b.id]?.demand || 0;
+
+    // Primary sort: demand (descending)
+    if (demandB !== demandA) {
+      return demandB - demandA;
+    }
+
+    // Secondary sort: distance (ascending)
+    return a.distance - b.distance;
+  });
 
   // Update badge
   const badge = document.getElementById('airportCountBadge');
@@ -609,6 +749,89 @@ function generateCapacityScaleCompact(percentage) {
   `;
 }
 
+// Generate demand indicator
+function generateDemandIndicator(airport) {
+  const demandData = demandDataCache[airport.id];
+
+  if (!demandData) {
+    // No demand data yet - show loading
+    return `
+      <div style="display: flex; align-items: center; gap: 0.5rem; opacity: 0.4;">
+        <span style="color: var(--text-muted); font-size: 0.75rem; font-weight: 600; white-space: nowrap;">Demand:</span>
+        <span style="font-size: 0.7rem; color: var(--text-muted);">Loading...</span>
+      </div>
+    `;
+  }
+
+  // Check for cargo-only routes
+  if (demandData.routeType === 'cargo') {
+    return `
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span style="color: var(--text-muted); font-size: 0.75rem; font-weight: 600; white-space: nowrap;">Demand:</span>
+        <div style="
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          padding: 0.15rem 0.5rem;
+          background: #6366f122;
+          border: 1px solid #6366f1;
+          border-radius: 3px;
+        ">
+          <div style="
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #6366f1;
+          "></div>
+          <span style="font-size: 0.7rem; color: #6366f1; font-weight: 600; white-space: nowrap;">Cargo</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // Color and label based on demand level
+  let color, label;
+  if (demandData.demand === 0 || demandData.demandCategory === 'none') {
+    color = '#6b7280'; // Gray - no demand
+    label = 'None';
+  } else if (demandData.demand >= 75) {
+    color = '#22c55e'; // Green - high
+    label = 'High';
+  } else if (demandData.demand >= 45) {
+    color = '#eab308'; // Yellow - medium
+    label = 'Medium';
+  } else if (demandData.demand >= 15) {
+    color = '#f59e0b'; // Orange - low
+    label = 'Low';
+  } else {
+    color = '#ef4444'; // Red - very low
+    label = 'Very Low';
+  }
+
+  return `
+    <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <span style="color: var(--text-muted); font-size: 0.75rem; font-weight: 600; white-space: nowrap;">Demand:</span>
+      <div style="
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.15rem 0.5rem;
+        background: ${color}22;
+        border: 1px solid ${color};
+        border-radius: 3px;
+      ">
+        <div style="
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: ${color};
+        "></div>
+        <span style="font-size: 0.7rem; color: ${color}; font-weight: 600; white-space: nowrap;">${label}</span>
+      </div>
+    </div>
+  `;
+}
+
 // Display available airports
 function displayAvailableAirports(airports) {
   const container = document.getElementById('availableAirportsList');
@@ -653,16 +876,17 @@ function displayAvailableAirports(airports) {
             </div>
           </div>
 
-          <!-- Spare Capacity & Traffic -->
+          <!-- Spare Capacity, Operations & Demand -->
           <div style="display: flex; gap: 1.5rem; align-items: center;">
             <div style="display: flex; align-items: center; gap: 0.5rem;">
               <span style="color: var(--text-muted); font-size: 0.75rem; font-weight: 600; white-space: nowrap;">Capacity:</span>
               ${generateCapacityScaleCompact(airport.spareCapacity || 0)}
             </div>
             <div style="display: flex; align-items: center; gap: 0.5rem;">
-              <span style="color: var(--text-muted); font-size: 0.75rem; font-weight: 600; white-space: nowrap;">Traffic:</span>
-              ${generateLevelScaleCompact(airport.trafficDemand)}
+              <span style="color: var(--text-muted); font-size: 0.75rem; font-weight: 600; white-space: nowrap;">Operations:</span>
+              ${generateLevelScaleCompact(airport.movementsIndex || airport.trafficDemand)}
             </div>
+            ${generateDemandIndicator(airport)}
           </div>
 
           <!-- Distance -->
@@ -1292,6 +1516,11 @@ async function submitNewRoute() {
 
         if (!response.ok) {
           hideLoadingOverlay();
+          // Check if it's a slot validation error
+          if (data.error === 'Insufficient airport slots') {
+            showSlotErrorModal(data);
+            return;
+          }
           throw new Error(data.error || `Failed to create route ${routeNumber} for ${dayLabels[day]}`);
         }
 
@@ -1337,6 +1566,11 @@ async function submitNewRoute() {
 
       if (!response.ok) {
         hideLoadingOverlay();
+        // Check if it's a slot validation error
+        if (data.error === 'Insufficient airport slots') {
+          showSlotErrorModal(data);
+          return;
+        }
         throw new Error(data.error || 'Failed to create route');
       }
 
@@ -1426,6 +1660,146 @@ function hideLoadingOverlay() {
   if (overlay) {
     overlay.remove();
   }
+}
+
+// Show slot validation error modal
+function showSlotErrorModal(errorData) {
+  const modal = document.createElement('div');
+  modal.id = 'slotErrorModal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(10, 15, 26, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+  `;
+
+  const airportName = errorData.reason === 'departure'
+    ? baseAirport.name
+    : selectedDestinationAirport.name;
+
+  const airportCode = errorData.reason === 'departure'
+    ? baseAirport.icaoCode
+    : selectedDestinationAirport.icaoCode;
+
+  const slots = errorData.reason === 'departure'
+    ? errorData.departureSlots
+    : errorData.arrivalSlots;
+
+  modal.innerHTML = `
+    <div style="
+      background: var(--surface);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      max-width: 500px;
+      width: 90%;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    ">
+      <div style="
+        padding: 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      ">
+        <div style="
+          width: 50px;
+          height: 50px;
+          background: rgba(239, 68, 68, 0.2);
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.5rem;
+        ">⚠️</div>
+        <div>
+          <h2 style="margin: 0; font-size: 1.2rem; font-weight: 700;">No Available Slots</h2>
+          <p style="margin: 0.25rem 0 0 0; color: var(--text-secondary); font-size: 0.9rem;">Cannot create route</p>
+        </div>
+      </div>
+
+      <div style="padding: 1.5rem;">
+        <p style="color: var(--text-primary); line-height: 1.6; margin: 0 0 1rem 0;">
+          <strong>${airportName} (${airportCode})</strong> has no available landing slots.
+        </p>
+
+        <div style="
+          background: var(--surface-elevated);
+          border-radius: 6px;
+          padding: 1rem;
+          margin-bottom: 1rem;
+        ">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+            <span style="color: var(--text-secondary);">Total Slots:</span>
+            <span style="color: var(--text-primary); font-weight: 600;">${slots?.totalSlots || 0}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+            <span style="color: var(--text-secondary);">Used Slots:</span>
+            <span style="color: var(--warning-color); font-weight: 600;">${slots?.usedSlots || 0}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-secondary);">Available:</span>
+            <span style="color: var(--success-color); font-weight: 600;">${slots?.availableSlots || 0}</span>
+          </div>
+        </div>
+
+        <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; margin: 0;">
+          To create this route, you'll need to either:<br>
+          • Remove or suspend an existing route at this airport<br>
+          • Choose a different ${errorData.reason} airport with available slots
+        </p>
+      </div>
+
+      <div style="
+        padding: 1rem 1.5rem;
+        border-top: 1px solid var(--border-color);
+        display: flex;
+        justify-content: flex-end;
+      ">
+        <button
+          onclick="document.getElementById('slotErrorModal').remove()"
+          style="
+            padding: 0.65rem 1.5rem;
+            background: var(--accent-color);
+            border: none;
+            border-radius: 4px;
+            color: white;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+          "
+          onmouseover="this.style.opacity='0.9'"
+          onmouseout="this.style.opacity='1'"
+        >
+          OK
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  // Close on background click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+
+  // Close on Escape key
+  const escapeHandler = (e) => {
+    if (e.key === 'Escape') {
+      modal.remove();
+      document.removeEventListener('keydown', escapeHandler);
+    }
+  };
+  document.addEventListener('keydown', escapeHandler);
 }
 
 // Technical Stop Functions

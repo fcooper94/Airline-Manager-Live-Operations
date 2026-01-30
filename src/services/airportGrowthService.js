@@ -1411,6 +1411,117 @@ class AirportGrowthService {
       hasDetailedData: !!airportData.infraMilestones
     };
   }
+
+  /**
+   * Calculate movements index (1-20) for an airport
+   * Replaces previous trafficDemand with operational activity metric
+   * Uses LOGARITHMIC scaling: slow early growth, accelerates mid-century, plateaus modern
+   *
+   * Example (Heathrow): 1950=6, 1970=10, 1990=14, 2024=17
+   *
+   * @param {Object} airport - Airport object with icaoCode and type
+   * @param {number} year - Year to calculate for
+   * @returns {number} - Movements index (1-20)
+   */
+  getMovementsIndex(airport, year) {
+    // Get base movements from traffic demand calculation
+    const baseMovements = this.getTrafficDemand(airport.icaoCode, year, airport.type);
+
+    // Get infrastructure level
+    const infrastructureLevel = this.getInfrastructureLevel(airport.icaoCode, year, airport.type);
+
+    // Logarithmic era multiplier: log scale from 1950-2024
+    const eraMultiplier = this.getLogarithmicEraMultiplier(year);
+
+    // Airport type multiplier
+    const typeMultipliers = {
+      'International Hub': 1.2,
+      'Major': 1.0,
+      'Regional': 0.7,
+      'Small Regional': 0.4
+    };
+
+    const typeMultiplier = typeMultipliers[airport.type] || 1.0;
+
+    // Formula: baseMovements * log(infra) * log(era) * type
+    // This creates realistic movements that correlate with traffic but have their own scaling
+    const rawMovements = baseMovements *
+                         (Math.log10(infrastructureLevel + 1) / Math.log10(21)) * // Normalize log to 0-1
+                         eraMultiplier *
+                         typeMultiplier;
+
+    // Clamp to 1-20 scale
+    return Math.max(1, Math.min(20, Math.round(rawMovements)));
+  }
+
+  /**
+   * Logarithmic era multiplier for movements
+   * 1950: 0.30 → 1970: 0.50 → 1990: 0.75 → 2010: 0.92 → 2024: 1.00
+   *
+   * @param {number} year - Year to calculate for
+   * @returns {number} - Era multiplier (0.30-1.00)
+   */
+  getLogarithmicEraMultiplier(year) {
+    const baseYear = 1945; // Post-WWII aviation start
+    const currentYear = 2024;
+    const yearsElapsed = Math.max(0, year - baseYear);
+    const totalYears = currentYear - baseYear;
+
+    // Logarithmic scale: log(1 + x) normalized
+    const normalized = yearsElapsed / totalYears;
+    const logScale = Math.log10(1 + (normalized * 9)) / Math.log10(10);
+
+    // Scale to 0.30-1.00 range (30% min for early aviation)
+    return 0.30 + (logScale * 0.70);
+  }
+
+  /**
+   * Calculate total available slots per day
+   *
+   * @param {number} movementsIndex - Movements index (1-20)
+   * @param {number} runways - Number of runways
+   * @param {number} infrastructureLevel - Infrastructure level (1-20)
+   * @returns {number} - Total daily slots
+   */
+  calculateTotalSlots(movementsIndex, runways, infrastructureLevel) {
+    // Modern runway: 30-70 movements/hour based on infrastructure
+    const movementsPerHour = 30 + (infrastructureLevel * 2);
+
+    // Operating hours: 18-22 hours based on infrastructure
+    const operatingHours = 18 + Math.floor(infrastructureLevel / 5);
+
+    // Total daily slots
+    return movementsPerHour * runways * operatingHours;
+  }
+
+  /**
+   * Get extended airport metrics including movements and slots
+   *
+   * @param {Object} airport - Airport object with icaoCode and type
+   * @param {number} year - Year to calculate for
+   * @returns {Object} - Extended metrics including movementsIndex, totalSlots
+   */
+  getAirportMetricsExtended(airport, year) {
+    const movementsIndex = this.getMovementsIndex(airport, year);
+    const infrastructureLevel = this.getInfrastructureLevel(airport.icaoCode, year, airport.type);
+    const runways = this.getRunways(airport.type, infrastructureLevel);
+    const totalSlots = this.calculateTotalSlots(movementsIndex, runways, infrastructureLevel);
+    const annualPassengers = this.getAnnualPassengers(airport.icaoCode, year, movementsIndex);
+    const stands = this.getStands(airport.type, infrastructureLevel, movementsIndex);
+
+    // Also get traffic demand for backwards compatibility
+    const trafficDemand = this.getTrafficDemand(airport.icaoCode, year, airport.type);
+
+    return {
+      movementsIndex,
+      trafficDemand, // Backwards compatibility
+      infrastructureLevel,
+      runways,
+      totalSlots,
+      annualPassengers,
+      stands
+    };
+  }
 }
 
 // Singleton instance

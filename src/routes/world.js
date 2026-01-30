@@ -4,6 +4,8 @@ const worldTimeService = require('../services/worldTimeService');
 const airportGrowthService = require('../services/airportGrowthService');
 const historicalCountryService = require('../services/historicalCountryService');
 const airportCacheService = require('../services/airportCacheService');
+const airportSlotService = require('../services/airportSlotService');
+const routeDemandService = require('../services/routeDemandService');
 const { World, WorldMembership, User, Airport } = require('../models');
 
 /**
@@ -296,10 +298,12 @@ router.get('/airports', async (req, res) => {
 
     // Try to get from cache first
     let airportsData = airportCacheService.get(effectiveWorldId, type, country, search);
+    let isFirstLoad = false;
 
     // If not in cache, fetch from database and cache it
     if (!airportsData) {
       console.log('[AIRPORT API] Cache MISS - fetching from database...');
+      isFirstLoad = true;
       airportsData = await airportCacheService.fetchAndCacheAirports(
         effectiveWorldId,
         type,
@@ -313,7 +317,11 @@ router.get('/airports', async (req, res) => {
     const duration = Date.now() - startTime;
     console.log(`[AIRPORT API] Response time: ${duration}ms, airports: ${airportsData.length}`);
 
-    res.json(airportsData);
+    res.json({
+      airports: airportsData,
+      isFirstLoad: isFirstLoad,
+      count: airportsData.length
+    });
   } catch (error) {
     console.error('Error fetching airports:', error);
     if (process.env.NODE_ENV === 'development') {
@@ -344,6 +352,95 @@ router.get('/airports/:icaoCode', async (req, res) => {
       console.error('Error fetching airport:', error);
     }
     res.status(500).json({ error: 'Failed to fetch airport' });
+  }
+});
+
+/**
+ * Get top destinations with demand from an airport
+ */
+router.get('/airports/:id/demand', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { limit = 10 } = req.query;
+    const worldId = req.session?.activeWorldId;
+
+    if (!worldId) {
+      return res.status(400).json({ error: 'No active world' });
+    }
+
+    const world = await World.findByPk(worldId);
+    if (!world) {
+      return res.status(404).json({ error: 'World not found' });
+    }
+
+    const currentYear = world.currentTime.getFullYear();
+
+    const airport = await Airport.findByPk(id);
+    if (!airport) {
+      return res.status(404).json({ error: 'Airport not found' });
+    }
+
+    const destinations = await routeDemandService.getTopDestinations(
+      id,
+      currentYear,
+      parseInt(limit)
+    );
+
+    res.json({
+      airport,
+      destinations,
+      worldYear: currentYear
+    });
+
+  } catch (error) {
+    console.error('Error fetching route demand:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Get detailed slot information for an airport
+ */
+router.get('/airports/:id/slots', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const worldId = req.session?.activeWorldId;
+
+    if (!worldId) {
+      return res.status(400).json({ error: 'No active world' });
+    }
+
+    const world = await World.findByPk(worldId);
+    if (!world) {
+      return res.status(404).json({ error: 'World not found' });
+    }
+
+    const currentYear = world.currentTime.getFullYear();
+    const airport = await Airport.findByPk(id);
+    if (!airport) {
+      return res.status(404).json({ error: 'Airport not found' });
+    }
+
+    const metrics = airportGrowthService.getAirportMetricsExtended(airport, currentYear);
+    const slots = await airportSlotService.getSlotAvailability(id, worldId);
+
+    res.json({
+      airport: {
+        id: airport.id,
+        icaoCode: airport.icaoCode,
+        name: airport.name
+      },
+      slots,
+      metrics: {
+        movementsIndex: metrics.movementsIndex,
+        infrastructureLevel: metrics.infrastructureLevel,
+        runways: metrics.runways
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching slot data:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 

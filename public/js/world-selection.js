@@ -5,6 +5,74 @@ let airportSearchTimeout = null;
 let allAirports = [];
 let filteredAirports = [];
 
+// Airport loading overlay functions
+function showAirportLoadingOverlay(message = 'Loading...') {
+  let overlay = document.getElementById('airportLoadingOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'airportLoadingOverlay';
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(10, 15, 26, 0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      color: var(--text-primary);
+    `;
+    overlay.innerHTML = `
+      <div style="text-align: center;">
+        <div style="font-size: 1.5rem; margin-bottom: 1rem; color: var(--accent-color);">
+          <div class="spinner" style="
+            border: 4px solid var(--border-color);
+            border-top: 4px solid var(--accent-color);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1.5rem auto;
+          "></div>
+        </div>
+        <div id="airportLoadingMessage" style="font-size: 1.2rem; font-weight: 600; color: var(--text-primary);"></div>
+      </div>
+      <style>
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      </style>
+    `;
+    document.body.appendChild(overlay);
+  }
+  const messageEl = overlay.querySelector('#airportLoadingMessage');
+  if (messageEl) {
+    messageEl.innerHTML = message;
+  }
+  overlay.style.display = 'flex';
+}
+
+function updateAirportLoadingOverlay(message) {
+  const overlay = document.getElementById('airportLoadingOverlay');
+  if (overlay) {
+    const messageEl = overlay.querySelector('#airportLoadingMessage');
+    if (messageEl) {
+      messageEl.innerHTML = message;
+    }
+  }
+}
+
+function hideAirportLoadingOverlay() {
+  const overlay = document.getElementById('airportLoadingOverlay');
+  if (overlay) {
+    overlay.style.display = 'none';
+  }
+}
+
 // World time tracking for live clocks
 let worldTimeReferences = {}; // { worldId: { referenceTime, referenceTimestamp, acceleration } }
 let worldCardsClockInterval = null;
@@ -281,7 +349,8 @@ async function searchAirports(query) {
       return;
     }
 
-    const airports = await response.json();
+    const data = await response.json();
+    const airports = data.airports || data; // Support both new and old format
 
     if (!Array.isArray(airports) || airports.length === 0) {
       resultsDiv.innerHTML = '<div style="padding: 1rem; color: var(--text-secondary);">No airports found</div>';
@@ -613,6 +682,9 @@ function closeAirportBrowser() {
 }
 
 async function loadAllAirports() {
+  // Show loading overlay
+  showAirportLoadingOverlay('Loading airports...');
+
   try {
     const worldParam = selectedWorldId ? `?worldId=${selectedWorldId}` : '';
     const response = await fetch(`/api/world/airports${worldParam}`);
@@ -621,7 +693,14 @@ async function loadAllAirports() {
       throw new Error('Failed to load airports');
     }
 
-    allAirports = await response.json();
+    const data = await response.json();
+
+    // Update loading message if it's first load
+    if (data.isFirstLoad) {
+      updateAirportLoadingOverlay('Loading for the first time...<br><small style="opacity: 0.7;">This may take a moment</small>');
+    }
+
+    allAirports = data.airports || data; // Support both new and old format
 
     // Sort by traffic demand (highest to lowest)
     allAirports.sort((a, b) => (b.trafficDemand || 0) - (a.trafficDemand || 0));
@@ -641,8 +720,12 @@ async function loadAllAirports() {
     // Initial render
     filteredAirports = allAirports;
     renderAirportBrowser();
+
+    // Hide loading overlay
+    hideAirportLoadingOverlay();
   } catch (error) {
     console.error('Error loading airports:', error);
+    hideAirportLoadingOverlay();
     document.getElementById('airportBrowserList').innerHTML = `
       <div style="text-align: center; padding: 2rem; color: var(--warning-color);">
         Error loading airports. Please try again.

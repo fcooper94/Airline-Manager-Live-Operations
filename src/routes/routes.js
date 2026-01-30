@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { Route, WorldMembership, Airport, UserAircraft, Aircraft, User } = require('../models');
 const { Op } = require('sequelize');
+const airportSlotService = require('../services/airportSlotService');
 
 /**
  * Get all routes for the current user's airline
@@ -276,6 +277,24 @@ router.post('/', async (req, res) => {
 
     if (!membership) {
       return res.status(404).json({ error: 'Not a member of this world' });
+    }
+
+    // ✅ HARD SLOT VALIDATION
+    const slotCheck = await airportSlotService.canCreateRoute(
+      departureAirportId,
+      arrivalAirportId,
+      activeWorldId
+    );
+
+    if (!slotCheck.allowed) {
+      return res.status(400).json({
+        error: 'Insufficient airport slots',
+        reason: slotCheck.reason,
+        message: slotCheck.message,
+        slotsAvailable: slotCheck.slotsAvailable,
+        departureSlots: slotCheck.departureSlots,
+        arrivalSlots: slotCheck.arrivalSlots
+      });
     }
 
     // Validate tech stop airport exists if provided

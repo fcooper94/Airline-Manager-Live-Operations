@@ -96,18 +96,18 @@
   </aside>
 
   <main class="main-content">
-    <div class="page-header" style="margin-bottom: 1rem;">
-      <h1 id="routesTitle" style="margin-bottom: 0.25rem;">CREATE NEW ROUTE</h1>
+    <div class="page-header" style="margin-bottom: 0.5rem;">
+      <h1 id="routesTitle" style="margin-bottom: 0.15rem;">CREATE NEW ROUTE</h1>
       <p class="subtitle" id="stepSubtitle" style="margin: 0;">STEP 1: SELECT DESTINATION</p>
     </div>
 
     <!-- Step Indicator -->
-    <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem; align-items: center;">
-      <div id="step1Indicator" style="flex: 1; padding: 0.5rem 0.75rem; background: var(--accent-color); border-radius: 4px; text-align: center; color: white; font-weight: 600; font-size: 0.85rem; transition: all 0.3s;">
+    <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem; align-items: center;">
+      <div id="step1Indicator" style="flex: 1; padding: 0.4rem 0.6rem; background: var(--accent-color); border-radius: 4px; text-align: center; color: white; font-weight: 600; font-size: 0.8rem; transition: all 0.3s;">
         STEP 1: SELECT DESTINATION
       </div>
-      <div style="width: 1.5rem; height: 2px; background: var(--border-color);"></div>
-      <div id="step2Indicator" style="flex: 1; padding: 0.5rem 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; text-align: center; color: var(--text-muted); font-weight: 600; font-size: 0.85rem; transition: all 0.3s;">
+      <div style="width: 1rem; height: 2px; background: var(--border-color);"></div>
+      <div id="step2Indicator" style="flex: 1; padding: 0.4rem 0.6rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; text-align: center; color: var(--text-muted); font-weight: 600; font-size: 0.8rem; transition: all 0.3s;">
         STEP 2: CONFIGURE ROUTE
       </div>
     </div>
@@ -115,12 +115,12 @@
     <!-- Step 1: Destination Selection -->
     <div id="step1Container">
       <!-- Selected Destination Panel (shown when destination is selected) -->
-      <div id="selectedDestinationPanelStep1" class="ops-panel full-width" style="margin-bottom: 1rem; display: none; border: 2px solid var(--accent-color);">
-        <div class="panel-header" style="background: var(--accent-color-dim); padding: 0.75rem 1rem;">
-          <h2 style="color: var(--accent-color); font-size: 0.95rem; margin: 0;">SELECTED DESTINATION</h2>
+      <div id="selectedDestinationPanelStep1" class="ops-panel full-width" style="margin-bottom: 0.75rem; display: none; border: 2px solid var(--accent-color);">
+        <div class="panel-header" style="background: var(--accent-color-dim); padding: 0.5rem 0.75rem;">
+          <h2 style="color: var(--accent-color); font-size: 0.85rem; margin: 0;">SELECTED DESTINATION</h2>
           <button onclick="clearDestinationStep1()" class="btn btn-secondary btn-sm">CHANGE</button>
         </div>
-        <div class="panel-body" style="padding: 1rem;">
+        <div class="panel-body" style="padding: 0.75rem;">
           <div style="display: grid; grid-template-columns: 2fr auto; gap: 1.5rem; align-items: center;">
             <div>
               <h3 id="selectedDestNameStep1" style="color: var(--text-primary); margin: 0 0 0.25rem 0; font-size: 1.05rem; font-weight: 600;">--</h3>
@@ -140,39 +140,39 @@
       </div>
 
       <!-- Destination Search and Selection (Combined) -->
-      <div class="ops-panel full-width" style="margin-bottom: 1rem;">
-        <div class="panel-header" style="padding: 0.75rem 1rem;">
-          <h2 style="font-size: 0.95rem; margin: 0;">SELECT DESTINATION</h2>
-          <span id="airportCountBadge" class="badge" style="background: var(--accent-color); color: white; padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">-- AIRPORTS</span>
+      <div class="ops-panel full-width" style="margin-bottom: 0.75rem;">
+        <div class="panel-header" style="padding: 0.5rem 0.75rem;">
+          <h2 style="font-size: 0.85rem; margin: 0;">SELECT DESTINATION</h2>
+          <span id="airportCountBadge" class="badge" style="background: var(--accent-color); color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">-- AIRPORTS</span>
         </div>
-        <div class="panel-body" style="padding: 1rem;">
+        <div class="panel-body" style="padding: 0.75rem;">
           <!-- Search Box -->
-          <div style="margin-bottom: 1rem;">
+          <div style="margin-bottom: 0.6rem;">
             <input
               type="text"
               id="searchKeyword"
               placeholder="Search by ICAO, IATA, name, or city..."
               oninput="applyDestinationFilters()"
-              style="width: 100%; padding: 0.65rem 0.75rem; background: var(--surface-elevated); border: 2px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 1rem; transition: border-color 0.2s;"
+              style="width: 100%; padding: 0.5rem 0.6rem; background: var(--surface-elevated); border: 2px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.9rem; transition: border-color 0.2s;"
               onfocus="this.style.borderColor='var(--accent-color)'"
               onblur="this.style.borderColor='var(--border-color)'"
             />
           </div>
 
           <!-- Collapsible Filters Section -->
-          <details style="margin-bottom: 1rem;">
-            <summary style="padding: 0.5rem 0.75rem; background: var(--surface); border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; color: var(--text-secondary); font-size: 0.85rem; font-weight: 600; user-select: none; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-elevated)'" onmouseout="this.style.background='var(--surface)'">
+          <details style="margin-bottom: 0.6rem;">
+            <summary style="padding: 0.4rem 0.6rem; background: var(--surface); border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; color: var(--text-secondary); font-size: 0.8rem; font-weight: 600; user-select: none; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-elevated)'" onmouseout="this.style.background='var(--surface)'">
               Advanced Filters
             </summary>
-            <div style="margin-top: 0.75rem; padding: 1rem; background: var(--surface); border: 1px solid var(--border-color); border-radius: 4px;">
+            <div style="margin-top: 0.6rem; padding: 0.75rem; background: var(--surface); border: 1px solid var(--border-color); border-radius: 4px;">
           <!-- Filters Grid -->
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1rem;">
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin-bottom: 0.6rem;">
             <div>
-              <label style="display: block; margin-bottom: 0.35rem; color: var(--text-secondary); font-size: 0.8rem;">Continent</label>
+              <label style="display: block; margin-bottom: 0.25rem; color: var(--text-secondary); font-size: 0.75rem;">Continent</label>
               <select
                 id="continentFilter"
                 onchange="filterAirportsByContinent()"
-                style="width: 100%; padding: 0.5rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.9rem;"
+                style="width: 100%; padding: 0.4rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.85rem;"
               >
                 <option value="">-- All continents --</option>
                 <option value="Africa">Africa</option>
@@ -185,23 +185,23 @@
             </div>
 
             <div>
-              <label style="display: block; margin-bottom: 0.35rem; color: var(--text-secondary); font-size: 0.8rem;">Country</label>
+              <label style="display: block; margin-bottom: 0.25rem; color: var(--text-secondary); font-size: 0.75rem;">Country</label>
               <select
                 id="countryFilter"
                 onchange="applyDestinationFilters()"
-                style="width: 100%; padding: 0.5rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.9rem;"
+                style="width: 100%; padding: 0.4rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.85rem;"
               >
                 <option value="">-- All countries --</option>
               </select>
             </div>
 
             <div>
-              <label style="display: block; margin-bottom: 0.35rem; color: var(--text-secondary); font-size: 0.8rem;">Infrastructure level</label>
-              <div style="display: flex; gap: 0.5rem;">
+              <label style="display: block; margin-bottom: 0.25rem; color: var(--text-secondary); font-size: 0.75rem;">Infrastructure level</label>
+              <div style="display: flex; gap: 0.4rem;">
                 <select
                   id="infraOperator"
                   onchange="applyDestinationFilters()"
-                  style="width: 60px; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary);"
+                  style="width: 50px; padding: 0.4rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.85rem;"
                 >
                   <option value="=">=</option>
                   <option value=">=">&ge;</option>
@@ -214,18 +214,18 @@
                   placeholder="All"
                   min="1"
                   max="20"
-                  style="flex: 1; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary);"
+                  style="flex: 1; padding: 0.4rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.85rem;"
                 />
               </div>
             </div>
 
             <div>
-              <label style="display: block; margin-bottom: 0.35rem; color: var(--text-secondary); font-size: 0.8rem;">Traffic level</label>
-              <div style="display: flex; gap: 0.5rem;">
+              <label style="display: block; margin-bottom: 0.25rem; color: var(--text-secondary); font-size: 0.75rem;">Operations level</label>
+              <div style="display: flex; gap: 0.4rem;">
                 <select
                   id="trafficOperator"
                   onchange="applyDestinationFilters()"
-                  style="width: 60px; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary);"
+                  style="width: 50px; padding: 0.4rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.85rem;"
                 >
                   <option value="=">=</option>
                   <option value=">=">&ge;</option>
@@ -244,21 +244,21 @@
             </div>
 
             <div>
-              <label style="display: block; margin-bottom: 0.35rem; color: var(--text-secondary); font-size: 0.8rem;">Time zone</label>
+              <label style="display: block; margin-bottom: 0.25rem; color: var(--text-secondary); font-size: 0.75rem;">Time zone</label>
               <select
                 id="timezoneFilter"
                 onchange="applyDestinationFilters()"
-                style="width: 100%; padding: 0.5rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.9rem;"
+                style="width: 100%; padding: 0.4rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.85rem;"
               >
                 <option value="">Any</option>
               </select>
             </div>
           </div>
 
-          <div style="display: flex; gap: 0.75rem; align-items: flex-end; margin-bottom: 1rem;">
+          <div style="display: flex; gap: 0.6rem; align-items: flex-end; margin-bottom: 0.6rem;">
             <div style="flex: 1;">
-              <label style="display: block; margin-bottom: 0.35rem; color: var(--text-secondary); font-size: 0.8rem;">Range filter (NM, enter 0 for no filtering)</label>
-              <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <label style="display: block; margin-bottom: 0.25rem; color: var(--text-secondary); font-size: 0.75rem;">Range filter (NM, 0 = no filter)</label>
+              <div style="display: flex; gap: 0.4rem; align-items: center;">
                 <input
                   type="number"
                   id="minRange"
@@ -266,9 +266,9 @@
                   placeholder="min 0"
                   min="0"
                   value="0"
-                  style="flex: 1; padding: 0.5rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.9rem;"
+                  style="flex: 1; padding: 0.4rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.85rem;"
                 />
-                <span style="color: var(--text-muted); font-size: 0.85rem;">to</span>
+                <span style="color: var(--text-muted); font-size: 0.8rem;">to</span>
                 <input
                   type="number"
                   id="maxRange"
@@ -276,20 +276,20 @@
                   placeholder="max 0"
                   min="0"
                   value="0"
-                  style="flex: 1; padding: 0.5rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.9rem;"
+                  style="flex: 1; padding: 0.4rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.85rem;"
                 />
               </div>
             </div>
 
             <div>
-              <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-secondary); cursor: pointer; padding: 0.5rem 0;">
+              <label style="display: flex; align-items: center; gap: 0.4rem; color: var(--text-secondary); cursor: pointer; padding: 0.4rem 0;">
                 <input
                   type="checkbox"
                   id="excludeExistingRoutes"
                   onchange="applyDestinationFilters()"
-                  style="width: 1.1rem; height: 1.1rem; cursor: pointer;"
+                  style="width: 1rem; height: 1rem; cursor: pointer;"
                 />
-                <span style="font-size: 0.8rem;">Do not show destinations to which I fly</span>
+                <span style="font-size: 0.75rem;">Exclude existing routes</span>
               </label>
             </div>
           </div>
@@ -297,11 +297,11 @@
           </details>
 
           <!-- Results Section -->
-          <div style="margin-top: 0.75rem;">
-            <div style="padding: 0.5rem 0.75rem; background: var(--surface); border-left: 3px solid var(--accent-color); margin-bottom: 0.5rem;">
-              <span style="color: var(--text-secondary); font-size: 0.85rem; font-weight: 600;">AVAILABLE DESTINATIONS</span>
+          <div style="margin-top: 0.6rem;">
+            <div style="padding: 0.35rem 0.6rem; background: var(--surface); border-left: 3px solid var(--accent-color); margin-bottom: 0.4rem;">
+              <span style="color: var(--text-secondary); font-size: 0.75rem; font-weight: 600;">AVAILABLE DESTINATIONS</span>
             </div>
-            <div id="availableAirportsList" style="border: 1px solid var(--border-color); border-radius: 4px; max-height: 500px; overflow-y: auto; background: var(--surface-elevated);">
+            <div id="availableAirportsList" style="border: 1px solid var(--border-color); border-radius: 4px; max-height: 450px; overflow-y: auto; background: var(--surface-elevated);">
               <div style="padding: 3rem; text-align: center; color: var(--text-muted);">
                 Loading airports...
               </div>

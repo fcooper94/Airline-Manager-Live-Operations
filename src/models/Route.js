@@ -214,6 +214,15 @@ const Route = sequelize.define('Route', {
     },
     {
       fields: ['world_membership_id', 'return_route_number']
+    },
+    // Slot calculation optimization indexes
+    {
+      fields: ['departure_airport_id', 'is_active'],
+      name: 'idx_routes_departure_active'
+    },
+    {
+      fields: ['arrival_airport_id', 'is_active'],
+      name: 'idx_routes_arrival_active'
     }
   ]
 });

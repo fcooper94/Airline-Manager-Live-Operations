@@ -237,14 +237,18 @@ class AirportCacheService {
 
     // Apply dynamic metrics and historical country names to each airport
     const airportsWithDynamicData = airportsWithData.map(airport => {
-      const metrics = airportGrowthService.getAirportMetrics(airport, worldYear);
+      const metrics = airportGrowthService.getAirportMetricsExtended(airport, worldYear);
       const historicalCountry = historicalCountryService.getHistoricalCountryName(airport.country, worldYear);
 
       return {
         ...airport,
         country: historicalCountry,
         trafficDemand: metrics.trafficDemand,
-        annualPassengers: metrics.annualPassengers
+        movementsIndex: metrics.movementsIndex,
+        infrastructureLevel: metrics.infrastructureLevel,
+        annualPassengers: metrics.annualPassengers,
+        runways: metrics.runways,
+        totalSlots: metrics.totalSlots
       };
     });
 

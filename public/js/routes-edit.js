@@ -9,6 +9,74 @@ let allRoutes = [];
 let isChangingDestination = false;
 let selectedDaysOfWeek = [];
 
+// Loading overlay functions
+function showLoadingOverlay(message = 'Loading...') {
+  let overlay = document.getElementById('airportLoadingOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'airportLoadingOverlay';
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(10, 15, 26, 0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      color: var(--text-primary);
+    `;
+    overlay.innerHTML = `
+      <div style="text-align: center;">
+        <div style="font-size: 1.5rem; margin-bottom: 1rem; color: var(--accent-color);">
+          <div class="spinner" style="
+            border: 4px solid var(--border-color);
+            border-top: 4px solid var(--accent-color);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1.5rem auto;
+          "></div>
+        </div>
+        <div id="loadingMessage" style="font-size: 1.2rem; font-weight: 600; color: var(--text-primary);"></div>
+      </div>
+      <style>
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      </style>
+    `;
+    document.body.appendChild(overlay);
+  }
+  const messageEl = overlay.querySelector('#loadingMessage');
+  if (messageEl) {
+    messageEl.innerHTML = message;
+  }
+  overlay.style.display = 'flex';
+}
+
+function updateLoadingOverlay(message) {
+  const overlay = document.getElementById('airportLoadingOverlay');
+  if (overlay) {
+    const messageEl = overlay.querySelector('#loadingMessage');
+    if (messageEl) {
+      messageEl.innerHTML = message;
+    }
+  }
+}
+
+function hideLoadingOverlay() {
+  const overlay = document.getElementById('airportLoadingOverlay');
+  if (overlay) {
+    overlay.style.display = 'none';
+  }
+}
+
 // Get route ID from URL
 function getRouteIdFromUrl() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -218,10 +286,21 @@ function cancelDestinationChange() {
 
 // Load available airports for destination selection
 async function loadAvailableAirports() {
+  // Show loading overlay
+  showLoadingOverlay('Loading airports...');
+
   try {
     const response = await fetch('/api/world/airports');
     if (response.ok) {
-      const airports = await response.json();
+      const data = await response.json();
+
+      // Update loading message if it's first load
+      if (data.isFirstLoad) {
+        updateLoadingOverlay('Loading for the first time...<br><small style="opacity: 0.7;">This may take a moment</small>');
+      }
+
+      const airports = data.airports || data; // Support both new and old format
+
       // Filter out the base airport and calculate distances
       availableAirports = airports
         .filter(airport => airport.icaoCode !== baseAirport.icaoCode)
@@ -241,9 +320,13 @@ async function loadAvailableAirports() {
 
       // Display airports
       applyDestinationFilters();
+
+      // Hide loading overlay
+      hideLoadingOverlay();
     }
   } catch (error) {
     console.error('Error loading airports:', error);
+    hideLoadingOverlay();
     document.getElementById('availableAirportsList').innerHTML = `
       <div style="padding: 3rem; text-align: center; color: var(--warning-color);">
         Error loading airports
