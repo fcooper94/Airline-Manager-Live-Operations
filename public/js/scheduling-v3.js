@@ -1206,15 +1206,202 @@ async function viewFlightDetails(flightId) {
 
   const route = flight.route;
   const aircraft = flight.aircraft;
+  const hasTechStop = route.techStopAirport;
 
-  const confirmed = await showConfirmModal(
-    'Flight Details',
-    `Route: ${route.routeNumber} / ${route.returnRouteNumber}\nAircraft: ${aircraft.registration}\nDate: ${flight.scheduledDate}\nTime: ${flight.departureTime.substring(0, 5)}\nRoute: ${route.departureAirport.icaoCode} → ${route.arrivalAirport.icaoCode}\nStatus: ${flight.status}\n\nDelete this flight?`
-  );
+  // Get airport codes
+  const depAirport = route.departureAirport.iataCode || route.departureAirport.icaoCode;
+  const arrAirport = route.arrivalAirport.iataCode || route.arrivalAirport.icaoCode;
+  const techAirport = hasTechStop ? (route.techStopAirport.iataCode || route.techStopAirport.icaoCode) : null;
 
-  if (confirmed) {
-    deleteScheduledFlight(flightId);
+  // Calculate flight times
+  const techStopMinutes = 30;
+  const turnaroundMinutes = route.turnaroundTime || 45;
+  let outboundMinutes = 0;
+  let returnMinutes = 0;
+  let leg1Minutes = 0, leg2Minutes = 0, leg3Minutes = 0, leg4Minutes = 0;
+
+  if (aircraft.aircraft && aircraft.aircraft.cruiseSpeed) {
+    const cruiseSpeed = aircraft.aircraft.cruiseSpeed;
+    const depLat = parseFloat(route.departureAirport?.latitude) || 0;
+    const depLng = parseFloat(route.departureAirport?.longitude) || 0;
+    const arrLat = parseFloat(route.arrivalAirport?.latitude) || 0;
+    const arrLng = parseFloat(route.arrivalAirport?.longitude) || 0;
+
+    if (hasTechStop) {
+      const techLat = parseFloat(route.techStopAirport?.latitude) || 0;
+      const techLng = parseFloat(route.techStopAirport?.longitude) || 0;
+      const leg1Distance = route.legOneDistance || Math.round(route.distance * 0.4);
+      const leg2Distance = route.legTwoDistance || Math.round(route.distance * 0.6);
+
+      leg1Minutes = calculateFlightMinutes(leg1Distance, cruiseSpeed, depLng, techLng, depLat, techLat);
+      leg2Minutes = calculateFlightMinutes(leg2Distance, cruiseSpeed, techLng, arrLng, techLat, arrLat);
+      leg3Minutes = calculateFlightMinutes(leg2Distance, cruiseSpeed, arrLng, techLng, arrLat, techLat);
+      leg4Minutes = calculateFlightMinutes(leg1Distance, cruiseSpeed, techLng, depLng, techLat, depLat);
+      outboundMinutes = leg1Minutes + techStopMinutes + leg2Minutes;
+      returnMinutes = leg3Minutes + techStopMinutes + leg4Minutes;
+    } else {
+      outboundMinutes = calculateFlightMinutes(route.distance, cruiseSpeed, depLng, arrLng, depLat, arrLat);
+      returnMinutes = calculateFlightMinutes(route.distance, cruiseSpeed, arrLng, depLng, arrLat, depLat);
+    }
   }
+
+  const totalMinutes = outboundMinutes + turnaroundMinutes + returnMinutes;
+
+  // Format time helper
+  const formatDuration = (mins) => {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  };
+
+  // Calculate arrival times
+  const depTime = flight.departureTime.substring(0, 5);
+  const [depH, depM] = depTime.split(':').map(Number);
+  const depTotalMins = depH * 60 + depM;
+
+  const arrAtDestMins = depTotalMins + outboundMinutes;
+  const depReturnMins = arrAtDestMins + turnaroundMinutes;
+  const arrHomeMins = depReturnMins + returnMinutes;
+
+  const formatTime = (totalMins) => {
+    const h = Math.floor((totalMins % 1440) / 60);
+    const m = totalMins % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  };
+
+  // Build sector details HTML
+  let sectorHtml = '';
+  if (hasTechStop) {
+    const techArr1Mins = depTotalMins + leg1Minutes;
+    const techDep1Mins = techArr1Mins + techStopMinutes;
+    const techArr2Mins = arrAtDestMins + turnaroundMinutes + leg3Minutes;
+    const techDep2Mins = techArr2Mins + techStopMinutes;
+
+    sectorHtml = `
+      <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #30363d;">
+        <div style="font-weight: 600; margin-bottom: 0.5rem; color: #58a6ff;">Outbound - ${route.routeNumber}</div>
+        <div style="display: grid; grid-template-columns: 1fr auto 1fr auto; gap: 0.25rem 0.5rem; font-size: 0.85rem;">
+          <span style="color: #8b949e;">Leg 1:</span><span>${depAirport} → ${techAirport}</span>
+          <span style="color: #8b949e;">${depTime} → ${formatTime(techArr1Mins)}</span><span style="color: #7ee787;">${formatDuration(leg1Minutes)}</span>
+          <span style="color: #8b949e;">Stop:</span><span>${techAirport}</span>
+          <span style="color: #8b949e;">${formatTime(techArr1Mins)} → ${formatTime(techDep1Mins)}</span><span style="color: #ffa657;">${formatDuration(techStopMinutes)}</span>
+          <span style="color: #8b949e;">Leg 2:</span><span>${techAirport} → ${arrAirport}</span>
+          <span style="color: #8b949e;">${formatTime(techDep1Mins)} → ${formatTime(arrAtDestMins)}</span><span style="color: #7ee787;">${formatDuration(leg2Minutes)}</span>
+        </div>
+        <div style="font-weight: 600; margin: 0.75rem 0 0.5rem; color: #58a6ff;">Turnaround at ${arrAirport}</div>
+        <div style="font-size: 0.85rem; color: #ffa657;">${formatDuration(turnaroundMinutes)}</div>
+        <div style="font-weight: 600; margin: 0.75rem 0 0.5rem; color: #58a6ff;">Return - ${route.returnRouteNumber}</div>
+        <div style="display: grid; grid-template-columns: 1fr auto 1fr auto; gap: 0.25rem 0.5rem; font-size: 0.85rem;">
+          <span style="color: #8b949e;">Leg 3:</span><span>${arrAirport} → ${techAirport}</span>
+          <span style="color: #8b949e;">${formatTime(depReturnMins)} → ${formatTime(techArr2Mins)}</span><span style="color: #7ee787;">${formatDuration(leg3Minutes)}</span>
+          <span style="color: #8b949e;">Stop:</span><span>${techAirport}</span>
+          <span style="color: #8b949e;">${formatTime(techArr2Mins)} → ${formatTime(techDep2Mins)}</span><span style="color: #ffa657;">${formatDuration(techStopMinutes)}</span>
+          <span style="color: #8b949e;">Leg 4:</span><span>${techAirport} → ${depAirport}</span>
+          <span style="color: #8b949e;">${formatTime(techDep2Mins)} → ${formatTime(arrHomeMins)}</span><span style="color: #7ee787;">${formatDuration(leg4Minutes)}</span>
+        </div>
+      </div>
+    `;
+  } else {
+    sectorHtml = `
+      <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #30363d;">
+        <div style="font-weight: 600; margin-bottom: 0.5rem; color: #58a6ff;">Outbound - ${route.routeNumber}</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.25rem 0.5rem; font-size: 0.85rem;">
+          <span>${depAirport} → ${arrAirport}</span>
+          <span style="color: #8b949e;">${depTime} → ${formatTime(arrAtDestMins)}</span>
+          <span style="color: #7ee787;">${formatDuration(outboundMinutes)}</span>
+        </div>
+        <div style="font-weight: 600; margin: 0.75rem 0 0.5rem; color: #58a6ff;">Turnaround at ${arrAirport}</div>
+        <div style="font-size: 0.85rem; color: #ffa657;">${formatDuration(turnaroundMinutes)}</div>
+        <div style="font-weight: 600; margin: 0.75rem 0 0.5rem; color: #58a6ff;">Return - ${route.returnRouteNumber}</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.25rem 0.5rem; font-size: 0.85rem;">
+          <span>${arrAirport} → ${depAirport}</span>
+          <span style="color: #8b949e;">${formatTime(depReturnMins)} → ${formatTime(arrHomeMins)}</span>
+          <span style="color: #7ee787;">${formatDuration(returnMinutes)}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // Create and show custom modal
+  const modalHtml = `
+    <div id="flightDetailsModal" style="
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+    ">
+      <div style="
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 8px;
+        min-width: 400px;
+        max-width: 500px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      ">
+        <div style="padding: 1rem 1.5rem; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin: 0; color: #f0f6fc; font-size: 1.1rem;">Flight Details</h3>
+          <button onclick="closeFlightDetailsModal()" style="background: none; border: none; color: #8b949e; font-size: 1.5rem; cursor: pointer; padding: 0; line-height: 1;">&times;</button>
+        </div>
+        <div style="padding: 1.5rem;">
+          <div style="display: grid; grid-template-columns: auto 1fr; gap: 0.5rem 1rem; font-size: 0.9rem;">
+            <span style="color: #8b949e;">Route:</span>
+            <span style="color: #f0f6fc; font-weight: 600;">${route.routeNumber} / ${route.returnRouteNumber}</span>
+            <span style="color: #8b949e;">Aircraft:</span>
+            <span style="color: #f0f6fc;">${aircraft.registration} (${aircraft.aircraft.manufacturer} ${aircraft.aircraft.model})</span>
+            <span style="color: #8b949e;">Date:</span>
+            <span style="color: #f0f6fc;">${flight.scheduledDate}</span>
+            <span style="color: #8b949e;">Block Time:</span>
+            <span style="color: #f0f6fc;">${depTime} → ${formatTime(arrHomeMins)} (${formatDuration(totalMinutes)})</span>
+          </div>
+          ${sectorHtml}
+        </div>
+        <div style="padding: 1rem 1.5rem; border-top: 1px solid #30363d; display: flex; gap: 0.75rem; justify-content: flex-end;">
+          <button onclick="closeFlightDetailsModal()" style="
+            padding: 0.5rem 1rem;
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            cursor: pointer;
+            font-size: 0.9rem;
+          ">Close</button>
+          <button onclick="removeFlightFromModal('${flightId}')" style="
+            padding: 0.5rem 1rem;
+            background: #da3633;
+            border: 1px solid #f85149;
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+          ">Remove from Schedule</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Remove existing modal if any
+  const existingModal = document.getElementById('flightDetailsModal');
+  if (existingModal) existingModal.remove();
+
+  // Add modal to page
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function closeFlightDetailsModal() {
+  const modal = document.getElementById('flightDetailsModal');
+  if (modal) modal.remove();
+}
+
+async function removeFlightFromModal(flightId) {
+  closeFlightDetailsModal();
+  await deleteScheduledFlight(flightId);
 }
 
 // Delete scheduled flight
@@ -1250,21 +1437,146 @@ async function viewMaintenanceDetails(maintenanceId) {
 
   const aircraft = maintenance.aircraft;
   const checkType = maintenance.checkType === 'A' ? 'Daily Check' : 'Weekly Check';
-  const durationMinutes = maintenance.checkType === 'A' ? '60 minutes' : '120 minutes';
-  const duration = durationMinutes;
+  const checkTypeShort = maintenance.checkType === 'A' ? 'daily' : 'weekly';
+  const durationMinutes = maintenance.checkType === 'A' ? 60 : 120;
+  const endTime = calculateEndTime(maintenance.startTime, durationMinutes);
 
   // Get day of week for better description
   const date = new Date(maintenance.scheduledDate + 'T00:00:00Z');
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const dayName = dayNames[date.getUTCDay()];
 
-  const confirmed = await showConfirmModal(
-    'Maintenance Check Details',
-    `Type: ${checkType}\nAircraft: ${aircraft.registration}\nDay: ${dayName}\nStart Time: ${maintenance.startTime.substring(0, 5)}\nDuration: ${duration}\n\nWARNING: This will delete ALL future ${checkType}s on ${dayName} for this aircraft.\n\nDelete this recurring maintenance check?`
+  // Count how many checks of this type exist for this aircraft
+  const checksOfType = scheduledMaintenance.filter(m =>
+    m.aircraft.id === aircraft.id && m.checkType === maintenance.checkType
   );
 
-  if (confirmed) {
-    deleteScheduledMaintenance(maintenanceId);
+  // Create and show custom modal
+  const modalHtml = `
+    <div id="maintenanceDetailsModal" style="
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+    ">
+      <div style="
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 8px;
+        min-width: 380px;
+        max-width: 450px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      ">
+        <div style="padding: 1rem 1.5rem; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin: 0; color: #f0f6fc; font-size: 1.1rem;">Maintenance Details</h3>
+          <button onclick="closeMaintenanceDetailsModal()" style="background: none; border: none; color: #8b949e; font-size: 1.5rem; cursor: pointer; padding: 0; line-height: 1;">&times;</button>
+        </div>
+        <div style="padding: 1.5rem;">
+          <div style="display: grid; grid-template-columns: auto 1fr; gap: 0.5rem 1rem; font-size: 0.9rem;">
+            <span style="color: #8b949e;">Type:</span>
+            <span style="color: ${maintenance.checkType === 'A' ? '#ffa657' : '#a371f7'}; font-weight: 600;">${checkType}</span>
+            <span style="color: #8b949e;">Aircraft:</span>
+            <span style="color: #f0f6fc;">${aircraft.registration}</span>
+            <span style="color: #8b949e;">Day:</span>
+            <span style="color: #f0f6fc;">${dayName}</span>
+            <span style="color: #8b949e;">Time:</span>
+            <span style="color: #f0f6fc;">${maintenance.startTime.substring(0, 5)} → ${endTime}</span>
+            <span style="color: #8b949e;">Duration:</span>
+            <span style="color: #f0f6fc;">${durationMinutes} minutes</span>
+          </div>
+          <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #30363d;">
+            <div style="font-size: 0.85rem; color: #8b949e;">
+              This is a recurring ${checkTypeShort} check scheduled every ${dayName}.
+              ${checksOfType.length > 1 ? `There are ${checksOfType.length} ${checkTypeShort} checks scheduled for this aircraft.` : ''}
+            </div>
+          </div>
+        </div>
+        <div style="padding: 1rem 1.5rem; border-top: 1px solid #30363d; display: flex; gap: 0.75rem; justify-content: flex-end;">
+          <button onclick="removeMaintenanceFromModal('${maintenanceId}')" style="
+            padding: 0.5rem 1rem;
+            background: #da3633;
+            border: 1px solid #f85149;
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            font-size: 0.85rem;
+          ">Remove ${dayName} Check</button>
+          <button onclick="removeAllMaintenanceOfType('${aircraft.id}', '${maintenance.checkType}')" style="
+            padding: 0.5rem 1rem;
+            background: #6e2d2d;
+            border: 1px solid #da3633;
+            border-radius: 6px;
+            color: #ffa198;
+            cursor: pointer;
+            font-size: 0.85rem;
+          ">Remove All ${checkType}s</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Remove existing modal if any
+  const existingModal = document.getElementById('maintenanceDetailsModal');
+  if (existingModal) existingModal.remove();
+
+  // Add modal to page
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function calculateEndTime(startTime, durationMinutes) {
+  const [h, m] = startTime.split(':').map(Number);
+  const totalMins = h * 60 + m + durationMinutes;
+  const endH = Math.floor((totalMins % 1440) / 60);
+  const endM = totalMins % 60;
+  return `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+}
+
+function closeMaintenanceDetailsModal() {
+  const modal = document.getElementById('maintenanceDetailsModal');
+  if (modal) modal.remove();
+}
+
+async function removeMaintenanceFromModal(maintenanceId) {
+  closeMaintenanceDetailsModal();
+  await deleteScheduledMaintenance(maintenanceId);
+}
+
+async function removeAllMaintenanceOfType(aircraftId, checkType) {
+  closeMaintenanceDetailsModal();
+
+  const checkTypeName = checkType === 'A' ? 'daily checks' : 'weekly checks';
+  const confirmed = await showConfirmModal(
+    'Confirm Deletion',
+    `Are you sure you want to remove ALL ${checkTypeName} for this aircraft?\n\nThis will delete all recurring ${checkTypeName} on every day of the week.`
+  );
+
+  if (!confirmed) return;
+
+  try {
+    const response = await fetch(`/api/schedule/maintenance/aircraft/${aircraftId}/type/${checkType}`, {
+      method: 'DELETE'
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to delete maintenance checks');
+    }
+
+    // Remove from local array immediately
+    scheduledMaintenance = scheduledMaintenance.filter(m =>
+      !(m.aircraft.id === aircraftId && m.checkType === checkType)
+    );
+
+    await showAlertModal('Success', `All ${checkTypeName} deleted successfully`);
+    renderSchedule();
+  } catch (error) {
+    console.error('Error deleting maintenance checks:', error);
+    await showAlertModal('Error', error.message);
   }
 }
 
@@ -1359,7 +1671,7 @@ function renderSchedule() {
     html += `<th style="padding: 0.5rem 0.2rem; text-align: center; color: var(--text-secondary); font-weight: 600; min-width: 40px; ${borderStyle}">${col.label}</th>`;
   });
 
-  html += '<th style="padding: 0.75rem 0.5rem; text-align: center; color: var(--text-secondary); font-weight: 600; min-width: 100px; border-left: 2px solid var(--border-color); position: sticky; right: 0; background: var(--surface-elevated); z-index: 11;">ACTIONS</th>';
+  html += '<th style="padding: 0.75rem 0.5rem 0.75rem 0.75rem; text-align: center; color: var(--text-secondary); font-weight: 600; min-width: 100px; border-left: 2px solid var(--border-color); position: sticky; right: 0; background: var(--surface-elevated); z-index: 11; box-shadow: -5px 0 0 var(--surface-elevated);">ACTIONS</th>';
   html += '</tr></thead>';
 
   html += '<tbody>';
@@ -1515,9 +1827,9 @@ function generateAircraftRow(aircraft, timeColumns) {
     `;
   });
 
-  // Actions column (sticky right)
+  // Actions column (sticky right) - extra left padding to cover any flight block overflow
   html += `
-    <td style="padding: 0.5rem; position: sticky; right: 0; background: var(--surface); border-left: 2px solid var(--border-color); z-index: 5;">
+    <td style="padding: 0.5rem 0.6rem 0.5rem 0.75rem; position: sticky; right: 0; background: var(--surface); border-left: 2px solid var(--border-color); z-index: 5; box-shadow: -5px 0 0 var(--surface);">
       <div style="display: flex; gap: 0.5rem; justify-content: center; align-items: center;">
         <button
           onclick="addRouteToAircraft('${aircraft.id}')"

@@ -949,6 +949,74 @@ router.delete('/maintenance/:id', async (req, res) => {
 });
 
 /**
+ * DELETE /api/schedule/maintenance/aircraft/:aircraftId/type/:checkType
+ * Delete all recurring maintenance patterns of a specific type for an aircraft
+ */
+router.delete('/maintenance/aircraft/:aircraftId/type/:checkType', async (req, res) => {
+  try {
+    const { aircraftId, checkType } = req.params;
+
+    // Validate checkType
+    if (!['A', 'B'].includes(checkType)) {
+      return res.status(400).json({ error: 'Invalid check type. Must be A or B.' });
+    }
+
+    // Get active world from session
+    const activeWorldId = req.session?.activeWorldId;
+    if (!activeWorldId) {
+      return res.status(404).json({ error: 'No active world selected' });
+    }
+
+    // Get user's membership
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const user = await User.findOne({ where: { vatsimId: req.user.vatsimId } });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const membership = await WorldMembership.findOne({
+      where: { userId: user.id, worldId: activeWorldId }
+    });
+
+    if (!membership) {
+      return res.status(404).json({ error: 'Not a member of this world' });
+    }
+
+    // Verify the aircraft belongs to this user
+    const aircraft = await UserAircraft.findOne({
+      where: {
+        id: aircraftId,
+        worldMembershipId: membership.id
+      }
+    });
+
+    if (!aircraft) {
+      return res.status(404).json({ error: 'Aircraft not found or not owned by user' });
+    }
+
+    // Delete all recurring maintenance of this type for this aircraft
+    const deletedCount = await RecurringMaintenance.destroy({
+      where: {
+        aircraftId: aircraftId,
+        checkType: checkType
+      }
+    });
+
+    const checkTypeName = checkType === 'A' ? 'daily checks' : 'weekly checks';
+    res.json({
+      message: `All ${checkTypeName} deleted successfully`,
+      deletedCount: deletedCount
+    });
+  } catch (error) {
+    console.error('Error deleting all maintenance of type:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * GET /api/schedule/active
  * Fetch all currently active (in_progress) flights for the world map
  */
