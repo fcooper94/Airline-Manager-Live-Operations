@@ -1161,6 +1161,9 @@ function loadSidebarSetting() {
       statusDiv.style.background = 'var(--warning-color)';
     }
   }
+
+  // Also load dev bypass setting
+  loadDevBypassSetting();
 }
 
 function toggleSidebar() {
@@ -1183,6 +1186,81 @@ function toggleSidebar() {
   }
 
   // Show notification
+  showSettingNotification(`Sidebar ${isEnabled ? 'Enabled' : 'Disabled'}`, 'Users need to refresh the page for changes to take effect', isEnabled);
+}
+
+// Dev Bypass Settings
+async function loadDevBypassSetting() {
+  try {
+    const response = await fetch('/api/admin/settings/devBypassEnabled');
+    const data = await response.json();
+    const isEnabled = data.value === true || data.value === 'true';
+
+    const toggleCheckbox = document.getElementById('devBypassToggle');
+    const statusDiv = document.getElementById('devBypassStatus');
+
+    if (toggleCheckbox) {
+      toggleCheckbox.checked = isEnabled;
+    }
+
+    if (statusDiv) {
+      if (isEnabled) {
+        statusDiv.textContent = 'ENABLED';
+        statusDiv.style.background = 'var(--warning-color)';
+      } else {
+        statusDiv.textContent = 'DISABLED';
+        statusDiv.style.background = 'var(--text-muted)';
+      }
+    }
+  } catch (error) {
+    console.error('Error loading dev bypass setting:', error);
+  }
+}
+
+async function toggleDevBypass() {
+  const toggleCheckbox = document.getElementById('devBypassToggle');
+  const statusDiv = document.getElementById('devBypassStatus');
+  const isEnabled = toggleCheckbox.checked;
+
+  try {
+    const response = await fetch('/api/admin/settings/devBypassEnabled', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        value: isEnabled,
+        description: 'Enable dev bypass login on the login page'
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to update setting');
+    }
+
+    // Update status display
+    if (statusDiv) {
+      if (isEnabled) {
+        statusDiv.textContent = 'ENABLED';
+        statusDiv.style.background = 'var(--warning-color)';
+      } else {
+        statusDiv.textContent = 'DISABLED';
+        statusDiv.style.background = 'var(--text-muted)';
+      }
+    }
+
+    showSettingNotification(
+      `Dev Bypass ${isEnabled ? 'Enabled' : 'Disabled'}`,
+      isEnabled ? 'Admin Bypass button will now appear on the login page' : 'Admin Bypass button hidden from login page',
+      !isEnabled // Green when disabled (safer), orange when enabled (warning)
+    );
+  } catch (error) {
+    console.error('Error updating dev bypass setting:', error);
+    // Revert checkbox
+    toggleCheckbox.checked = !isEnabled;
+    alert('Failed to update setting. Please try again.');
+  }
+}
+
+function showSettingNotification(title, message, isSuccess) {
   const notification = document.createElement('div');
   notification.style.cssText = `
     position: fixed;
@@ -1199,16 +1277,16 @@ function toggleSidebar() {
 
   notification.innerHTML = `
     <div style="display: flex; align-items: center; gap: 0.75rem;">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${isEnabled ? 'var(--success-color)' : 'var(--warning-color)'}" stroke-width="2">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${isSuccess ? 'var(--success-color)' : 'var(--warning-color)'}" stroke-width="2">
         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
         <polyline points="22 4 12 14.01 9 11.01"></polyline>
       </svg>
       <div>
         <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem;">
-          Sidebar ${isEnabled ? 'Enabled' : 'Disabled'}
+          ${title}
         </div>
         <div style="font-size: 0.85rem; color: var(--text-secondary);">
-          Users need to refresh the page for changes to take effect
+          ${message}
         </div>
       </div>
     </div>

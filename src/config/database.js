@@ -15,9 +15,9 @@ if (process.env.DATABASE_URL) {
       }
     },
     pool: {
-      max: 5,
+      max: 10,
       min: 0,
-      acquire: 30000,
+      acquire: 60000,
       idle: 10000
     }
   });
@@ -33,9 +33,9 @@ if (process.env.DATABASE_URL) {
       dialect: 'postgres',
       logging: false, // Disable all SQL query logging
       pool: {
-        max: 5,
+        max: 10,
         min: 0,
-        acquire: 30000,
+        acquire: 60000,
         idle: 10000
       }
     }

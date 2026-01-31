@@ -11,6 +11,13 @@ class WorldTimeService {
   constructor() {
     this.tickRate = 1000; // Update every 1 second (real time)
     this.worlds = new Map(); // Map of worldId -> { world, tickInterval, inMemoryTime, lastTickAt }
+    // Throttle heavy DB queries to reduce load on remote databases
+    this.lastCreditCheck = 0; // Timestamp of last credit check
+    this.lastFlightCheck = 0; // Timestamp of last flight check
+    this.creditCheckInterval = 30000; // Check credits every 30 seconds (real time)
+    this.flightCheckInterval = 5000; // Check flights every 5 seconds (real time)
+    this.isProcessingCredits = false; // Prevent overlapping credit queries
+    this.isProcessingFlights = false; // Prevent overlapping flight queries
   }
 
   /**
@@ -230,15 +237,25 @@ class WorldTimeService {
       });
     }
 
-    // Check for credit deductions (asynchronously, don't block tick)
-    this.processCredits(worldId, gameTime).catch(err => {
-      console.error('Error processing credits:', err.message);
-    });
+    const now = Date.now();
 
-    // Process flight statuses (asynchronously, don't block tick)
-    this.processFlights(worldId, gameTime).catch(err => {
-      console.error('Error processing flights:', err.message);
-    });
+    // Check for credit deductions (throttled to reduce DB load)
+    if (!this.isProcessingCredits && now - this.lastCreditCheck >= this.creditCheckInterval) {
+      this.lastCreditCheck = now;
+      this.isProcessingCredits = true;
+      this.processCredits(worldId, gameTime)
+        .catch(err => console.error('Error processing credits:', err.message))
+        .finally(() => { this.isProcessingCredits = false; });
+    }
+
+    // Process flight statuses (throttled to reduce DB load)
+    if (!this.isProcessingFlights && now - this.lastFlightCheck >= this.flightCheckInterval) {
+      this.lastFlightCheck = now;
+      this.isProcessingFlights = true;
+      this.processFlights(worldId, gameTime)
+        .catch(err => console.error('Error processing flights:', err.message))
+        .finally(() => { this.isProcessingFlights = false; });
+    }
   }
 
   /**

@@ -10,6 +10,7 @@ const ScheduledFlight = require('./ScheduledFlight');
 const RecurringMaintenance = require('./RecurringMaintenance');
 const PricingDefault = require('./PricingDefault');
 const AirportRouteDemand = require('./AirportRouteDemand');
+const SystemSettings = require('./SystemSettings');
 
 // Define associations
 User.belongsToMany(World, {
@@ -83,5 +84,6 @@ module.exports = {
   ScheduledFlight,
   RecurringMaintenance,
   PricingDefault,
-  AirportRouteDemand
+  AirportRouteDemand,
+  SystemSettings
 };

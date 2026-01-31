@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { User, WorldMembership, World, Aircraft, Airport } = require('../models');
+const { User, WorldMembership, World, Aircraft, Airport, SystemSettings } = require('../models');
 const airportCacheService = require('../services/airportCacheService');
 
 /**
@@ -742,6 +742,78 @@ router.get('/airports/cache-stats', async (req, res) => {
       console.error('Error getting cache stats:', error);
     }
     res.status(500).json({ error: 'Failed to get cache stats' });
+  }
+});
+
+/**
+ * Get all system settings
+ */
+router.get('/settings', async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const settings = await SystemSettings.findAll();
+    const settingsMap = {};
+    settings.forEach(s => {
+      try {
+        settingsMap[s.key] = JSON.parse(s.value);
+      } catch {
+        settingsMap[s.key] = s.value;
+      }
+    });
+
+    res.json(settingsMap);
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error fetching settings:', error);
+    }
+    res.status(500).json({ error: 'Failed to fetch settings' });
+  }
+});
+
+/**
+ * Get a specific setting
+ */
+router.get('/settings/:key', async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const { key } = req.params;
+    const value = await SystemSettings.get(key);
+
+    res.json({ key, value });
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error fetching setting:', error);
+    }
+    res.status(500).json({ error: 'Failed to fetch setting' });
+  }
+});
+
+/**
+ * Update a setting
+ */
+router.post('/settings/:key', async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const { key } = req.params;
+    const { value, description } = req.body;
+
+    await SystemSettings.set(key, value, description);
+
+    res.json({ message: 'Setting updated successfully', key, value });
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error updating setting:', error);
+    }
+    res.status(500).json({ error: 'Failed to update setting' });
   }
 });
 

@@ -2056,18 +2056,35 @@ function handleDragOver(event) {
 
   if (canDrop) {
     event.dataTransfer.dropEffect = 'move';
-    // Highlight the entire row by adding class to all cells in the row
+    // Highlight only the cell corresponding to the route's departure time
     if (row) {
-      row.querySelectorAll('.schedule-cell').forEach(c => c.classList.add('drag-over'));
+      // First clear all highlights in this row
+      row.querySelectorAll('.schedule-cell').forEach(c => c.classList.remove('drag-over'));
+
+      // Find the cell that matches the route's scheduled departure hour
+      const departureTime = draggedRoute.scheduledDepartureTime || '00:00:00';
+      const departureHour = parseInt(departureTime.split(':')[0], 10);
+      const targetCell = row.querySelector(`.schedule-cell[data-time="${departureHour}"]`);
+      if (targetCell) {
+        targetCell.classList.add('drag-over');
+      }
     }
   } else {
     event.dataTransfer.dropEffect = 'none';
-    // Show as invalid drop target
+    // Show as invalid drop target - highlight only the departure time cell with red
     if (row) {
       row.querySelectorAll('.schedule-cell').forEach(c => {
         c.classList.remove('drag-over');
-        c.style.background = 'rgba(220, 53, 69, 0.1)'; // Red tint
+        c.style.background = '';
       });
+
+      // Find the cell that matches the route's scheduled departure hour
+      const departureTime = draggedRoute.scheduledDepartureTime || '00:00:00';
+      const departureHour = parseInt(departureTime.split(':')[0], 10);
+      const targetCell = row.querySelector(`.schedule-cell[data-time="${departureHour}"]`);
+      if (targetCell) {
+        targetCell.style.background = 'rgba(220, 53, 69, 0.3)'; // Red tint for invalid
+      }
     }
   }
 
@@ -2086,16 +2103,19 @@ function handleDragLeave(event) {
   // Check if we're actually leaving the row, not just moving to another cell in the same row
   const row = cell.closest('tr');
   const rect = row.getBoundingClientRect();
-  const x = event.clientX;
   const y = event.clientY;
 
   // Only remove highlighting if we're leaving the row entirely
   if (y < rect.top || y >= rect.bottom) {
-    if (row) {
-      row.querySelectorAll('.schedule-cell').forEach(c => {
-        c.classList.remove('drag-over');
-        c.style.background = ''; // Clear any red tint
-      });
+    if (row && draggedRoute) {
+      // Clear only the departure time cell highlight
+      const departureTime = draggedRoute.scheduledDepartureTime || '00:00:00';
+      const departureHour = parseInt(departureTime.split(':')[0], 10);
+      const targetCell = row.querySelector(`.schedule-cell[data-time="${departureHour}"]`);
+      if (targetCell) {
+        targetCell.classList.remove('drag-over');
+        targetCell.style.background = '';
+      }
     }
   }
 }
@@ -2464,15 +2484,34 @@ function updateTimeline() {
   const containerRect = container.getBoundingClientRect();
   const columnRect = targetColumnCell.getBoundingClientRect();
 
-  // Calculate position relative to container
-  // Start at the left edge of the target column
-  let timelineLeft = columnRect.left - containerRect.left;
+  // Calculate the exact visual position of the timeline on screen
+  const timelineVisualX = columnRect.left + (fractionalHour * columnRect.width);
 
-  // Add fractional position within the column
-  timelineLeft += fractionalHour * columnRect.width;
+  // Get the AIRCRAFT column to determine where the schedule time area starts
+  const aircraftColumn = headerCells[0];
+  const aircraftColumnRect = aircraftColumn.getBoundingClientRect();
+  const scheduleAreaLeft = aircraftColumnRect.right; // Time columns start after AIRCRAFT
+
+  // Get the ACTIONS column to determine where the schedule time area ends
+  const actionsColumn = headerCells[headerCells.length - 1];
+  const actionsColumnRect = actionsColumn.getBoundingClientRect();
+  const scheduleAreaRight = actionsColumnRect.left; // Time columns end before ACTIONS
+
+  // Check if the current time position is within the visible schedule area
+  // The timeline should only show if it falls between AIRCRAFT and ACTIONS columns visually
+  const isTimelineVisible = timelineVisualX >= scheduleAreaLeft && timelineVisualX <= scheduleAreaRight;
 
   // Get or create timeline element
   let timeline = document.getElementById('scheduleTimeline');
+
+  // If timeline is not within visible area, hide/remove it
+  if (!isTimelineVisible) {
+    if (timeline) {
+      timeline.style.display = 'none';
+    }
+    return;
+  }
+
   if (!timeline) {
     timeline = document.createElement('div');
     timeline.id = 'scheduleTimeline';
@@ -2493,6 +2532,16 @@ function updateTimeline() {
 
     container.appendChild(timeline);
   }
+
+  // Show timeline and update position
+  timeline.style.display = 'block';
+
+  // Calculate position relative to container
+  // Start at the left edge of the target column
+  let timelineLeft = columnRect.left - containerRect.left;
+
+  // Add fractional position within the column
+  timelineLeft += fractionalHour * columnRect.width;
 
   // Update position
   timeline.style.left = `${timelineLeft}px`;
