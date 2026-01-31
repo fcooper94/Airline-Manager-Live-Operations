@@ -94,6 +94,41 @@ function calculateFlightMinutes(distanceNm, cruiseSpeed, depLng, arrLng, depLat,
   return Math.round(baseMinutes * windMultiplier * routeVariation);
 }
 
+// Check maintenance schedule for warnings
+// Returns array of { type: 'daily'|'weekly', message: string }
+function getMaintenanceWarnings(aircraft) {
+  const warnings = [];
+  const maintenance = aircraft.recurringMaintenance || [];
+
+  // Get daily checks (type A) - should be scheduled for all 7 days
+  const dailyChecks = maintenance.filter(m => m.checkType === 'A');
+  const dailyDays = new Set(dailyChecks.map(m => m.dayOfWeek));
+
+  if (dailyDays.size < 7) {
+    const missingDays = [];
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const dayIndexes = [1, 2, 3, 4, 5, 6, 0]; // Monday first, Sunday last
+    for (let i = 0; i < 7; i++) {
+      if (!dailyDays.has(dayIndexes[i])) {
+        missingDays.push(dayNames[i]);
+      }
+    }
+    if (missingDays.length === 7) {
+      warnings.push({ type: 'daily', message: 'No daily check scheduled' });
+    } else {
+      warnings.push({ type: 'daily', message: `Daily check missing: ${missingDays.join(', ')}` });
+    }
+  }
+
+  // Get weekly checks (type B) - should have at least one
+  const weeklyChecks = maintenance.filter(m => m.checkType === 'B');
+  if (weeklyChecks.length === 0) {
+    warnings.push({ type: 'weekly', message: 'No weekly check scheduled' });
+  }
+
+  return warnings;
+}
+
 // Listen for world time updates from layout.js (which manages the centralized socket connection)
 window.addEventListener('worldTimeUpdated', (event) => {
   // Sync with the centralized time from layout.js
@@ -1420,10 +1455,19 @@ function generateAircraftRow(aircraft, timeColumns) {
   html += '<tr style="border-bottom: 1px solid var(--border-color);">';
 
   // Aircraft info column (sticky left)
+  // Check maintenance warnings
+  const maintenanceWarnings = getMaintenanceWarnings(aircraft);
+  const warningIcons = maintenanceWarnings.map(w =>
+    `<span style="font-size: 1.1rem; cursor: help; ${w.type === 'daily' ? 'color: #ef4444;' : 'color: #eab308;'}" title="${w.message}">⚠</span>`
+  ).join(' ');
+
   html += `
     <td style="padding: 1rem; position: sticky; left: 0; background: var(--surface); border-right: 2px solid var(--border-color); z-index: 5;">
-      <div style="color: var(--accent-color); font-weight: 600; font-size: 1rem;">
-        ${aircraft.registration}
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span style="color: var(--accent-color); font-weight: 600; font-size: 1rem;">
+          ${aircraft.registration}
+        </span>
+        ${warningIcons}
       </div>
     </td>
   `;

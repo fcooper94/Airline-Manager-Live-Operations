@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { WorldMembership, UserAircraft, Aircraft, User, Airport } = require('../models');
+const { WorldMembership, UserAircraft, Aircraft, User, Airport, RecurringMaintenance } = require('../models');
 
 /**
  * Get user's fleet for current world
@@ -30,13 +30,21 @@ router.get('/', async (req, res) => {
       return res.status(404).json({ error: 'Not a member of this world' });
     }
 
-    // Get fleet
+    // Get fleet with recurring maintenance patterns
     const fleet = await UserAircraft.findAll({
       where: { worldMembershipId: membership.id },
-      include: [{
-        model: Aircraft,
-        as: 'aircraft'
-      }],
+      include: [
+        {
+          model: Aircraft,
+          as: 'aircraft'
+        },
+        {
+          model: RecurringMaintenance,
+          as: 'recurringMaintenance',
+          where: { status: 'active' },
+          required: false
+        }
+      ],
       order: [['acquiredAt', 'DESC']]
     });
 
