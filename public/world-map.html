@@ -92,6 +92,14 @@
   </aside>
 
   <main class="main-content world-map-content">
+    <!-- Airline Filter Dropdown -->
+    <div class="map-filter-dropdown">
+      <select id="airlineFilter" onchange="handleAirlineFilterChange()">
+        <option value="mine">My Airline</option>
+        <option value="all">All Airlines</option>
+      </select>
+    </div>
+
     <!-- Flight Info Panel (hidden by default, shown on flight click) -->
     <div class="flight-info-panel" id="flightInfoPanel" style="display: none;">
       <div class="panel-header">
@@ -108,7 +116,11 @@
     <div class="map-legend">
       <div class="legend-item">
         <span class="legend-icon aircraft-icon"></span>
-        <span>Aircraft in Flight</span>
+        <span>My Aircraft</span>
+      </div>
+      <div class="legend-item other-airline-legend" style="display: none;">
+        <span class="legend-icon aircraft-icon other"></span>
+        <span>Other Airlines</span>
       </div>
       <div class="legend-item">
         <span class="legend-icon route-icon"></span>

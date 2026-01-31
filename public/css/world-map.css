@@ -7,6 +7,43 @@
   height: calc(100vh - var(--navbar-height, 60px));
 }
 
+/* Airline Filter Dropdown */
+.map-filter-dropdown {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1000;
+}
+
+.map-filter-dropdown select {
+  padding: 0.5rem 1rem;
+  background: rgba(22, 27, 34, 0.95);
+  border: 1px solid var(--border-color, #30363d);
+  border-radius: 6px;
+  color: var(--text-primary, #e6edf3);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  min-width: 140px;
+}
+
+.map-filter-dropdown select:hover {
+  border-color: var(--accent-color, #58a6ff);
+}
+
+.map-filter-dropdown select:focus {
+  outline: none;
+  border-color: var(--accent-color, #58a6ff);
+  box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
+}
+
+/* When flight info panel is shown, move dropdown left */
+.flight-info-panel:not([style*="display: none"]) ~ .map-filter-dropdown,
+.map-filter-dropdown.shifted {
+  right: 340px;
+}
+
 /* Map Container */
 #map {
   position: absolute;
@@ -784,6 +821,37 @@
   stroke-linecap: round;
 }
 
+/* Other Airlines' Aircraft Markers - black background, white icon */
+.aircraft-marker-inner.other-airline {
+  background: #1a1f2e;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
+  animation: none;
+}
+
+.aircraft-marker-inner.other-airline svg {
+  fill: rgba(255, 255, 255, 0.9);
+}
+
+/* Grey flight number label for other airlines */
+.aircraft-marker-inner.other-airline + .aircraft-label .flight-number-label {
+  color: #8b949e;
+}
+
+.aircraft-label .airline-name-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: #f97316;
+  margin-top: 2px;
+  padding-top: 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Legend icon for other airlines */
+.legend-icon.aircraft-icon.other::before {
+  background: #1a1f2e;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .flight-info-panel {
@@ -799,5 +867,11 @@
     bottom: auto;
     top: 1rem;
     left: 1rem;
+  }
+
+  .map-filter-dropdown {
+    top: auto;
+    bottom: 45%;
+    right: 1rem;
   }
 }

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { Op } = require('sequelize');
-const { ScheduledFlight, RecurringMaintenance, Route, UserAircraft, Airport, Aircraft, WorldMembership, User } = require('../models');
+const { ScheduledFlight, RecurringMaintenance, Route, UserAircraft, Airport, Aircraft, WorldMembership, User, World } = require('../models');
 
 /**
  * Calculate arrival date and time based on departure and full round-trip duration
@@ -1059,6 +1059,139 @@ router.get('/active', async (req, res) => {
     res.json({ flights });
   } catch (error) {
     console.error('Error fetching active flights:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/schedule/active-all
+ * Fetch all currently active (in_progress) flights for ALL airlines in the world
+ */
+router.get('/active-all', async (req, res) => {
+  try {
+    // Get active world from session
+    const activeWorldId = req.session?.activeWorldId;
+    if (!activeWorldId) {
+      return res.status(404).json({ error: 'No active world selected' });
+    }
+
+    // Get user's membership to identify their own flights
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const user = await User.findOne({ where: { vatsimId: req.user.vatsimId } });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const userMembership = await WorldMembership.findOne({
+      where: { userId: user.id, worldId: activeWorldId }
+    });
+
+    if (!userMembership) {
+      return res.status(404).json({ error: 'Not a member of this world' });
+    }
+
+    const userMembershipId = userMembership.id;
+
+    // Get all memberships in this world to filter flights
+    const allMemberships = await WorldMembership.findAll({
+      where: { worldId: activeWorldId },
+      attributes: ['id', 'airlineName', 'airlineCode']
+    });
+
+    const membershipIds = allMemberships.map(m => m.id);
+    const membershipMap = new Map(allMemberships.map(m => [m.id, { airlineName: m.airlineName, airlineCode: m.airlineCode }]));
+
+    // Fetch all active flights in this world
+    const activeFlights = await ScheduledFlight.findAll({
+      where: {
+        status: 'in_progress'
+      },
+      include: [
+        {
+          model: Route,
+          as: 'route',
+          required: true,
+          where: {
+            worldMembershipId: { [Op.in]: membershipIds }
+          },
+          include: [
+            {
+              model: Airport,
+              as: 'departureAirport',
+              attributes: ['id', 'icaoCode', 'iataCode', 'name', 'city', 'country', 'latitude', 'longitude']
+            },
+            {
+              model: Airport,
+              as: 'arrivalAirport',
+              attributes: ['id', 'icaoCode', 'iataCode', 'name', 'city', 'country', 'latitude', 'longitude']
+            },
+            {
+              model: Airport,
+              as: 'techStopAirport',
+              attributes: ['id', 'icaoCode', 'iataCode', 'name', 'city', 'country', 'latitude', 'longitude']
+            }
+          ]
+        },
+        {
+          model: UserAircraft,
+          as: 'aircraft',
+          include: [
+            {
+              model: Aircraft,
+              as: 'aircraft'
+            }
+          ]
+        }
+      ],
+      order: [
+        ['scheduledDate', 'ASC'],
+        ['departureTime', 'ASC']
+      ]
+    });
+
+    // Transform data for the map, including airline info
+    const flights = activeFlights.map(flight => {
+      const membershipId = flight.route.worldMembershipId;
+      const airlineInfo = membershipMap.get(membershipId) || {};
+      const isOwnFlight = membershipId === userMembershipId;
+
+      return {
+        id: flight.id,
+        scheduledDate: flight.scheduledDate,
+        departureTime: flight.departureTime,
+        arrivalTime: flight.arrivalTime,
+        arrivalDate: flight.arrivalDate,
+        status: flight.status,
+        isOwnFlight: isOwnFlight,
+        airlineName: airlineInfo.airlineName || 'Unknown Airline',
+        airlineCode: airlineInfo.airlineCode || '??',
+        route: {
+          id: flight.route.id,
+          routeNumber: flight.route.routeNumber,
+          returnRouteNumber: flight.route.returnRouteNumber,
+          distance: flight.route.distance,
+          turnaroundTime: flight.route.turnaroundTime || 45,
+          techStopAirport: flight.route.techStopAirport || null,
+          demand: flight.route.demand || 0,
+          averageLoadFactor: parseFloat(flight.route.averageLoadFactor) || 0
+        },
+        departureAirport: flight.route.departureAirport,
+        arrivalAirport: flight.route.arrivalAirport,
+        aircraft: flight.aircraft ? {
+          id: flight.aircraft.id,
+          registration: flight.aircraft.registration,
+          aircraftType: flight.aircraft.aircraft,
+          passengerCapacity: flight.aircraft.aircraft?.passengerCapacity || 0
+        } : null
+      };
+    });
+
+    res.json({ flights });
+  } catch (error) {
+    console.error('Error fetching all active flights:', error);
     res.status(500).json({ error: error.message });
   }
 });

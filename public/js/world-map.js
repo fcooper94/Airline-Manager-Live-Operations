@@ -7,6 +7,7 @@ let airportMarkers = new Map(); // Map of airport ID to marker
 let selectedFlightId = null;
 let updateInterval = null;
 let activeFlights = []; // Store flight data for selection
+let airlineFilterMode = 'mine'; // 'mine' or 'all'
 
 // Aircraft icon SVG
 const aircraftSvg = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>`;
@@ -150,11 +151,32 @@ function initMap() {
   }
 }
 
+// Handle airline filter change
+function handleAirlineFilterChange() {
+  const select = document.getElementById('airlineFilter');
+  airlineFilterMode = select.value;
+
+  // Show/hide other airline legend
+  const otherLegend = document.querySelector('.other-airline-legend');
+  if (otherLegend) {
+    otherLegend.style.display = airlineFilterMode === 'all' ? 'flex' : 'none';
+  }
+
+  // Clear current flights and reload
+  clearMap();
+  deselectFlight();
+  loadActiveFlights();
+}
+
+// Expose handleAirlineFilterChange globally for onclick handlers
+window.handleAirlineFilterChange = handleAirlineFilterChange;
+
 // Load active flights from API
 async function loadActiveFlights() {
   try {
     console.log('[WorldMap] Fetching active flights...');
-    const response = await fetch('/api/schedule/active');
+    const endpoint = airlineFilterMode === 'all' ? '/api/schedule/active-all' : '/api/schedule/active';
+    const response = await fetch(endpoint);
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
@@ -575,15 +597,21 @@ function createFlightMarker(flight, position) {
   const variant = flight.aircraft?.aircraftType?.variant || '';
   const aircraftModel = variant ? `${model}-${variant}` : model;
 
+  // Check if this is another airline's flight
+  const isOtherAirline = flight.isOwnFlight === false;
+  const airlineName = flight.airlineName || '';
+  const markerClass = isOtherAirline ? 'aircraft-marker-inner other-airline' : 'aircraft-marker-inner';
+
   const createIcon = () => L.divIcon({
     className: 'aircraft-marker',
     html: `
       <div class="aircraft-marker-wrapper">
-        <div class="aircraft-marker-inner" style="transform: rotate(${bearing}deg)">${aircraftSvg}</div>
+        <div class="${markerClass}" style="transform: rotate(${bearing}deg)">${aircraftSvg}</div>
         <div class="aircraft-label">
           ${flightNumber ? `<div class="flight-number-label">${flightNumber}</div>` : ''}
           ${registration ? `<div>${registration}</div>` : ''}
           ${aircraftModel ? `<div>${aircraftModel}</div>` : ''}
+          ${isOtherAirline && airlineName ? `<div class="airline-name-label">${airlineName}</div>` : ''}
         </div>
       </div>
     `,
@@ -1023,8 +1051,22 @@ function showFlightInfo(flight) {
     `;
   }
 
+  // Check if this is another airline's flight
+  const isOtherAirline = flight.isOwnFlight === false;
+  const airlineName = flight.airlineName || '';
+  const airlineCode = flight.airlineCode || '';
+
   flightList.innerHTML = `
     <div class="flight-detail-panel">
+      ${isOtherAirline ? `
+      <!-- Airline Info for other airlines -->
+      <div class="airline-header" style="background: rgba(249, 115, 22, 0.15); border: 1px solid #f97316; border-radius: 6px; padding: 0.5rem 0.75rem; margin-bottom: 0.75rem; text-align: center;">
+        <div style="font-size: 0.7rem; color: #f97316; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Other Airline</div>
+        <div style="font-size: 1rem; font-weight: 700; color: #f97316;">${airlineName}</div>
+        ${airlineCode ? `<div style="font-size: 0.8rem; color: var(--text-secondary); font-family: 'Courier New', monospace;">${airlineCode}</div>` : ''}
+      </div>
+      ` : ''}
+
       <!-- Aircraft Header -->
       <div class="aircraft-header">
         <div class="aircraft-reg">${registration}</div>
@@ -1049,13 +1091,19 @@ function showFlightInfo(flight) {
           <span class="stat-label">Capacity</span>
           <span class="stat-value">${passengerCapacity} pax</span>
         </div>
+        ${!isOtherAirline ? `
         <div class="stat-row">
           <span class="stat-label">Load Factor</span>
           <span class="stat-value ${loadFactor >= 80 ? 'high' : loadFactor >= 50 ? 'medium' : 'low'}">${loadFactor.toFixed(1)}%</span>
         </div>
+        ` : ''}
       </div>
     </div>
   `;
+
+  // Shift dropdown when panel is shown
+  const dropdown = document.querySelector('.map-filter-dropdown');
+  if (dropdown) dropdown.classList.add('shifted');
 }
 
 // Hide flight info panel
@@ -1064,6 +1112,10 @@ function hideFlightInfo() {
   if (panel) {
     panel.style.display = 'none';
   }
+
+  // Unshift dropdown when panel is hidden
+  const dropdown = document.querySelector('.map-filter-dropdown');
+  if (dropdown) dropdown.classList.remove('shifted');
 }
 
 // Clear route line and airport markers for previously selected flight
