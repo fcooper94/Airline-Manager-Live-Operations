@@ -2,6 +2,7 @@
 let userFleet = [];
 let routes = [];
 let selectedDayOfWeek = 1; // Default to Monday (1=Monday, 0=Sunday)
+let viewMode = 'daily'; // 'daily' or 'weekly'
 let currentAircraftId = null; // Aircraft being scheduled
 let draggedRoute = null; // Route being dragged
 let scheduledFlights = []; // All scheduled flights
@@ -369,17 +370,34 @@ async function fetchScheduledFlights() {
 
     const today = new Date(worldTime);
     const currentDay = today.getDay();
-    const daysUntilTarget = getDaysUntilTargetInWeek(currentDay, selectedDayOfWeek);
-    const targetDate = new Date(today);
-    targetDate.setDate(today.getDate() + daysUntilTarget);
 
-    const dateStr = formatLocalDate(targetDate);
-    console.log('Fetching flights for date:', dateStr);
+    let startDateStr, endDateStr;
 
-    const response = await fetch(`/api/schedule/flights?startDate=${dateStr}&endDate=${dateStr}`);
+    if (viewMode === 'weekly') {
+      // For weekly view, fetch the entire current week (Mon-Sun)
+      const daysToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+      const monday = new Date(today);
+      monday.setDate(today.getDate() + daysToMonday);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+
+      startDateStr = formatLocalDate(monday);
+      endDateStr = formatLocalDate(sunday);
+    } else {
+      // For daily view, fetch just the selected day
+      const daysUntilTarget = getDaysUntilTargetInWeek(currentDay, selectedDayOfWeek);
+      const targetDate = new Date(today);
+      targetDate.setDate(today.getDate() + daysUntilTarget);
+      startDateStr = formatLocalDate(targetDate);
+      endDateStr = startDateStr;
+    }
+
+    console.log('Fetching flights for:', startDateStr, 'to', endDateStr);
+
+    const response = await fetch(`/api/schedule/flights?startDate=${startDateStr}&endDate=${endDateStr}`);
     if (response.ok) {
       scheduledFlights = await response.json();
-      console.log('Flights returned:', scheduledFlights.length, scheduledFlights.map(f => ({ route: f.route?.routeNumber, scheduledDate: f.scheduledDate, arrivalDate: f.arrivalDate })));
+      console.log('Flights returned:', scheduledFlights.length);
     }
   } catch (error) {
     console.error('Error fetching scheduled flights:', error);
@@ -398,13 +416,29 @@ async function fetchScheduledMaintenance() {
 
     const today = new Date(worldTime);
     const currentDay = today.getDay();
-    const daysUntilTarget = getDaysUntilTargetInWeek(currentDay, selectedDayOfWeek);
-    const targetDate = new Date(today);
-    targetDate.setDate(today.getDate() + daysUntilTarget);
 
-    const dateStr = formatLocalDate(targetDate);
+    let startDateStr, endDateStr;
 
-    const response = await fetch(`/api/schedule/maintenance?startDate=${dateStr}&endDate=${dateStr}`);
+    if (viewMode === 'weekly') {
+      // For weekly view, fetch the entire current week (Mon-Sun)
+      const daysToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+      const monday = new Date(today);
+      monday.setDate(today.getDate() + daysToMonday);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+
+      startDateStr = formatLocalDate(monday);
+      endDateStr = formatLocalDate(sunday);
+    } else {
+      // For daily view, fetch just the selected day
+      const daysUntilTarget = getDaysUntilTargetInWeek(currentDay, selectedDayOfWeek);
+      const targetDate = new Date(today);
+      targetDate.setDate(today.getDate() + daysUntilTarget);
+      startDateStr = formatLocalDate(targetDate);
+      endDateStr = startDateStr;
+    }
+
+    const response = await fetch(`/api/schedule/maintenance?startDate=${startDateStr}&endDate=${endDateStr}`);
     if (response.ok) {
       scheduledMaintenance = await response.json();
     }
@@ -449,6 +483,37 @@ function nextDay() {
     daySelect.value = currentDay;
     loadSchedule();
   }
+}
+
+// Set view mode (daily or weekly)
+function setViewMode(mode) {
+  viewMode = mode;
+
+  // Update button styles
+  const dailyBtn = document.getElementById('viewDaily');
+  const weeklyBtn = document.getElementById('viewWeekly');
+  const daySelector = document.getElementById('daySelector');
+
+  if (mode === 'daily') {
+    dailyBtn.style.background = 'var(--accent-color)';
+    dailyBtn.style.borderColor = 'var(--accent-color)';
+    dailyBtn.style.color = 'white';
+    weeklyBtn.style.background = 'var(--surface-elevated)';
+    weeklyBtn.style.borderColor = 'var(--border-color)';
+    weeklyBtn.style.color = 'var(--text-secondary)';
+    if (daySelector) daySelector.style.display = 'block';
+  } else {
+    weeklyBtn.style.background = 'var(--accent-color)';
+    weeklyBtn.style.borderColor = 'var(--accent-color)';
+    weeklyBtn.style.color = 'white';
+    dailyBtn.style.background = 'var(--surface-elevated)';
+    dailyBtn.style.borderColor = 'var(--border-color)';
+    dailyBtn.style.color = 'var(--text-secondary)';
+    if (daySelector) daySelector.style.display = 'none';
+  }
+
+  // Reload data since weekly/daily views need different date ranges
+  loadSchedule();
 }
 
 // Group aircraft by type
@@ -1621,15 +1686,13 @@ function generateDailyTimeColumns() {
 // Generate day columns for weekly view
 function generateWeeklyDayColumns() {
   const columns = [];
-  const startDate = new Date(currentDate);
+  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const dayValues = [1, 2, 3, 4, 5, 6, 0]; // JS day values (0=Sun, 1=Mon, etc.)
 
   for (let i = 0; i < 7; i++) {
-    const date = new Date(startDate);
-    date.setDate(startDate.getDate() + i);
-
     columns.push({
-      date: new Date(date),
-      label: date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      dayOfWeek: dayValues[i],
+      label: dayNames[i]
     });
   }
 
@@ -1638,6 +1701,15 @@ function generateWeeklyDayColumns() {
 
 // Render schedule (without fetching data)
 function renderSchedule() {
+  if (viewMode === 'weekly') {
+    renderWeeklySchedule();
+  } else {
+    renderDailySchedule();
+  }
+}
+
+// Render daily schedule view
+function renderDailySchedule() {
   const container = document.getElementById('scheduleGrid');
   const filterValue = document.getElementById('aircraftFilter')?.value || 'all';
 
@@ -1716,6 +1788,398 @@ function renderSchedule() {
 
   // Start or update the red timeline
   updateTimeline();
+}
+
+// Render weekly schedule view
+function renderWeeklySchedule() {
+  const container = document.getElementById('scheduleGrid');
+  const filterValue = document.getElementById('aircraftFilter')?.value || 'all';
+
+  // Populate the filter dropdown with current aircraft types
+  populateAircraftFilterDropdown();
+
+  if (userFleet.length === 0) {
+    container.innerHTML = `
+      <div style="padding: 3rem; text-align: center;">
+        <p style="color: var(--text-muted); font-size: 1.1rem;">NO AIRCRAFT IN FLEET</p>
+        <p style="color: var(--text-secondary); margin-top: 0.5rem;">
+          <a href="/aircraft-marketplace" style="color: var(--accent-color);">Purchase aircraft</a> to start scheduling
+        </p>
+      </div>
+    `;
+    return;
+  }
+
+  const dayColumns = generateWeeklyDayColumns();
+
+  // Build schedule grid HTML
+  let html = '<table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">';
+
+  // Header row
+  html += '<thead><tr style="background: var(--surface-elevated); border-bottom: 2px solid var(--border-color); position: sticky; top: 0; z-index: 10;">';
+  html += '<th style="padding: 0.75rem 1rem; text-align: left; color: var(--text-secondary); font-weight: 600; min-width: 200px; position: sticky; left: 0; background: var(--surface-elevated); border-right: 2px solid var(--border-color); z-index: 11;">AIRCRAFT</th>';
+
+  dayColumns.forEach((col) => {
+    const isToday = col.dayOfWeek === getCurrentWorldTime()?.getDay();
+    const bgColor = isToday ? 'background: rgba(0, 102, 204, 0.15);' : '';
+    const todayIndicator = isToday ? '<span style="color: var(--accent-color); font-size: 0.65rem; margin-left: 0.25rem;">●</span>' : '';
+    html += `
+      <th style="padding: 0.75rem 0.5rem; text-align: center; color: var(--text-secondary); font-weight: 600; min-width: 110px; border-left: 1px solid var(--border-color); cursor: pointer; ${bgColor}" onclick="goToDay(${col.dayOfWeek})" title="Click to view ${col.label}">
+        ${col.label}${todayIndicator}
+      </th>`;
+  });
+
+  html += '<th style="padding: 0.75rem 0.5rem 0.75rem 0.75rem; text-align: center; color: var(--text-secondary); font-weight: 600; min-width: 100px; border-left: 2px solid var(--border-color); position: sticky; right: 0; background: var(--surface-elevated); z-index: 11; box-shadow: -5px 0 0 var(--surface-elevated);">ACTIONS</th>';
+  html += '</tr></thead>';
+
+  html += '<tbody>';
+
+  if (filterValue === 'all') {
+    // Show all aircraft grouped by type
+    const grouped = groupAircraftByType(userFleet);
+
+    Object.keys(grouped).sort().forEach(typeKey => {
+      const aircraftInGroup = grouped[typeKey];
+
+      // Group header row
+      html += `
+        <tr style="background: var(--surface); border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 0.75rem 1rem; color: var(--text-primary); font-weight: 600; font-size: 0.95rem; position: sticky; left: 0; background: var(--surface); border-right: 2px solid var(--border-color); z-index: 5;">
+            ${typeKey} <span style="color: var(--text-muted); font-weight: normal;">(${aircraftInGroup.length})</span>
+          </td>
+          <td colspan="${dayColumns.length + 1}" style="background: var(--surface);"></td>
+        </tr>
+      `;
+
+      // Aircraft rows
+      aircraftInGroup.forEach(aircraft => {
+        html += generateAircraftRowWeekly(aircraft, dayColumns);
+      });
+    });
+  } else {
+    // Filter to specific aircraft type - show without group header
+    const filteredFleet = userFleet.filter(aircraft => {
+      const typeKey = `${aircraft.aircraft.manufacturer} ${aircraft.aircraft.model}${aircraft.aircraft.variant ? '-' + aircraft.aircraft.variant : ''}`;
+      return typeKey === filterValue;
+    });
+
+    filteredFleet.forEach(aircraft => {
+      html += generateAircraftRowWeekly(aircraft, dayColumns);
+    });
+  }
+
+  html += '</tbody></table>';
+
+  container.innerHTML = html;
+
+  // Start timeline updates for weekly view too
+  updateTimeline();
+}
+
+// Go to daily view for a specific day
+function goToDay(dayOfWeek) {
+  const daySelect = document.getElementById('dayOfWeek');
+  if (daySelect) {
+    daySelect.value = dayOfWeek;
+    selectedDayOfWeek = dayOfWeek;
+  }
+  setViewMode('daily');
+}
+
+// Generate aircraft row for weekly view
+function generateAircraftRowWeekly(aircraft, dayColumns) {
+  // Check maintenance warnings
+  const maintenanceWarnings = getMaintenanceWarnings(aircraft);
+  const warningIcons = maintenanceWarnings.map(w =>
+    `<span style="font-size: 1.1rem; cursor: help; ${w.type === 'daily' ? 'color: #ef4444;' : 'color: #eab308;'}" title="${w.message}">⚠</span>`
+  ).join(' ');
+
+  let html = '<tr style="border-bottom: 1px solid var(--border-color);">';
+
+  // Aircraft info column (sticky left)
+  html += `
+    <td style="padding: 0.75rem 1rem; position: sticky; left: 0; background: var(--surface); border-right: 2px solid var(--border-color); z-index: 5; vertical-align: middle;">
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span style="color: var(--accent-color); font-weight: 600; font-size: 0.95rem; text-decoration: underline; cursor: pointer;" onclick="event.stopPropagation();">
+          ${aircraft.registration}
+        </span>
+        ${warningIcons}
+      </div>
+    </td>
+  `;
+
+  // Day columns - render time-positioned flight blocks
+  dayColumns.forEach(col => {
+    const dayFlights = getFlightsForDay(aircraft.id, col.dayOfWeek);
+    const dayMaintenance = getMaintenanceForDay(aircraft.id, col.dayOfWeek);
+    const isToday = col.dayOfWeek === getCurrentWorldTime()?.getDay();
+    const bgColor = isToday ? 'rgba(0, 102, 204, 0.1)' : 'var(--surface-elevated)';
+
+    let cellContent = '';
+
+    // Render flight blocks as positioned time bars
+    if (dayFlights.length > 0) {
+      dayFlights.forEach(flight => {
+        const route = flight.route;
+        const arrAirport = route?.arrivalAirport?.iataCode || route?.arrivalAirport?.icaoCode || '???';
+        const techStopAirport = route?.techStopAirport?.iataCode || route?.techStopAirport?.icaoCode || null;
+        const routeNum = route?.routeNumber || '';
+
+        // Parse times to calculate position
+        const depTimeStr = flight.departureTime?.substring(0, 5) || '00:00';
+        const arrTimeStr = flight.arrivalTime?.substring(0, 5) || '23:59';
+        const [depH, depM] = depTimeStr.split(':').map(Number);
+        const [arrH, arrM] = arrTimeStr.split(':').map(Number);
+        const depMinutes = depH * 60 + depM;
+        const arrMinutes = arrH * 60 + arrM;
+
+        // Get day of week for departure and arrival
+        const depDate = new Date(flight.scheduledDate + 'T00:00:00');
+        const depDayOfWeek = depDate.getDay();
+        const arrDate = flight.arrivalDate ? new Date(flight.arrivalDate + 'T00:00:00') : depDate;
+        const arrDayOfWeek = arrDate.getDay();
+        const isMultiDay = flight.arrivalDate && flight.arrivalDate !== flight.scheduledDate;
+
+        // Calculate days difference to detect transit days
+        const daysDiff = Math.round((arrDate - depDate) / (1000 * 60 * 60 * 24));
+        const hasTransitDays = daysDiff > 1;
+
+        // Check if current column is a transit day
+        let isTransitDay = false;
+        if (hasTransitDays) {
+          for (let i = 1; i < daysDiff; i++) {
+            const transitDayOfWeek = (depDayOfWeek + i) % 7;
+            if (transitDayOfWeek === col.dayOfWeek) {
+              isTransitDay = true;
+              break;
+            }
+          }
+        }
+
+        // Calculate position and width for this day's portion
+        let leftPct, widthPct, borderRadius;
+
+        if (!isMultiDay) {
+          // Single day flight
+          leftPct = (depMinutes / 1440) * 100;
+          widthPct = ((arrMinutes - depMinutes) / 1440) * 100;
+          borderRadius = '3px';
+        } else if (col.dayOfWeek === depDayOfWeek) {
+          // Departure day - starts at dep time, extends to end
+          leftPct = (depMinutes / 1440) * 100;
+          widthPct = 100 - leftPct;
+          borderRadius = hasTransitDays ? '3px 0 0 3px' : '3px 0 0 3px';
+        } else if (col.dayOfWeek === arrDayOfWeek) {
+          // Arrival day - starts at 0, ends at arrival time
+          leftPct = 0;
+          widthPct = (arrMinutes / 1440) * 100;
+          borderRadius = '0 3px 3px 0';
+        } else if (isTransitDay) {
+          // Transit day (full day in flight)
+          leftPct = 0;
+          widthPct = 100;
+          borderRadius = '0';
+        } else {
+          // Shouldn't reach here, but fallback
+          leftPct = 0;
+          widthPct = 100;
+          borderRadius = '0';
+        }
+
+        // Minimum width for visibility
+        if (widthPct < 5) widthPct = 5;
+
+        // Show ICAO - prefer transit day if exists, otherwise use midpoint logic
+        let showLabel = true;
+        if (isMultiDay) {
+          if (hasTransitDays) {
+            // Show label on first transit day only
+            const firstTransitDayOfWeek = (depDayOfWeek + 1) % 7;
+            showLabel = col.dayOfWeek === firstTransitDayOfWeek;
+          } else {
+            // No transit days - use midpoint logic for 2-day flights
+            const depDayMinutesRemaining = 1440 - depMinutes;
+            const totalFlightMinutes = depDayMinutesRemaining + arrMinutes;
+            const midpointMinutes = totalFlightMinutes / 2;
+            const midpointOnDepDay = midpointMinutes <= depDayMinutesRemaining;
+
+            if (col.dayOfWeek === depDayOfWeek) {
+              showLabel = midpointOnDepDay;
+            } else if (col.dayOfWeek === arrDayOfWeek) {
+              showLabel = !midpointOnDepDay;
+            } else {
+              showLabel = false;
+            }
+          }
+        }
+
+        // Build label content with optional tech stop
+        const techStopLabel = techStopAirport ? `<div style="color: #22c55e; font-size: 0.55rem; white-space: nowrap;">via ${techStopAirport}</div>` : '';
+        const labelContent = showLabel ? `
+          <div style="display: flex; flex-direction: column; align-items: center; line-height: 1.2;">
+            <span style="color: white; font-size: 0.7rem; font-weight: 600; white-space: nowrap;">${arrAirport}</span>
+            ${techStopLabel}
+          </div>
+        ` : '';
+
+        cellContent += `
+          <div
+            onclick="event.stopPropagation(); viewFlightDetails('${flight.id}')"
+            title="${routeNum}: ${depTimeStr}→${arrTimeStr}${techStopAirport ? ' via ' + techStopAirport : ''}"
+            style="position: absolute; left: ${leftPct}%; width: ${widthPct}%; top: 0; bottom: 0; background: var(--accent-color); border-radius: ${borderRadius}; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden;"
+          >
+            ${labelContent}
+          </div>
+        `;
+      });
+    }
+
+    // Render maintenance blocks (full height)
+    if (dayMaintenance.length > 0) {
+      dayMaintenance.forEach(maint => {
+        const isDaily = maint.checkType === 'A';
+        const maintBg = isDaily ? '#f59e0b' : '#6b7280'; // Orange for daily, gray for weekly
+
+        // Parse maintenance time
+        const startTimeStr = maint.startTime?.substring(0, 5) || '00:00';
+        const [startH, startM] = startTimeStr.split(':').map(Number);
+        const startMinutes = startH * 60 + startM;
+        const durationMinutes = maint.duration || 120;
+        const endMinutes = Math.min(startMinutes + durationMinutes, 1440);
+
+        const leftPct = (startMinutes / 1440) * 100;
+        let widthPct = ((endMinutes - startMinutes) / 1440) * 100;
+        if (widthPct < 5) widthPct = 5;
+
+        // Daily check: no label, just orange block. Weekly check: show B label
+        const content = isDaily ? '' : '<span style="color: white; font-size: 0.65rem; font-weight: 600;">B</span>';
+
+        cellContent += `
+          <div
+            onclick="event.stopPropagation(); viewMaintenanceDetails('${maint.id}')"
+            title="${isDaily ? 'Daily' : 'Weekly'} check @ ${startTimeStr}"
+            style="position: absolute; left: ${leftPct}%; width: ${widthPct}%; top: 0; bottom: 0; background: ${maintBg}; border-radius: 3px; display: flex; align-items: center; justify-content: center; cursor: pointer;"
+          >
+            ${content}
+          </div>
+        `;
+      });
+    }
+
+    const hasContent = dayFlights.length > 0 || dayMaintenance.length > 0;
+
+    html += `
+      <td
+        class="schedule-cell weekly-cell"
+        data-day="${col.dayOfWeek}"
+        data-aircraft-id="${aircraft.id}"
+        style="position: relative; height: 36px; border-left: 1px solid var(--border-color); background: ${bgColor}; cursor: pointer; min-width: 110px;"
+        onclick="goToDay(${col.dayOfWeek})"
+        ondragover="handleWeeklyDragOver(event, ${col.dayOfWeek})"
+        ondragleave="handleWeeklyDragLeave(event)"
+        ondrop="handleWeeklyDrop(event, '${aircraft.id}', ${col.dayOfWeek})"
+        title="Click to view ${col.label} / Drag route here to schedule"
+      >
+        ${hasContent ? cellContent : ''}
+      </td>
+    `;
+  });
+
+  // Actions column (sticky right)
+  html += `
+    <td style="padding: 0.5rem 0.5rem 0.5rem 0.75rem; position: sticky; right: 0; background: var(--surface); border-left: 2px solid var(--border-color); z-index: 5; box-shadow: -5px 0 0 var(--surface); vertical-align: middle;">
+      <div style="display: flex; gap: 0.5rem; justify-content: center; align-items: center;">
+        <button
+          onclick="event.stopPropagation(); addRouteToAircraft('${aircraft.id}')"
+          title="Add Route"
+          style="
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            background: transparent;
+            border: none;
+            color: #22c55e;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          "
+        >➜</button>
+        <button
+          onclick="event.stopPropagation(); scheduleMaintenance('${aircraft.id}')"
+          title="Schedule Maintenance"
+          style="
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            font-size: 1.4rem;
+            cursor: pointer;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+          "
+          onmouseover="this.style.borderColor='var(--primary-color)'; this.style.color='var(--text-primary)'"
+          onmouseout="this.style.borderColor='var(--border-color)'; this.style.color='var(--text-secondary)'"
+        >⚙</button>
+      </div>
+    </td>
+  `;
+
+  html += '</tr>';
+  return html;
+}
+
+// Get flights for a specific day of week for an aircraft
+function getFlightsForDay(aircraftId, dayOfWeek) {
+  return scheduledFlights.filter(f => {
+    if (f.aircraft?.id !== aircraftId) return false;
+    if (!f.scheduledDate) return false;
+
+    const depDate = new Date(f.scheduledDate + 'T00:00:00');
+    const depDayOfWeek = depDate.getDay();
+
+    // Check departure day
+    if (depDayOfWeek === dayOfWeek) return true;
+
+    // Check arrival day and transit days
+    if (f.arrivalDate && f.arrivalDate !== f.scheduledDate) {
+      const arrDate = new Date(f.arrivalDate + 'T00:00:00');
+      const arrDayOfWeek = arrDate.getDay();
+
+      // Check if arrival day matches
+      if (arrDayOfWeek === dayOfWeek) return true;
+
+      // Check transit days (days between departure and arrival)
+      const daysDiff = Math.round((arrDate - depDate) / (1000 * 60 * 60 * 24));
+      if (daysDiff > 1) {
+        // There are transit days - check if dayOfWeek falls between dep and arr
+        for (let i = 1; i < daysDiff; i++) {
+          const transitDayOfWeek = (depDayOfWeek + i) % 7;
+          if (transitDayOfWeek === dayOfWeek) return true;
+        }
+      }
+    }
+
+    return false;
+  });
+}
+
+// Get maintenance for a specific day of week for an aircraft
+function getMaintenanceForDay(aircraftId, dayOfWeek) {
+  return scheduledMaintenance.filter(m => {
+    if (m.aircraft?.id !== aircraftId) return false;
+    // Get day of week from scheduledDate
+    if (!m.scheduledDate) return false;
+    const maintDate = new Date(m.scheduledDate + 'T00:00:00');
+    const maintDayOfWeek = maintDate.getDay();
+    return maintDayOfWeek === dayOfWeek;
+  });
 }
 
 // Load and display schedule (fetches data then renders)
@@ -1912,10 +2376,27 @@ async function addRouteToAircraft(aircraftId) {
 
   currentAircraftId = aircraftId;
 
-  // Show modal
+  // Show modal and reset position to default (bottom-right)
   const modal = document.getElementById('addRouteModal');
   if (modal) {
+    modal.style.top = 'auto';
+    modal.style.left = 'auto';
+    modal.style.bottom = '2rem';
+    modal.style.right = '2rem';
     modal.style.display = 'flex';
+  }
+
+  // Show/hide day filter based on view mode
+  const dayFilterContainer = document.getElementById('routeDayFilterContainer');
+  if (dayFilterContainer) {
+    if (viewMode === 'weekly') {
+      dayFilterContainer.style.display = 'block';
+      // Reset filter to "All Days"
+      const dayFilter = document.getElementById('routeDayFilter');
+      if (dayFilter) dayFilter.value = 'all';
+    } else {
+      dayFilterContainer.style.display = 'none';
+    }
   }
 
   // Load unassigned or aircraft-specific routes
@@ -1931,22 +2412,103 @@ function closeAddRouteModal() {
   currentAircraftId = null;
 }
 
+// Make the add route modal draggable
+function initDraggableModal() {
+  const modal = document.getElementById('addRouteModal');
+  const header = document.getElementById('addRouteModalHeader');
+  if (!modal || !header) return;
+
+  let isDragging = false;
+  let offsetX = 0;
+  let offsetY = 0;
+
+  header.addEventListener('mousedown', (e) => {
+    // Don't start drag if clicking the close button
+    if (e.target.tagName === 'BUTTON') return;
+
+    isDragging = true;
+    const rect = modal.getBoundingClientRect();
+    offsetX = e.clientX - rect.left;
+    offsetY = e.clientY - rect.top;
+
+    // Prevent text selection during drag
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+
+    // Calculate new position
+    let newX = e.clientX - offsetX;
+    let newY = e.clientY - offsetY;
+
+    // Keep modal within viewport bounds
+    const modalRect = modal.getBoundingClientRect();
+    const maxX = window.innerWidth - modalRect.width;
+    const maxY = window.innerHeight - modalRect.height;
+
+    newX = Math.max(0, Math.min(newX, maxX));
+    newY = Math.max(0, Math.min(newY, maxY));
+
+    // Switch from bottom/right positioning to top/left for dragging
+    modal.style.bottom = 'auto';
+    modal.style.right = 'auto';
+    modal.style.left = newX + 'px';
+    modal.style.top = newY + 'px';
+  });
+
+  document.addEventListener('mouseup', () => {
+    isDragging = false;
+  });
+}
+
+// Initialize draggable modal when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initDraggableModal);
+} else {
+  initDraggableModal();
+}
+
 // Load unassigned routes
 async function loadUnassignedRoutes(aircraftId) {
   const container = document.getElementById('unassignedRoutesList');
 
-  // Filter routes assigned to this aircraft or unassigned, AND operating on the selected day
+  // Get the day filter value (only used in weekly view)
+  const dayFilterValue = viewMode === 'weekly'
+    ? (document.getElementById('routeDayFilter')?.value || 'all')
+    : null;
+
+  // Filter routes assigned to this aircraft or unassigned
   const availableRoutes = routes.filter(r => {
     // Check if route is assigned to this aircraft or unassigned
     const aircraftMatch = r.assignedAircraftId === aircraftId || r.assignedAircraftId === null;
 
-    // Check if route operates on the selected day (or all 7 days = daily)
-    const dayMatch = r.daysOfWeek && (
-      r.daysOfWeek.includes(selectedDayOfWeek) || r.daysOfWeek.length === 7
-    );
+    // Day matching logic differs between daily and weekly view
+    let dayMatch = false;
+    if (viewMode === 'weekly') {
+      // Weekly view: show all routes, optionally filtered by day
+      if (dayFilterValue === 'all') {
+        dayMatch = true; // Show all routes
+      } else {
+        // Filter to routes that operate on the selected day
+        const filterDay = parseInt(dayFilterValue, 10);
+        dayMatch = r.daysOfWeek && (
+          r.daysOfWeek.includes(filterDay) || r.daysOfWeek.length === 7
+        );
+      }
+    } else {
+      // Daily view: only show routes that operate on the selected day
+      dayMatch = r.daysOfWeek && (
+        r.daysOfWeek.includes(selectedDayOfWeek) || r.daysOfWeek.length === 7
+      );
+    }
 
-    // Check if route is NOT already scheduled on the selected day
-    const notAlreadyScheduled = !scheduledFlights.some(sf => sf.routeId === r.id);
+    // Check if route is NOT already scheduled on the selected day (daily view only)
+    // In weekly view, we show all routes regardless of scheduling
+    let notAlreadyScheduled = true;
+    if (viewMode !== 'weekly') {
+      notAlreadyScheduled = !scheduledFlights.some(sf => sf.routeId === r.id);
+    }
 
     return aircraftMatch && dayMatch && notAlreadyScheduled;
   });
@@ -2063,7 +2625,197 @@ async function loadUnassignedRoutes(aircraftId) {
     const routeId = element.getAttribute('data-route-id');
     element.addEventListener('dragstart', (e) => handleDragStart(e, routeId));
     element.addEventListener('dragend', handleDragEnd);
+    // Click to schedule (alternative to drag)
+    element.addEventListener('click', (e) => {
+      // Don't trigger if dragging
+      if (e.defaultPrevented) return;
+      showDaySelectionForRoute(routeId);
+    });
+    element.style.cursor = 'pointer';
   });
+}
+
+// Show day selection dialog for scheduling a route via click
+async function showDaySelectionForRoute(routeId) {
+  const route = routes.find(r => r.id === routeId);
+  if (!route || !currentAircraftId) return;
+
+  const aircraft = userFleet.find(a => a.id === currentAircraftId);
+  if (!aircraft) return;
+
+  // Check aircraft type compatibility (using full type key)
+  const routeAircraftType = getAircraftTypeKey(route.assignedAircraft?.aircraft);
+  const targetAircraftType = getAircraftTypeKey(aircraft?.aircraft);
+
+  if (routeAircraftType && routeAircraftType !== targetAircraftType) {
+    await showAlertModal('Aircraft Type Mismatch', `This route requires a ${routeAircraftType} aircraft. ${aircraft.registration} is a ${targetAircraftType}.`);
+    return;
+  }
+
+  // Get available days for this route
+  const availableDays = route.daysOfWeek || [];
+  if (availableDays.length === 0) {
+    await showAlertModal('No Schedule', 'This route has no operating days configured.');
+    return;
+  }
+
+  // Create day selection modal
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const dayOrder = [1, 2, 3, 4, 5, 6, 0]; // Mon-Sun order
+
+  // Build day buttons
+  let dayButtonsHtml = '';
+  dayOrder.forEach(dayNum => {
+    const isAvailable = availableDays.includes(dayNum) || availableDays.length === 7;
+    if (isAvailable) {
+      dayButtonsHtml += `
+        <button
+          onclick="scheduleRouteForDay('${routeId}', ${dayNum})"
+          style="padding: 0.75rem 1rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.2s; min-width: 100px;"
+          onmouseover="this.style.background='var(--accent-color)'; this.style.borderColor='var(--accent-color)'; this.style.color='white'"
+          onmouseout="this.style.background='var(--surface-elevated)'; this.style.borderColor='var(--border-color)'; this.style.color='var(--text-primary)'"
+        >${dayNames[dayNum]}</button>
+      `;
+    }
+  });
+
+  // Create modal overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'daySelectionOverlay';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 2000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  `;
+
+  const modalContent = document.createElement('div');
+  modalContent.style.cssText = `
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+    width: 90%;
+    max-width: 400px;
+  `;
+
+  const depTime = route.scheduledDepartureTime ? route.scheduledDepartureTime.substring(0, 5) : '--:--';
+
+  modalContent.innerHTML = `
+    <h2 style="margin: 0 0 1rem 0; color: var(--text-primary); font-size: 1.1rem;">SCHEDULE ROUTE</h2>
+    <p style="margin: 0 0 0.5rem 0; color: var(--accent-color); font-weight: 600;">
+      ${route.routeNumber} / ${route.returnRouteNumber}
+    </p>
+    <p style="margin: 0 0 0.5rem 0; color: var(--text-secondary); font-size: 0.9rem;">
+      ${route.departureAirport.icaoCode} → ${route.arrivalAirport.icaoCode} → ${route.departureAirport.icaoCode}
+    </p>
+    <p style="margin: 0 0 1rem 0; color: var(--text-muted); font-size: 0.85rem;">
+      Departure: <span style="color: var(--success-color); font-weight: 600;">${depTime}</span> • Aircraft: <span style="color: var(--text-primary);">${aircraft.registration}</span>
+    </p>
+    <p style="margin: 0 0 1rem 0; color: var(--text-secondary); font-size: 0.9rem;">Select day to schedule:</p>
+    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem;">
+      ${dayButtonsHtml}
+    </div>
+    <div style="text-align: right;">
+      <button
+        onclick="closeDaySelectionModal()"
+        style="padding: 0.5rem 1rem; background: transparent; border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-secondary); font-size: 0.85rem; cursor: pointer;"
+      >Cancel</button>
+    </div>
+  `;
+
+  overlay.appendChild(modalContent);
+  document.body.appendChild(overlay);
+
+  // Close on background click
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      closeDaySelectionModal();
+    }
+  });
+}
+
+// Close day selection modal
+function closeDaySelectionModal() {
+  const overlay = document.getElementById('daySelectionOverlay');
+  if (overlay) {
+    overlay.remove();
+  }
+}
+
+// Schedule route for a specific day (called from day selection modal)
+async function scheduleRouteForDay(routeId, dayOfWeek) {
+  closeDaySelectionModal();
+
+  const route = routes.find(r => r.id === routeId);
+  if (!route || !currentAircraftId) return;
+
+  const aircraft = userFleet.find(a => a.id === currentAircraftId);
+  if (!aircraft) return;
+
+  // Use the route's scheduled departure time
+  const departureTime = route.scheduledDepartureTime || '00:00:00';
+
+  // Get the next occurrence of this day of week using game world time
+  const worldTime = getCurrentWorldTime();
+  if (!worldTime) {
+    await showAlertModal('Error', 'World time not available. Please try again.');
+    return;
+  }
+
+  const today = new Date(worldTime);
+  const currentDay = today.getDay();
+  const daysUntilTarget = getDaysUntilTargetInWeek(currentDay, dayOfWeek);
+  const targetDate = new Date(today);
+  targetDate.setDate(today.getDate() + daysUntilTarget);
+  const scheduleDate = formatLocalDate(targetDate);
+
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const dayName = dayNames[dayOfWeek];
+
+  try {
+    showLoadingModal('Scheduling Flight', `Adding flight for ${dayName}...`);
+
+    const response = await fetch('/api/schedule/flight', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        routeId: route.id,
+        aircraftId: currentAircraftId,
+        scheduledDate: scheduleDate,
+        departureTime: departureTime
+      })
+    });
+
+    if (response.ok) {
+      await loadSchedule();
+      closeLoadingModal();
+      closeAddRouteModal();
+    } else {
+      closeLoadingModal();
+      const error = await response.json();
+      await showAlertModal('Scheduling Error', `Error: ${error.error || 'Unknown error'}`);
+    }
+  } catch (error) {
+    closeLoadingModal();
+    console.error('Error scheduling flight:', error);
+    await showAlertModal('Error', 'Failed to schedule flight. Please try again.');
+  }
+}
+
+// Get aircraft type key for comparison (e.g., "Airbus A350-1000")
+function getAircraftTypeKey(aircraftData) {
+  if (!aircraftData) return null;
+  const manufacturer = aircraftData.manufacturer || '';
+  const model = aircraftData.model || '';
+  const variant = aircraftData.variant || '';
+  return `${manufacturer} ${model}${variant ? '-' + variant : ''}`.trim() || null;
 }
 
 // Format days of week
@@ -2071,8 +2823,15 @@ function formatDaysOfWeek(daysArray) {
   if (!daysArray || daysArray.length === 0) return 'No days';
   if (daysArray.length === 7) return 'Daily';
 
-  const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   return daysArray.map(d => dayLabels[d]).join(' ');
+}
+
+// Filter routes by day (used in weekly view popup)
+function filterRoutesByDay() {
+  if (currentAircraftId) {
+    loadUnassignedRoutes(currentAircraftId);
+  }
 }
 
 // Handle drag start
@@ -2403,9 +3162,9 @@ function handleDragOver(event) {
   // Find the aircraft in the fleet
   const aircraft = userFleet.find(a => a.id === aircraftId);
 
-  // Check if route has an assigned aircraft type requirement
-  const routeAircraftType = draggedRoute.assignedAircraft?.aircraft?.type;
-  const targetAircraftType = aircraft?.aircraft?.type;
+  // Check if route has an assigned aircraft type requirement (using full type key)
+  const routeAircraftType = getAircraftTypeKey(draggedRoute.assignedAircraft?.aircraft);
+  const targetAircraftType = getAircraftTypeKey(aircraft?.aircraft);
 
   // Only allow drop if aircraft types match or route has no assigned aircraft
   const canDrop = !routeAircraftType || routeAircraftType === targetAircraftType;
@@ -2476,6 +3235,210 @@ function handleDragLeave(event) {
   }
 }
 
+// Handle drag over for weekly view cells
+function handleWeeklyDragOver(event, dayOfWeek) {
+  if (!draggedRoute) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  const cell = event.currentTarget;
+  const aircraftId = cell.getAttribute('data-aircraft-id');
+
+  // Find the aircraft in the fleet
+  const aircraft = userFleet.find(a => a.id === aircraftId);
+
+  // Check if route has an assigned aircraft type requirement (using full type key)
+  const routeAircraftType = getAircraftTypeKey(draggedRoute.assignedAircraft?.aircraft);
+  const targetAircraftType = getAircraftTypeKey(aircraft?.aircraft);
+
+  // Check if aircraft types match
+  const aircraftTypeMatch = !routeAircraftType || routeAircraftType === targetAircraftType;
+
+  // Check if route operates on this day
+  const routeOperatesOnDay = draggedRoute.daysOfWeek && (
+    draggedRoute.daysOfWeek.includes(dayOfWeek) || draggedRoute.daysOfWeek.length === 7
+  );
+
+  const canDrop = aircraftTypeMatch && routeOperatesOnDay;
+
+  // Clear all highlighting in the table first
+  document.querySelectorAll('.weekly-cell').forEach(c => {
+    c.classList.remove('drag-over');
+    c.style.background = '';
+  });
+
+  // Highlight only cells for compatible aircraft in this day column
+  if (routeOperatesOnDay) {
+    event.dataTransfer.dropEffect = canDrop ? 'move' : 'none';
+
+    // Find all compatible aircraft IDs
+    const compatibleAircraftIds = userFleet
+      .filter(a => !routeAircraftType || getAircraftTypeKey(a.aircraft) === routeAircraftType)
+      .map(a => a.id);
+
+    // Highlight cells in this day column only for compatible aircraft
+    document.querySelectorAll(`.weekly-cell[data-day="${dayOfWeek}"]`).forEach(c => {
+      const cellAircraftId = c.getAttribute('data-aircraft-id');
+      if (compatibleAircraftIds.includes(cellAircraftId)) {
+        c.classList.add('drag-over');
+      }
+    });
+
+    // If current cell is not compatible, show red highlight
+    if (!aircraftTypeMatch) {
+      cell.style.background = 'rgba(220, 53, 69, 0.3)';
+    }
+  } else {
+    event.dataTransfer.dropEffect = 'none';
+    // Show as invalid - highlight the hovered cell red
+    cell.style.background = 'rgba(220, 53, 69, 0.3)';
+  }
+
+  // Update drag preview
+  const preview = document.getElementById('dragPreview');
+  const routeTime = draggedRoute.scheduledDepartureTime ? draggedRoute.scheduledDepartureTime.substring(0, 5) : '--:--';
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  let statusText = '';
+  if (!aircraftTypeMatch) {
+    statusText = ' ⚠ INCOMPATIBLE AIRCRAFT';
+  } else if (!routeOperatesOnDay) {
+    statusText = ` ⚠ NOT SCHEDULED FOR ${dayNames[dayOfWeek].toUpperCase()}`;
+  }
+
+  preview.textContent = `${draggedRoute.routeNumber} / ${draggedRoute.returnRouteNumber} @ ${routeTime}${statusText}`;
+}
+
+// Handle drag leave for weekly view cells
+function handleWeeklyDragLeave(event) {
+  event.preventDefault();
+
+  // Check if we're actually leaving the table area
+  const relatedTarget = event.relatedTarget;
+  const isStillInWeeklyCell = relatedTarget && relatedTarget.closest('.weekly-cell');
+
+  if (!isStillInWeeklyCell) {
+    // Clear all weekly cell highlights
+    document.querySelectorAll('.weekly-cell').forEach(c => {
+      c.classList.remove('drag-over');
+      c.style.background = '';
+    });
+  }
+}
+
+// Handle drop for weekly view cells
+async function handleWeeklyDrop(event, aircraftId, dayOfWeek) {
+  event.preventDefault();
+  event.stopPropagation();
+
+  // Clear all weekly cell highlights
+  document.querySelectorAll('.weekly-cell').forEach(c => {
+    c.classList.remove('drag-over');
+    c.style.background = '';
+  });
+
+  if (!draggedRoute) {
+    console.error('No route being dragged');
+    return;
+  }
+
+  // Find the aircraft in the fleet
+  const aircraft = userFleet.find(a => a.id === aircraftId);
+  if (!aircraft) {
+    await showAlertModal('Error', 'Aircraft not found');
+    draggedRoute = null;
+    return;
+  }
+
+  // Check if route has an assigned aircraft type requirement (using full type key)
+  const routeAircraftType = getAircraftTypeKey(draggedRoute.assignedAircraft?.aircraft);
+  const targetAircraftType = getAircraftTypeKey(aircraft?.aircraft);
+
+  if (routeAircraftType && routeAircraftType !== targetAircraftType) {
+    await showAlertModal('Aircraft Type Mismatch', `This route requires a ${routeAircraftType} aircraft. ${aircraft.registration} is a ${targetAircraftType}.`);
+    draggedRoute = null;
+    return;
+  }
+
+  // Check if route operates on this day
+  const routeOperatesOnDay = draggedRoute.daysOfWeek && (
+    draggedRoute.daysOfWeek.includes(dayOfWeek) || draggedRoute.daysOfWeek.length === 7
+  );
+
+  if (!routeOperatesOnDay) {
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    await showAlertModal('Schedule Conflict', `This route does not operate on ${dayNames[dayOfWeek]}. It operates on: ${formatDaysOfWeek(draggedRoute.daysOfWeek)}`);
+    draggedRoute = null;
+    return;
+  }
+
+  // Use the route's scheduled departure time
+  const departureTime = draggedRoute.scheduledDepartureTime || '00:00:00';
+
+  // Get the next occurrence of this day of week using game world time
+  const worldTime = getCurrentWorldTime();
+  if (!worldTime) {
+    await showAlertModal('Error', 'World time not available. Please try again.');
+    draggedRoute = null;
+    return;
+  }
+
+  const today = new Date(worldTime);
+  const currentDay = today.getDay();
+  const daysUntilTarget = getDaysUntilTargetInWeek(currentDay, dayOfWeek);
+  const targetDate = new Date(today);
+  targetDate.setDate(today.getDate() + daysUntilTarget);
+  const scheduleDate = formatLocalDate(targetDate);
+
+  // Get day name for confirmation
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const dayName = dayNames[dayOfWeek];
+  const timeStr = departureTime.substring(0, 5);
+
+  // Confirm scheduling
+  const confirmed = await showConfirmModal(
+    'Confirm Schedule',
+    `Schedule route ${draggedRoute.routeNumber} / ${draggedRoute.returnRouteNumber} on ${aircraft.registration} for ${dayName} at ${timeStr}?`
+  );
+
+  if (!confirmed) {
+    draggedRoute = null;
+    return;
+  }
+
+  try {
+    showLoadingModal('Scheduling Flight', `Adding flight for ${dayName}...`);
+
+    const response = await fetch('/api/schedule/flight', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        routeId: draggedRoute.id,
+        aircraftId: aircraftId,
+        scheduledDate: scheduleDate,
+        departureTime: departureTime
+      })
+    });
+
+    if (response.ok) {
+      await loadSchedule();
+      closeLoadingModal();
+      closeAddRouteModal();
+    } else {
+      closeLoadingModal();
+      const error = await response.json();
+      await showAlertModal('Scheduling Error', `Error: ${error.error || 'Unknown error'}`);
+    }
+  } catch (error) {
+    closeLoadingModal();
+    console.error('Error scheduling flight:', error);
+    await showAlertModal('Error', 'Failed to schedule flight. Please try again.');
+  }
+
+  draggedRoute = null;
+}
+
 // Handle drop
 async function handleDrop(event, aircraftId, timeValue) {
   event.preventDefault();
@@ -2507,9 +3470,9 @@ async function handleDrop(event, aircraftId, timeValue) {
     return;
   }
 
-  // Check if route has an assigned aircraft type requirement
-  const routeAircraftType = draggedRoute.assignedAircraft?.aircraft?.type;
-  const targetAircraftType = aircraft?.aircraft?.type;
+  // Check if route has an assigned aircraft type requirement (using full type key)
+  const routeAircraftType = getAircraftTypeKey(draggedRoute.assignedAircraft?.aircraft);
+  const targetAircraftType = getAircraftTypeKey(aircraft?.aircraft);
 
   // Only allow drop if aircraft types match or route has no assigned aircraft
   if (routeAircraftType && routeAircraftType !== targetAircraftType) {
@@ -2724,6 +3687,11 @@ async function fetchWorldTime() {
 
         const daySelect = document.getElementById('dayOfWeek');
         if (daySelect) {
+          // Remove the "Loading..." placeholder option if it exists
+          const loadingOption = daySelect.querySelector('option[value=""]');
+          if (loadingOption) {
+            loadingOption.remove();
+          }
           daySelect.value = selectedDayOfWeek;
           // console.log('Day select updated to:', daySelect.value);
         }
@@ -2796,44 +3764,56 @@ function getCurrentWorldTime() {
   return calculatedTime;
 }
 
-// Update the red timeline position - NEW SIMPLE APPROACH
+// Update the red timeline position - supports both daily and weekly views
 function updateTimeline() {
   const currentTime = getCurrentWorldTime();
   if (!currentTime) return;
 
-  // Only show timeline if we're viewing today
   const currentDay = currentTime.getDay();
-  if (currentDay !== selectedDayOfWeek) {
-    // Remove timeline if viewing different day
-    const existingTimeline = document.getElementById('scheduleTimeline');
-    if (existingTimeline) existingTimeline.remove();
-    return;
-  }
-
   const container = document.getElementById('scheduleGrid');
   const table = container?.querySelector('table');
   const headerRow = table?.querySelector('thead tr');
   if (!container || !table || !headerRow) return;
 
-  // Calculate current time position
+  // Get all header cells
+  const headerCells = Array.from(headerRow.querySelectorAll('th'));
+  if (headerCells.length < 3) return;
+
+  // Find the time/day column cells (skip first AIRCRAFT column and last ACTIONS column)
+  const dataColumns = headerCells.slice(1, -1);
+
+  // Calculate current time of day as fraction
   const hours = currentTime.getHours();
   const minutes = currentTime.getMinutes();
   const seconds = currentTime.getSeconds();
   const totalHours = hours + (minutes / 60) + (seconds / 3600);
+  const dayFraction = totalHours / 24; // Fraction through the day (0-1)
 
-  // Get all header cells
-  const headerCells = Array.from(headerRow.querySelectorAll('th'));
-  if (headerCells.length < 3) return; // Need at least AIRCRAFT + time columns + ACTIONS
+  let targetColumnCell, fractionalPosition;
 
-  // Find the time column cells (skip first AIRCRAFT column and last ACTIONS column)
-  const timeColumns = headerCells.slice(1, -1);
+  if (viewMode === 'weekly') {
+    // Weekly view: find today's column by day of week
+    // Days are ordered Mon(1), Tue(2), Wed(3), Thu(4), Fri(5), Sat(6), Sun(0)
+    const dayOrder = [1, 2, 3, 4, 5, 6, 0];
+    const todayIndex = dayOrder.indexOf(currentDay);
+    if (todayIndex === -1) return;
 
-  // Determine which column the current time falls into
-  const currentHourIndex = Math.floor(totalHours);
-  const fractionalHour = totalHours - currentHourIndex;
+    targetColumnCell = dataColumns[todayIndex];
+    fractionalPosition = dayFraction; // Position within the day column
+  } else {
+    // Daily view: only show if viewing today
+    if (currentDay !== selectedDayOfWeek) {
+      const existingTimeline = document.getElementById('scheduleTimeline');
+      if (existingTimeline) existingTimeline.remove();
+      return;
+    }
 
-  // Get the target column (index 0 = 00:00, index 1 = 01:00, etc.)
-  const targetColumnCell = timeColumns[currentHourIndex];
+    // Find which hour column
+    const currentHourIndex = Math.floor(totalHours);
+    fractionalPosition = totalHours - currentHourIndex;
+    targetColumnCell = dataColumns[currentHourIndex];
+  }
+
   if (!targetColumnCell) return;
 
   // Use getBoundingClientRect to get exact rendered positions
@@ -2841,20 +3821,19 @@ function updateTimeline() {
   const columnRect = targetColumnCell.getBoundingClientRect();
 
   // Calculate the exact visual position of the timeline on screen
-  const timelineVisualX = columnRect.left + (fractionalHour * columnRect.width);
+  const timelineVisualX = columnRect.left + (fractionalPosition * columnRect.width);
 
   // Get the AIRCRAFT column to determine where the schedule time area starts
   const aircraftColumn = headerCells[0];
   const aircraftColumnRect = aircraftColumn.getBoundingClientRect();
-  const scheduleAreaLeft = aircraftColumnRect.right; // Time columns start after AIRCRAFT
+  const scheduleAreaLeft = aircraftColumnRect.right;
 
   // Get the ACTIONS column to determine where the schedule time area ends
   const actionsColumn = headerCells[headerCells.length - 1];
   const actionsColumnRect = actionsColumn.getBoundingClientRect();
-  const scheduleAreaRight = actionsColumnRect.left; // Time columns end before ACTIONS
+  const scheduleAreaRight = actionsColumnRect.left;
 
   // Check if the current time position is within the visible schedule area
-  // The timeline should only show if it falls between AIRCRAFT and ACTIONS columns visually
   const isTimelineVisible = timelineVisualX >= scheduleAreaLeft && timelineVisualX <= scheduleAreaRight;
 
   // Get or create timeline element
@@ -2893,28 +3872,11 @@ function updateTimeline() {
   timeline.style.display = 'block';
 
   // Calculate position relative to container
-  // Start at the left edge of the target column
   let timelineLeft = columnRect.left - containerRect.left;
-
-  // Add fractional position within the column
-  timelineLeft += fractionalHour * columnRect.width;
+  timelineLeft += fractionalPosition * columnRect.width;
 
   // Update position
   timeline.style.left = `${timelineLeft}px`;
-
-  // Debug logging (every 20 updates)
-  // const updateCount = (window.timelineUpdateCount || 0) + 1;
-  // window.timelineUpdateCount = updateCount;
-
-  // if (updateCount % 20 === 0) {
-  //   console.log('[Timeline]', {
-  //     time: `${hours.toString().padStart(2,'0')}:${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`,
-  //     column: currentHourIndex,
-  //     fractional: fractionalHour.toFixed(3),
-  //     columnLabel: targetColumnCell.textContent,
-  //     position: timelineLeft.toFixed(2) + 'px'
-  //   });
-  // }
 }
 
 // Start timeline updates

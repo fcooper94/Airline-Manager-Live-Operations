@@ -14,6 +14,26 @@
       <div class="panel-body" style="padding: 1rem;">
         <div style="display: flex; gap: 1.5rem; align-items: center;">
           <div>
+            <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase; font-weight: 600; letter-spacing: 1px;">View</label>
+            <div style="display: flex; align-items: center; gap: 0;">
+              <button
+                id="viewDaily"
+                onclick="setViewMode('daily')"
+                style="padding: 0.5rem 1rem; background: var(--accent-color); border: 1px solid var(--accent-color); border-radius: 3px 0 0 3px; color: white; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s;"
+              >
+                DAILY
+              </button>
+              <button
+                id="viewWeekly"
+                onclick="setViewMode('weekly')"
+                style="padding: 0.5rem 1rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-left: none; border-radius: 0 3px 3px 0; color: var(--text-secondary); font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s;"
+              >
+                WEEKLY
+              </button>
+            </div>
+          </div>
+
+          <div id="daySelector">
             <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase; font-weight: 600; letter-spacing: 1px;">Viewing Day</label>
             <div style="display: flex; align-items: center; gap: 0.5rem;">
               <button
@@ -30,6 +50,7 @@
                 onchange="loadSchedule()"
                 style="padding: 0.5rem 1rem; background: var(--accent-color); border: 1px solid var(--accent-color); border-radius: 3px; color: white; font-size: 0.9rem; font-weight: 600; cursor: pointer;"
               >
+                <option value="" disabled selected>LOADING...</option>
                 <option value="1">MONDAY</option>
                 <option value="2">TUESDAY</option>
                 <option value="3">WEDNESDAY</option>
@@ -85,11 +106,28 @@
     </div>
   </main>
 
-  <!-- Add Route Modal -->
+  <!-- Add Route Modal (draggable) -->
   <div id="addRouteModal" style="display: none; position: fixed; bottom: 2rem; right: 2rem; z-index: 1000; width: 350px; max-height: 500px; background: var(--surface); border-radius: 8px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3); overflow: hidden; flex-direction: column;">
-    <div style="padding: 1rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: var(--surface-elevated);">
-      <h3 style="margin: 0; color: var(--text-primary); font-size: 0.95rem; font-weight: 600;">DRAG ROUTE TO SCHEDULE</h3>
+    <div id="addRouteModalHeader" style="padding: 1rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: var(--surface-elevated); cursor: move; user-select: none;">
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span style="color: var(--text-muted); font-size: 0.8rem;">⠿</span>
+        <h3 style="margin: 0; color: var(--text-primary); font-size: 0.95rem; font-weight: 600;">DRAG ROUTE TO SCHEDULE</h3>
+      </div>
       <button onclick="closeAddRouteModal()" style="background: none; border: none; color: var(--text-muted); font-size: 1.3rem; cursor: pointer; padding: 0; width: 1.5rem; height: 1.5rem; line-height: 1;">&times;</button>
+    </div>
+    <!-- Day filter for weekly view -->
+    <div id="routeDayFilterContainer" style="display: none; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-color); background: var(--surface);">
+      <label style="display: block; margin-bottom: 0.4rem; color: var(--text-secondary); font-size: 0.7rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Filter by Day</label>
+      <select id="routeDayFilter" onchange="filterRoutesByDay()" style="width: 100%; padding: 0.5rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 3px; color: var(--text-primary); font-size: 0.85rem; cursor: pointer;">
+        <option value="all">All Days</option>
+        <option value="1">Monday</option>
+        <option value="2">Tuesday</option>
+        <option value="3">Wednesday</option>
+        <option value="4">Thursday</option>
+        <option value="5">Friday</option>
+        <option value="6">Saturday</option>
+        <option value="0">Sunday</option>
+      </select>
     </div>
     <div style="padding: 1rem; overflow-y: auto; flex: 1;">
       <div id="unassignedRoutesList">
