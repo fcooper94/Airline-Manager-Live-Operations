@@ -7,7 +7,7 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "db:sync": "node src/scripts/syncDb.js",
-    "db:create-recurring-maintenance": "node src/scripts/createRecurringMaintenanceTable.js",
+    "db:fix-maintenance-schema": "node src/scripts/fixRecurringMaintenanceSchema.js",
     "db:seed-aircraft": "node src/scripts/seedAircraft.js",
     "db:seed-historical-aircraft": "node src/scripts/seedHistoricalAircraft.js",
     "db:seed-airports": "node src/scripts/seedAirports.js",

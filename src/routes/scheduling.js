@@ -951,19 +951,9 @@ router.get('/maintenance', async (req, res) => {
         const dayOfWeek = currentDate.getUTCDay();
         const dateStr = currentDate.toISOString().split('T')[0];
 
-        // Check if there's a weekly check on this day
-        const weeklyPattern = recurringPatterns.find(
-          p => p.dayOfWeek === dayOfWeek && p.checkType === 'B'
-        );
-
         // Add all matching patterns for this day
         for (const pattern of recurringPatterns) {
           if (pattern.dayOfWeek === dayOfWeek) {
-            // Skip daily checks if weekly check exists on this day
-            if (pattern.checkType === 'A' && weeklyPattern) {
-              continue;
-            }
-
             // Generate a maintenance block for this date
             maintenanceBlocks.push({
               id: `${pattern.id}-${dateStr}`, // Composite ID for frontend tracking

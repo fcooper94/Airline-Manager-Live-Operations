@@ -157,13 +157,13 @@ function calculateFlightMinutes(distanceNm, cruiseSpeed, depLng, arrLng, depLat,
 }
 
 // Check maintenance schedule for warnings
-// Returns array of { type: 'daily'|'weekly', message: string }
+// Returns array of { type: 'daily', message: string }
 function getMaintenanceWarnings(aircraft) {
   const warnings = [];
   const maintenance = aircraft.recurringMaintenance || [];
 
-  // Get daily checks (type A) - should be scheduled for all 7 days
-  const dailyChecks = maintenance.filter(m => m.checkType === 'A');
+  // Get daily checks - should be scheduled for all 7 days (valid for 2 days, so need every day)
+  const dailyChecks = maintenance.filter(m => m.checkType === 'daily');
   const dailyDays = new Set(dailyChecks.map(m => m.dayOfWeek));
 
   if (dailyDays.size < 7) {
@@ -182,11 +182,8 @@ function getMaintenanceWarnings(aircraft) {
     }
   }
 
-  // Get weekly checks (type B) - should have at least one
-  const weeklyChecks = maintenance.filter(m => m.checkType === 'B');
-  if (weeklyChecks.length === 0) {
-    warnings.push({ type: 'weekly', message: 'No weekly check scheduled' });
-  }
+  // Get B checks - optional, only needed every 6-8 months
+  // No warning needed for B checks since they're infrequent
 
   return warnings;
 }
@@ -1438,9 +1435,9 @@ function renderMaintenanceBlocks(maintenance, cellFlights = [], aircraft = null)
 
     // Color and label based on check type
     const checkConfig = {
-      'daily': { color: '#FFA500', label: 'DAILY', description: 'Daily Check (60 minutes)' },
+      'daily': { color: '#FFA500', label: 'DAILY', description: 'Daily Check (1 hour)' },
       'A': { color: '#17A2B8', label: 'A CHK', description: 'A Check (3 hours)' },
-      'B': { color: '#6F42C1', label: 'B CHK', description: 'B Check (6 hours)' }
+      'B': { color: '#8B5CF6', label: 'B CHK', description: 'B Check (6 hours)' }
     };
     const config = checkConfig[check.checkType] || { color: '#6C757D', label: check.checkType, description: 'Maintenance' };
     const backgroundColor = config.color;
@@ -3344,10 +3341,17 @@ async function viewMaintenanceDetails(maintenanceId) {
   if (!maintenance) return;
 
   const aircraft = maintenance.aircraft;
-  const checkType = maintenance.checkType === 'A' ? 'Daily Check' : 'Weekly Check';
-  const checkTypeShort = maintenance.checkType === 'A' ? 'daily' : 'weekly';
-  const durationMinutes = maintenance.checkType === 'A' ? 60 : 120;
+
+  // Use actual duration from maintenance record, or calculate based on check type
+  const checkTypeDurations = { 'daily': 60, 'A': 180, 'B': 360 }; // daily=1hr, A=3hrs, B=6hrs
+  const durationMinutes = maintenance.duration || checkTypeDurations[maintenance.checkType] || 60;
   const endTime = calculateEndTime(maintenance.startTime, durationMinutes);
+
+  // Determine check type label and description
+  const checkTypeLabels = { 'daily': 'Daily Check', 'A': 'A Check', 'B': 'B Check' };
+  const checkType = checkTypeLabels[maintenance.checkType] || `${maintenance.checkType} Check`;
+  const checkIntervals = { 'daily': '2 days', 'A': '6 weeks', 'B': '6-8 months' };
+  const checkInterval = checkIntervals[maintenance.checkType] || '';
 
   // Get day of week for better description
   const date = new Date(maintenance.scheduledDate + 'T00:00:00Z');
@@ -3358,6 +3362,26 @@ async function viewMaintenanceDetails(maintenanceId) {
   const checksOfType = scheduledMaintenance.filter(m =>
     m.aircraft.id === aircraft.id && m.checkType === maintenance.checkType
   );
+
+  // Determine maintenance status based on current game time
+  const gameTime = typeof getGlobalWorldTime === 'function' ? getGlobalWorldTime() : new Date();
+  const currentTimeStr = gameTime.toISOString().substring(11, 16);
+  const startTimeStr = maintenance.startTime.substring(0, 5);
+
+  let statusText, statusColor, availableText;
+  if (currentTimeStr < startTimeStr) {
+    statusText = 'UPCOMING';
+    statusColor = '#8b949e';
+    availableText = `Available from ${endTime}`;
+  } else if (currentTimeStr < endTime) {
+    statusText = 'IN PROGRESS';
+    statusColor = '#ffa657';
+    availableText = `Available from ${endTime}`;
+  } else {
+    statusText = 'COMPLETED';
+    statusColor = '#3fb950';
+    availableText = `Completed at ${endTime}`;
+  }
 
   // Create and show custom modal
   const modalHtml = `
@@ -3397,11 +3421,17 @@ async function viewMaintenanceDetails(maintenanceId) {
             <span style="color: #f0f6fc;">${maintenance.startTime.substring(0, 5)} → ${endTime}</span>
             <span style="color: #8b949e;">Duration:</span>
             <span style="color: #f0f6fc;">${durationMinutes} minutes</span>
+            <span style="color: #8b949e;">Status:</span>
+            <span style="color: ${statusColor}; font-weight: 600;">${statusText}</span>
+          </div>
+          <div style="margin-top: 1rem; padding: 0.75rem; background: rgba(88, 166, 255, 0.1); border-radius: 6px; display: flex; align-items: center; gap: 0.75rem;">
+            <span style="color: #8b949e; font-size: 0.85rem;">Aircraft:</span>
+            <span style="color: #58a6ff; font-weight: 600; font-size: 0.95rem;">${availableText}</span>
           </div>
           <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #30363d;">
             <div style="font-size: 0.85rem; color: #8b949e;">
-              This is a recurring ${checkTypeShort} check scheduled every ${dayName}.
-              ${checksOfType.length > 1 ? `There are ${checksOfType.length} ${checkTypeShort} checks scheduled for this aircraft.` : ''}
+              This ${checkType.toLowerCase()} is scheduled every ${dayName}. Interval: ${checkInterval}.
+              ${checksOfType.length > 1 ? `There are ${checksOfType.length} ${checkType.toLowerCase()}s scheduled for this aircraft.` : ''}
             </div>
           </div>
         </div>
@@ -3460,10 +3490,11 @@ async function removeMaintenanceFromModal(maintenanceId) {
 async function removeAllMaintenanceOfType(aircraftId, checkType) {
   closeMaintenanceDetailsModal();
 
-  const checkTypeName = checkType === 'A' ? 'daily checks' : 'weekly checks';
+  const checkTypeNames = { 'daily': 'daily checks', 'A': 'A checks', 'B': 'B checks' };
+  const checkTypeName = checkTypeNames[checkType] || `${checkType} checks`;
   const confirmed = await showConfirmModal(
     'Confirm Deletion',
-    `Are you sure you want to remove ALL ${checkTypeName} for this aircraft?\n\nThis will delete all recurring ${checkTypeName} on every day of the week.`
+    `Are you sure you want to remove ALL ${checkTypeName} for this aircraft?\n\nThis will delete all scheduled ${checkTypeName}.`
   );
 
   if (!confirmed) return;
@@ -3770,13 +3801,19 @@ function generateAircraftRowWeekly(aircraft, dayColumns) {
         const techStopAirport = route?.techStopAirport?.iataCode || route?.techStopAirport?.icaoCode || null;
         const routeNum = route?.routeNumber || '';
 
-        // Parse departure and arrival times
+        // Parse departure and arrival times from stored data
         const depTimeStr = flight.departureTime?.substring(0, 5) || '00:00';
-        const arrTimeStr = flight.arrivalTime?.substring(0, 5) || '23:59'; // For tooltip display
+        const arrTimeStr = flight.arrivalTime?.substring(0, 5) || '23:59';
         const [depH, depM] = depTimeStr.split(':').map(Number);
+        const [arrH, arrM] = arrTimeStr.split(':').map(Number);
+
+        // Use stored departure time as operation start (pre-flight is already factored into storage)
         let depMinutes = depH * 60 + depM;
 
-        // Calculate pre-flight and post-flight duration to include in strip
+        // Use stored arrival time (this is when aircraft returns home after round-trip)
+        let arrMinutes = arrH * 60 + arrM;
+
+        // Calculate pre-flight and post-flight duration to extend the visual strip
         const acType = aircraft.aircraft?.type || 'Narrowbody';
         const paxCapacity = aircraft.aircraft?.passengerCapacity || 150;
 
@@ -3806,27 +3843,6 @@ function generateAircraftRowWeekly(aircraft, dayColumns) {
         // Subtract pre-flight time from departure to get true operation start
         depMinutes -= preFlightDur;
 
-        // Calculate full round-trip flight duration
-        const cruiseSpeed = aircraft.aircraft?.cruiseSpeed || 450;
-        const turnaroundMinutes = route?.turnaroundTime || 45;
-        const techStopMinutes = route?.techStopAirport ? 30 : 0;
-
-        // Calculate one-way flight time
-        let oneWayFlightMins;
-        if (route?.techStopAirport) {
-          const leg1Dist = route.legOneDistance || Math.round(routeDistance * 0.4);
-          const leg2Dist = route.legTwoDistance || Math.round(routeDistance * 0.6);
-          oneWayFlightMins = Math.round((leg1Dist / cruiseSpeed) * 60) + techStopMinutes + Math.round((leg2Dist / cruiseSpeed) * 60);
-        } else {
-          oneWayFlightMins = Math.round((routeDistance / cruiseSpeed) * 60);
-        }
-
-        // Total flight time = outbound + turnaround + return (both ways have same flight time)
-        const totalFlightMins = oneWayFlightMins + turnaroundMinutes + oneWayFlightMins;
-
-        // Calculate return home arrival time (departure + total flight time)
-        let arrMinutes = (depH * 60 + depM) + totalFlightMins;
-
         // Post-flight duration
         let deboardDur = 0;
         if (acType !== 'Cargo') {
@@ -3844,8 +3860,36 @@ function generateAircraftRowWeekly(aircraft, dayColumns) {
         else cleanDur = 25;
         const postFlightDur = deboardDur + cleanDur;
 
-        // Add post-flight time to return arrival to get true operation end
+        // Add post-flight time to arrival to get true operation end
         arrMinutes += postFlightDur;
+
+        // Calculate total operation time from route data to properly detect multi-day flights
+        // This is necessary because arrivalTime only stores time-of-day, not which day
+        const cruiseSpeed = aircraft.aircraft?.cruiseSpeed || 450;
+        const depAirport = route?.departureAirport;
+        const arrAirport2 = route?.arrivalAirport;
+        const depLng = depAirport?.longitude || 0;
+        const depLat = depAirport?.latitude || 0;
+        const arrLng = arrAirport2?.longitude || 0;
+        const arrLat = arrAirport2?.latitude || 0;
+
+        // Calculate outbound and return flight times
+        let outboundMins = 0, returnMins = 0;
+        if (routeDistance > 0 && cruiseSpeed > 0) {
+          outboundMins = calculateFlightMinutes(routeDistance, cruiseSpeed, depLng, arrLng, depLat, arrLat);
+          returnMins = calculateFlightMinutes(routeDistance, cruiseSpeed, arrLng, depLng, arrLat, depLat);
+        }
+
+        // Calculate turnaround time (same logic as flight details modal)
+        let turnaroundMins = 45; // Default minimum
+        if (routeDistance > 3000) turnaroundMins = 60;
+        if (routeDistance > 6000) turnaroundMins = 75;
+        if (paxCapacity > 300) turnaroundMins = Math.max(turnaroundMins, 60);
+
+        // Calculate actual arrival minutes from departure
+        // depMinutes already has pre-flight subtracted, so we add back pre-flight then add total flight time
+        const actualDepMins = depMinutes + preFlightDur; // Original departure time
+        arrMinutes = actualDepMins + outboundMins + turnaroundMins + returnMins + postFlightDur;
 
         // Get day of week for operation start (including pre-flight)
         let opStartDate = new Date(flight.scheduledDate + 'T00:00:00');
@@ -4003,23 +4047,46 @@ function generateAircraftRowWeekly(aircraft, dayColumns) {
 
     // Render maintenance blocks (full height)
     if (dayMaintenance.length > 0) {
+      // Get current time for status comparison (only for today's column)
+      const gameTime = getCurrentWorldTime();
+      const currentMinutes = gameTime ? (gameTime.getHours() * 60 + gameTime.getMinutes()) : 0;
+
       dayMaintenance.forEach(maint => {
-        const isDaily = maint.checkType === 'A';
-        const maintBg = isDaily ? '#f59e0b' : '#6b7280'; // Orange for daily, gray for weekly
+        // Distinct colors for each check type
+        const maintColors = { 'daily': '#FFA500', 'A': '#17A2B8', 'B': '#8B5CF6' }; // Orange, Teal, Purple
+        let maintBg = maintColors[maint.checkType] || '#6b7280';
 
         // Parse maintenance time
         const startTimeStr = maint.startTime?.substring(0, 5) || '00:00';
         const [startH, startM] = startTimeStr.split(':').map(Number);
         const startMinutes = startH * 60 + startM;
-        const durationMinutes = maint.duration || 120;
+        // Use actual duration or calculate from check type
+        const checkTypeDurations = { 'daily': 60, 'A': 180, 'B': 360 };
+        const durationMinutes = maint.duration || checkTypeDurations[maint.checkType] || 60;
         const endMinutes = Math.min(startMinutes + durationMinutes, 1440);
+
+        // Determine maintenance status for today's column
+        let maintOpacity = '1';
+        let maintFilter = 'none';
+        if (isToday) {
+          if (currentMinutes >= endMinutes) {
+            // Completed - fade out and desaturate
+            maintOpacity = '0.4';
+            maintFilter = 'grayscale(50%)';
+          } else if (currentMinutes >= startMinutes) {
+            // In progress - normal with slight glow
+            maintFilter = 'brightness(1.1)';
+          }
+          // Upcoming - normal appearance (maintFilter stays 'none')
+        }
 
         const leftPct = (startMinutes / 1440) * 100;
         let widthPct = ((endMinutes - startMinutes) / 1440) * 100;
         if (widthPct < 5) widthPct = 5;
 
-        // Daily check: no label, just orange block. Weekly check: show B label
-        const content = isDaily ? '' : '<span style="color: white; font-size: 0.65rem; font-weight: 600;">B</span>';
+        // Show label for each check type
+        const maintLabels = { 'daily': 'D', 'A': 'A', 'B': 'B' };
+        const content = `<span style="color: white; font-size: 0.65rem; font-weight: 600;">${maintLabels[maint.checkType] || maint.checkType}</span>`;
 
         // Check if maintenance starts exactly where a flight ends (no gap needed)
         const flightEndsPct = dayFlights.length > 0 ? Math.max(...dayFlights.map(f => {
@@ -4055,8 +4122,8 @@ function generateAircraftRowWeekly(aircraft, dayColumns) {
         cellContent += `
           <div
             onclick="event.stopPropagation(); viewMaintenanceDetails('${maint.id}')"
-            title="${isDaily ? 'Daily' : 'Weekly'} check @ ${startTimeStr}"
-            style="position: absolute; left: ${leftPct}%; width: ${widthPct}%; top: 0; bottom: 0; background: ${maintBg}; border-radius: ${maintBorderRadius}; display: flex; align-items: center; justify-content: center; cursor: pointer;"
+            title="${maint.checkType === 'daily' ? 'Daily' : maint.checkType} Check @ ${startTimeStr}"
+            style="position: absolute; left: ${leftPct}%; width: ${widthPct}%; top: 0; bottom: 0; background: ${maintBg}; border-radius: ${maintBorderRadius}; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: ${maintOpacity}; filter: ${maintFilter};"
           >
             ${content}
           </div>
@@ -5132,24 +5199,173 @@ function updateDragPreview(event) {
   }
 }
 
-// Action: Schedule maintenance
+// Get maintenance check status for an aircraft
+function getCheckStatus(aircraft, checkType) {
+  const worldTime = getCurrentWorldTime() || new Date();
+  let lastCheckDate;
+  let intervalDays;
+
+  switch (checkType) {
+    case 'daily':
+      lastCheckDate = aircraft.lastDailyCheckDate;
+      intervalDays = 2;
+      break;
+    case 'A':
+      lastCheckDate = aircraft.lastACheckDate;
+      intervalDays = aircraft.aCheckIntervalDays || 42;
+      break;
+    case 'B':
+      lastCheckDate = aircraft.lastBCheckDate;
+      intervalDays = aircraft.bCheckIntervalDays || 210;
+      break;
+    case 'C':
+      lastCheckDate = aircraft.lastCCheckDate;
+      intervalDays = aircraft.cCheckIntervalDays || 730;
+      break;
+    case 'D':
+      lastCheckDate = aircraft.lastDCheckDate;
+      intervalDays = aircraft.dCheckIntervalDays || 2920;
+      break;
+    default:
+      return { status: 'none', text: 'N/A' };
+  }
+
+  if (!lastCheckDate) {
+    return { status: 'none', text: 'Never', lastCheck: null, expiryDate: null, intervalDays };
+  }
+
+  const lastCheck = new Date(lastCheckDate);
+  const expiryDate = new Date(lastCheck);
+  expiryDate.setDate(expiryDate.getDate() + intervalDays);
+
+  // All checks expire at end of day (23:59 UTC) on their calculated expiry date
+  expiryDate.setUTCHours(23, 59, 59, 999);
+
+  const now = worldTime;
+  const warningThreshold = intervalDays * 0.1; // 10% of interval
+  const warningDate = new Date(expiryDate);
+  warningDate.setDate(warningDate.getDate() - warningThreshold);
+
+  if (now > expiryDate) {
+    return { status: 'expired', text: 'EXPIRED', lastCheck, expiryDate, intervalDays };
+  } else if (now > warningDate) {
+    return { status: 'warning', text: 'DUE SOON', lastCheck, expiryDate, intervalDays };
+  } else {
+    return { status: 'valid', text: 'Valid', lastCheck, expiryDate, intervalDays };
+  }
+}
+
+// Format date for display
+function formatCheckDate(date) {
+  if (!date) return 'Never';
+  const d = new Date(date);
+  const day = d.getUTCDate();
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const month = months[d.getUTCMonth()];
+  const year = d.getUTCFullYear();
+  const hours = d.getUTCHours().toString().padStart(2, '0');
+  const mins = d.getUTCMinutes().toString().padStart(2, '0');
+  return `${day} ${month} ${year} ${hours}:${mins}`;
+}
+
+// Action: Schedule maintenance - shows overview modal
 async function scheduleMaintenance(aircraftId) {
   const aircraft = userFleet.find(a => a.id === aircraftId);
   if (!aircraft) return;
 
-  // Get the target date for scheduling - use game world time!
   const worldTime = getCurrentWorldTime();
   if (!worldTime) {
     await showAlertModal('Error', 'World time not available. Please try again.');
     return;
   }
 
-  const today = new Date(worldTime);
-  const currentDay = today.getDay();
-  const daysUntilTarget = getDaysUntilTargetInWeek(currentDay, selectedDayOfWeek);
-  const targetDate = new Date(today);
-  targetDate.setDate(today.getDate() + daysUntilTarget);
-  const dateStr = formatLocalDate(targetDate);
+  // Get status for all check types
+  const checks = [
+    { type: 'daily', name: 'Daily Check', duration: '1 hour', color: '#FFA500', schedulable: true },
+    { type: 'A', name: 'A Check', duration: '3 hours', color: '#17A2B8', schedulable: true },
+    { type: 'B', name: 'B Check', duration: '6 hours', color: '#8B5CF6', schedulable: true },
+    { type: 'C', name: 'C Check', duration: '14 days', color: '#6C757D', schedulable: false },
+    { type: 'D', name: 'D Check', duration: '60 days', color: '#6C757D', schedulable: false }
+  ];
+
+  // Build check rows HTML
+  const checkRowsHtml = checks.map(check => {
+    const status = getCheckStatus(aircraft, check.type);
+    const statusColors = {
+      'valid': '#3fb950',
+      'warning': '#d29922',
+      'expired': '#f85149',
+      'none': '#8b949e'
+    };
+    const statusColor = statusColors[status.status] || '#8b949e';
+
+    const lastCheckText = status.lastCheck ? formatCheckDate(status.lastCheck) : 'Never';
+    const expiryText = status.expiryDate ? formatCheckDate(status.expiryDate) : '-';
+
+    // Auto toggle for schedulable checks, "Always" label for C/D
+    const autoToggle = check.schedulable ? `
+      <label style="position: relative; display: inline-block; width: 32px; height: 18px; cursor: pointer;">
+        <input type="checkbox" class="auto-check-toggle" data-check-type="${check.type}" style="opacity: 0; width: 0; height: 0;">
+        <span class="auto-toggle-slider" data-check-type="${check.type}" style="
+          position: absolute;
+          cursor: pointer;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: #4b5563;
+          transition: 0.3s;
+          border-radius: 18px;
+        "></span>
+        <span class="auto-toggle-knob" data-check-type="${check.type}" style="
+          position: absolute;
+          height: 12px;
+          width: 12px;
+          left: 3px;
+          bottom: 3px;
+          background-color: white;
+          transition: 0.3s;
+          border-radius: 50%;
+        "></span>
+      </label>
+    ` : `<span style="color: #6b7280; font-size: 0.65rem;">Always</span>`;
+
+    // Schedule button only for schedulable checks
+    const scheduleBtn = check.schedulable ? `
+      <button
+        class="schedule-check-btn"
+        data-check-type="${check.type}"
+        data-aircraft-id="${aircraftId}"
+        data-color="${check.color}"
+        onclick="openScheduleCheckModal('${aircraftId}', '${check.type}')"
+        style="padding: 0.35rem 0.6rem; background: ${check.color}; border: none; border-radius: 4px; color: white; font-size: 0.7rem; font-weight: 600; cursor: pointer;"
+      >Schedule</button>
+    ` : `<span style="color: #6b7280; font-size: 0.7rem;">-</span>`;
+
+    return `
+      <div style="display: grid; grid-template-columns: 95px 65px 1fr 1fr 45px 70px; gap: 0.5rem; align-items: center; padding: 0.65rem; background: var(--surface-elevated); border-radius: 6px; margin-bottom: 0.5rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span style="width: 10px; height: 10px; background: ${check.color}; border-radius: 2px; flex-shrink: 0;"></span>
+          <span style="color: var(--text-primary); font-weight: 600; font-size: 0.8rem;">${check.name}</span>
+        </div>
+        <span style="color: ${statusColor}; font-weight: 600; font-size: 0.7rem;">${status.text}</span>
+        <div style="font-size: 0.7rem;">
+          <span style="color: #8b949e;">Last: </span>
+          <span style="color: var(--text-primary);">${lastCheckText}</span>
+        </div>
+        <div style="font-size: 0.7rem;">
+          <span style="color: #8b949e;">Until: </span>
+          <span style="color: ${status.status === 'expired' ? '#f85149' : 'var(--text-primary)'};">${expiryText}</span>
+        </div>
+        <div style="display: flex; justify-content: center; align-items: center;">
+          ${autoToggle}
+        </div>
+        <div style="text-align: right;">
+          ${scheduleBtn}
+        </div>
+      </div>
+    `;
+  }).join('');
 
   // Create modal overlay
   const overlay = document.createElement('div');
@@ -5167,125 +5383,341 @@ async function scheduleMaintenance(aircraftId) {
     align-items: center;
   `;
 
-  // Create modal content
   const modalContent = document.createElement('div');
   modalContent.style.cssText = `
     background: var(--surface);
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    padding: 2rem;
-    width: 90%;
-    max-width: 500px;
+    padding: 1.5rem;
+    width: 95%;
+    max-width: 700px;
+    max-height: 90vh;
+    overflow-y: auto;
   `;
 
   modalContent.innerHTML = `
-    <h2 style="margin-bottom: 1.5rem; color: var(--text-primary);">SCHEDULE MAINTENANCE CHECK</h2>
-    <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">Aircraft: <strong style="color: var(--accent-color);">${aircraft.registration}</strong></p>
-
-    <div style="margin-bottom: 1.5rem;">
-      <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 600;">Check Type</label>
-      <select id="checkType" style="width: 100%; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 1rem;">
-        <option value="daily">Daily Check (1 hour)</option>
-        <option value="A">A Check (3 hours)</option>
-        <option value="B">B Check (6 hours)</option>
-      </select>
-      <p id="checkDescription" style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-muted);">Valid for 2 calendar days until midnight UTC</p>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+      <h2 style="margin: 0; color: var(--text-primary); font-size: 1.2rem;">MAINTENANCE STATUS</h2>
+      <button onclick="document.getElementById('maintenanceModalOverlay').remove()" style="background: none; border: none; color: #8b949e; font-size: 1.5rem; cursor: pointer; padding: 0; line-height: 1;">&times;</button>
     </div>
 
-    <div id="repeatContainer" style="margin-bottom: 1.5rem;">
-      <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-secondary); cursor: pointer;">
-        <input type="checkbox" id="repeatCheck" checked style="width: 18px; height: 18px; cursor: pointer;" />
-        <span id="repeatLabel" style="font-weight: 600;">Repeat every day at this time</span>
-      </label>
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; padding: 1rem; background: var(--surface-elevated); border-radius: 6px;">
+      <div style="display: flex; align-items: center; gap: 1rem;">
+        <div style="width: 40px; height: 40px; background: var(--accent-color); border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+          <span style="color: white; font-weight: 700; font-size: 0.9rem;">✈</span>
+        </div>
+        <div>
+          <div style="color: var(--accent-color); font-weight: 700; font-size: 1.1rem;">${aircraft.registration}</div>
+          <div style="color: #8b949e; font-size: 0.85rem;">${aircraft.aircraft?.manufacturer || ''} ${aircraft.aircraft?.model || ''}</div>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0.75rem; background: var(--surface); border: 1px solid var(--border-color); border-radius: 6px;">
+        <span style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 600;">Auto Schedule All</span>
+        <label style="position: relative; display: inline-block; width: 40px; height: 22px; cursor: pointer;">
+          <input type="checkbox" id="autoScheduleAll" style="opacity: 0; width: 0; height: 0;">
+          <span id="autoScheduleAllSlider" style="
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #4b5563;
+            transition: 0.3s;
+            border-radius: 22px;
+          "></span>
+          <span id="autoScheduleAllKnob" style="
+            position: absolute;
+            content: '';
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+          "></span>
+        </label>
+      </div>
     </div>
 
-    <div style="margin-bottom: 1.5rem;">
-      <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 600;">Start Time</label>
-      <input type="time" id="startTime" value="00:00" style="width: 100%; padding: 0.75rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 1rem;" />
+    <div style="margin-bottom: 1rem;">
+      <div style="display: grid; grid-template-columns: 95px 65px 1fr 1fr 45px 70px; gap: 0.5rem; padding: 0.5rem 0.65rem; color: #8b949e; font-size: 0.65rem; text-transform: uppercase; font-weight: 600;">
+        <span>Check</span>
+        <span>Status</span>
+        <span>Last Completed</span>
+        <span>Valid Until</span>
+        <span style="text-align: center;">Auto</span>
+        <span style="text-align: right;">Manual</span>
+      </div>
+      ${checkRowsHtml}
     </div>
 
-    <div style="display: flex; gap: 1rem; justify-content: flex-end;">
-      <button id="cancelMaintenanceBtn" class="btn btn-secondary" style="padding: 0.75rem 1.5rem;">Cancel</button>
-      <button id="scheduleMaintenanceBtn" class="btn btn-primary" style="padding: 0.75rem 1.5rem;">Schedule</button>
+    <div style="padding-top: 1rem; border-top: 1px solid var(--border-color); color: #8b949e; font-size: 0.75rem;">
+      <p style="margin: 0;"><strong>Note:</strong> C and D checks are always auto-scheduled. Enable auto-scheduling for Daily, A, and B checks to have them scheduled automatically when due.</p>
     </div>
   `;
 
   overlay.appendChild(modalContent);
   document.body.appendChild(overlay);
 
-  // Add event listeners
-  document.getElementById('cancelMaintenanceBtn').addEventListener('click', () => {
-    document.body.removeChild(overlay);
-  });
-
-  // Update description and show/hide repeat option when check type changes
-  document.getElementById('checkType').addEventListener('change', function() {
-    const repeatContainer = document.getElementById('repeatContainer');
-    const checkDescription = document.getElementById('checkDescription');
-
-    switch (this.value) {
-      case 'daily':
-        checkDescription.textContent = 'Valid for 2 calendar days until midnight UTC';
-        repeatContainer.style.display = 'block';
-        break;
-      case 'A':
-        checkDescription.textContent = 'Interval: 35-50 days (varies per aircraft)';
-        repeatContainer.style.display = 'none';
-        break;
-      case 'B':
-        checkDescription.textContent = 'Interval: 6-8 months (varies per aircraft)';
-        repeatContainer.style.display = 'none';
-        break;
+  // Close on overlay click
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      overlay.remove();
     }
   });
 
-  document.getElementById('scheduleMaintenanceBtn').addEventListener('click', async () => {
-    const checkType = document.getElementById('checkType').value;
-    const startTime = document.getElementById('startTime').value;
-    // Only daily checks can repeat - A and B checks are one-off
-    const repeatCheck = checkType === 'daily' ? document.getElementById('repeatCheck').checked : false;
+  // Setup auto-schedule toggle interactions
+  const autoAllCheckbox = document.getElementById('autoScheduleAll');
+  const autoAllSlider = document.getElementById('autoScheduleAllSlider');
+  const autoAllKnob = document.getElementById('autoScheduleAllKnob');
+  const individualToggles = document.querySelectorAll('.auto-check-toggle');
+
+  // Toggle visual state helper for main toggle (larger)
+  function updateMainToggleVisual(checkbox, slider, knob) {
+    if (checkbox.checked) {
+      slider.style.backgroundColor = 'var(--accent-color)';
+      knob.style.transform = 'translateX(18px)';
+    } else {
+      slider.style.backgroundColor = '#4b5563';
+      knob.style.transform = 'translateX(0)';
+    }
+  }
+
+  // Toggle visual state helper for individual toggles (smaller)
+  function updateIndividualToggleVisual(checkType, isChecked) {
+    const slider = document.querySelector(`.auto-toggle-slider[data-check-type="${checkType}"]`);
+    const knob = document.querySelector(`.auto-toggle-knob[data-check-type="${checkType}"]`);
+    if (slider && knob) {
+      if (isChecked) {
+        slider.style.backgroundColor = 'var(--accent-color)';
+        knob.style.transform = 'translateX(14px)';
+      } else {
+        slider.style.backgroundColor = '#4b5563';
+        knob.style.transform = 'translateX(0)';
+      }
+    }
+  }
+
+  // Update schedule button state based on auto toggle
+  function updateScheduleButtonState(checkType, isAutoEnabled) {
+    const btn = document.querySelector(`.schedule-check-btn[data-check-type="${checkType}"]`);
+    if (btn) {
+      if (isAutoEnabled) {
+        btn.disabled = true;
+        btn.style.background = '#4b5563';
+        btn.style.cursor = 'not-allowed';
+        btn.style.opacity = '0.5';
+      } else {
+        btn.disabled = false;
+        btn.style.background = btn.getAttribute('data-color');
+        btn.style.cursor = 'pointer';
+        btn.style.opacity = '1';
+      }
+    }
+  }
+
+  // Auto Schedule All toggle handler
+  autoAllCheckbox.addEventListener('change', () => {
+    updateMainToggleVisual(autoAllCheckbox, autoAllSlider, autoAllKnob);
+    // Toggle all individual checkboxes, visuals, and buttons
+    individualToggles.forEach(toggle => {
+      toggle.checked = autoAllCheckbox.checked;
+      const checkType = toggle.getAttribute('data-check-type');
+      updateIndividualToggleVisual(checkType, autoAllCheckbox.checked);
+      updateScheduleButtonState(checkType, autoAllCheckbox.checked);
+    });
+  });
+
+  // Individual toggle handlers - update visual, button, and "All" toggle state
+  individualToggles.forEach(toggle => {
+    toggle.addEventListener('change', () => {
+      const checkType = toggle.getAttribute('data-check-type');
+      updateIndividualToggleVisual(checkType, toggle.checked);
+      updateScheduleButtonState(checkType, toggle.checked);
+
+      const allChecked = Array.from(individualToggles).every(t => t.checked);
+      const noneChecked = Array.from(individualToggles).every(t => !t.checked);
+
+      if (allChecked) {
+        autoAllCheckbox.checked = true;
+        updateMainToggleVisual(autoAllCheckbox, autoAllSlider, autoAllKnob);
+      } else if (noneChecked) {
+        autoAllCheckbox.checked = false;
+        updateMainToggleVisual(autoAllCheckbox, autoAllSlider, autoAllKnob);
+      } else {
+        // Partial state - uncheck the all toggle
+        autoAllCheckbox.checked = false;
+        updateMainToggleVisual(autoAllCheckbox, autoAllSlider, autoAllKnob);
+      }
+    });
+  });
+}
+
+// Open the schedule check modal for a specific check type
+function openScheduleCheckModal(aircraftId, checkType) {
+  // Close the overview modal
+  const overviewModal = document.getElementById('maintenanceModalOverlay');
+  if (overviewModal) overviewModal.remove();
+
+  const aircraft = userFleet.find(a => a.id === aircraftId);
+  if (!aircraft) return;
+
+  const worldTime = getCurrentWorldTime();
+  if (!worldTime) return;
+
+  const today = new Date(worldTime);
+  const currentDay = today.getDay();
+
+  // Create modal overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'scheduleCheckModalOverlay';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 1001;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  `;
+
+  const checkNames = { 'daily': 'Daily Check', 'A': 'A Check', 'B': 'B Check' };
+  const checkDurations = { 'daily': '1 hour', 'A': '3 hours', 'B': '6 hours' };
+  const checkColors = { 'daily': '#FFA500', 'A': '#17A2B8', 'B': '#8B5CF6' };
+  const checkIntervals = { 'daily': '2 days', 'A': '6 weeks', 'B': '6-8 months' };
+
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const dayOptionsHtml = dayNames.map((name, index) => {
+    const isSelected = index === selectedDayOfWeek ? 'selected' : '';
+    return `<option value="${index}" ${isSelected}>${name.toUpperCase()}</option>`;
+  }).join('');
+
+  const showRepeat = checkType === 'daily';
+
+  const modalContent = document.createElement('div');
+  modalContent.style.cssText = `
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+    width: 90%;
+    max-width: 450px;
+  `;
+
+  modalContent.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <span style="width: 16px; height: 16px; background: ${checkColors[checkType]}; border-radius: 3px;"></span>
+        <h2 style="margin: 0; color: var(--text-primary); font-size: 1.1rem;">Schedule ${checkNames[checkType]}</h2>
+      </div>
+      <button onclick="document.getElementById('scheduleCheckModalOverlay').remove()" style="background: none; border: none; color: #8b949e; font-size: 1.5rem; cursor: pointer; padding: 0; line-height: 1;">&times;</button>
+    </div>
+
+    <p style="margin-bottom: 1.5rem; color: var(--text-secondary); font-size: 0.9rem;">
+      Aircraft: <strong style="color: var(--accent-color);">${aircraft.registration}</strong>
+      <span style="margin-left: 1rem; color: #8b949e;">Duration: ${checkDurations[checkType]} • Interval: ${checkIntervals[checkType]}</span>
+    </p>
+
+    <div style="margin-bottom: 1.25rem;">
+      <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 600; font-size: 0.85rem;">Day</label>
+      <select id="scheduleDay" style="width: 100%; padding: 0.65rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.95rem;">
+        ${dayOptionsHtml}
+      </select>
+    </div>
+
+    <div style="margin-bottom: 1.25rem;">
+      <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 600; font-size: 0.85rem;">Start Time</label>
+      <input type="time" id="scheduleTime" value="00:00" style="width: 100%; padding: 0.65rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.95rem;" />
+    </div>
+
+    ${showRepeat ? `
+    <div style="margin-bottom: 1.25rem;">
+      <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-secondary); cursor: pointer;">
+        <input type="checkbox" id="scheduleRepeat" checked style="width: 16px; height: 16px; cursor: pointer;" />
+        <span style="font-weight: 600; font-size: 0.85rem;">Repeat every day at this time</span>
+      </label>
+    </div>
+    ` : ''}
+
+    <div style="margin-bottom: 1.25rem; padding: 0.65rem; background: rgba(88, 166, 255, 0.1); border: 1px solid rgba(88, 166, 255, 0.2); border-radius: 6px; display: flex; align-items: center; gap: 0.75rem;">
+      <span style="color: var(--text-secondary); font-size: 0.8rem;">Aircraft Available:</span>
+      <span id="scheduleAvailableTime" style="color: #58a6ff; font-weight: 600; font-size: 0.9rem;">--:--</span>
+    </div>
+
+    <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+      <button id="cancelScheduleBtn" style="padding: 0.6rem 1.25rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-secondary); cursor: pointer; font-size: 0.9rem;">Cancel</button>
+      <button id="confirmScheduleBtn" style="padding: 0.6rem 1.25rem; background: ${checkColors[checkType]}; border: none; border-radius: 4px; color: white; cursor: pointer; font-weight: 600; font-size: 0.9rem;">Schedule</button>
+    </div>
+  `;
+
+  overlay.appendChild(modalContent);
+  document.body.appendChild(overlay);
+
+  // Update available time
+  const durations = { 'daily': 60, 'A': 180, 'B': 360 };
+  function updateAvailableTime() {
+    const startTime = document.getElementById('scheduleTime').value;
+    const endTime = calculateEndTime(startTime, durations[checkType]);
+    document.getElementById('scheduleAvailableTime').textContent = endTime;
+  }
+  document.getElementById('scheduleTime').addEventListener('change', updateAvailableTime);
+  updateAvailableTime();
+
+  // Cancel button
+  document.getElementById('cancelScheduleBtn').addEventListener('click', () => {
+    overlay.remove();
+  });
+
+  // Close on overlay click
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      overlay.remove();
+    }
+  });
+
+  // Confirm button
+  document.getElementById('confirmScheduleBtn').addEventListener('click', async () => {
+    const selectedDay = parseInt(document.getElementById('scheduleDay').value);
+    const startTime = document.getElementById('scheduleTime').value;
+    const repeatCheck = showRepeat ? document.getElementById('scheduleRepeat')?.checked : false;
 
     if (!startTime) {
       await showAlertModal('Validation Error', 'Please select a start time');
       return;
     }
 
+    const daysUntilSelected = getDaysUntilTargetInWeek(currentDay, selectedDay);
+    const selectedTargetDate = new Date(today);
+    selectedTargetDate.setDate(today.getDate() + daysUntilSelected);
+    const selectedDateStr = formatLocalDate(selectedTargetDate);
+
     try {
-      console.log('Scheduling maintenance:', { aircraftId, checkType, scheduledDate: dateStr, startTime, repeat: repeatCheck });
-
-      // Close modal first
-      document.body.removeChild(overlay);
-
-      // Show loading overlay
-      const checkTypeLabels = { 'daily': 'Daily', 'A': 'A', 'B': 'B' };
-      const checkTypeLabel = checkTypeLabels[checkType] || checkType;
-      const message = repeatCheck ?
-        `Creating recurring ${checkTypeLabel} Check patterns...` :
-        `Scheduling ${checkTypeLabel} Check...`;
-      showLoadingOverlay(message);
+      overlay.remove();
+      showLoadingOverlay(`Scheduling ${checkNames[checkType]}...`);
 
       const response = await fetch('/api/schedule/maintenance', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           aircraftId,
           checkType,
-          scheduledDate: dateStr,
+          scheduledDate: selectedDateStr,
           startTime,
           repeat: repeatCheck
         })
       });
 
       if (response.ok) {
-        await loadSchedule(); // Reload schedule
+        await loadSchedule();
         hideLoadingOverlay();
       } else {
         hideLoadingOverlay();
         const errorData = await response.json();
-
-        // Check if this is a conflict error with details
         if (response.status === 409 && errorData.conflict) {
           await showConflictModal(errorData.conflict);
         } else {
@@ -5299,12 +5731,6 @@ async function scheduleMaintenance(aircraftId) {
     }
   });
 
-  // Close modal when clicking outside
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) {
-      document.body.removeChild(overlay);
-    }
-  });
 }
 
 // Loading overlay functions
