@@ -329,7 +329,8 @@ function calculateFlightPosition(flight) {
   const arrLat = parseFloat(flight.arrivalAirport.latitude);
   const arrLng = parseFloat(flight.arrivalAirport.longitude);
 
-  const speedKnots = 450; // Average cruise speed
+  // Use aircraft's actual cruise speed, fallback to 450 if not available
+  const speedKnots = flight.aircraft?.aircraftType?.cruiseSpeed || flight.aircraft?.cruiseSpeed || 450;
   const turnaroundMinutes = flight.route.turnaroundTime || 45;
   const turnaroundMs = turnaroundMinutes * 60 * 1000;
 
@@ -842,7 +843,8 @@ function showFlightInfo(flight) {
   const techLat = hasTechStop ? parseFloat(flight.route.techStopAirport.latitude) : null;
   const techLng = hasTechStop ? parseFloat(flight.route.techStopAirport.longitude) : null;
 
-  const speedKnots = 450;
+  // Use aircraft's actual cruise speed, fallback to 450 if not available
+  const speedKnots = flight.aircraft?.aircraftType?.cruiseSpeed || flight.aircraft?.cruiseSpeed || 450;
 
   // Route numbers
   const outboundRouteNum = flight.route.routeNumber || '--';

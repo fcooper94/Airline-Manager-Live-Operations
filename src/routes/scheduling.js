@@ -703,37 +703,191 @@ router.post('/flights/batch', async (req, res) => {
 
     const cruiseSpeed = aircraft.aircraft?.cruiseSpeed;
 
-    // Check for conflicts for all flights at once
+    // Calculate pre-flight and post-flight durations for this aircraft/route
+    const acType = aircraft.aircraft?.type || 'Narrowbody';
+    const paxCapacity = aircraft.aircraft?.passengerCapacity || 150;
+    const routeDistance = route.distance || 0;
+
+    // Pre-flight: max(catering + boarding, fuelling)
+    let cateringDuration = 0;
+    if (paxCapacity >= 50 && acType !== 'Cargo') {
+      if (paxCapacity < 100) cateringDuration = 5;
+      else if (paxCapacity < 200) cateringDuration = 10;
+      else cateringDuration = 15;
+    }
+    let boardingDuration = 0;
+    if (acType !== 'Cargo') {
+      if (paxCapacity < 50) boardingDuration = 10;
+      else if (paxCapacity < 100) boardingDuration = 15;
+      else if (paxCapacity < 200) boardingDuration = 20;
+      else if (paxCapacity < 300) boardingDuration = 25;
+      else boardingDuration = 35;
+    }
+    let fuellingDuration = 0;
+    if (routeDistance < 500) fuellingDuration = 10;
+    else if (routeDistance < 1500) fuellingDuration = 15;
+    else if (routeDistance < 3000) fuellingDuration = 20;
+    else fuellingDuration = 25;
+    const preFlightDuration = Math.max(cateringDuration + boardingDuration, fuellingDuration);
+
+    // Post-flight: deboarding + cleaning
+    let deboardingDuration = 0;
+    if (acType !== 'Cargo') {
+      if (paxCapacity < 50) deboardingDuration = 5;
+      else if (paxCapacity < 100) deboardingDuration = 8;
+      else if (paxCapacity < 200) deboardingDuration = 12;
+      else if (paxCapacity < 300) deboardingDuration = 15;
+      else deboardingDuration = 20;
+    }
+    let cleaningDuration;
+    if (paxCapacity < 50) cleaningDuration = 5;
+    else if (paxCapacity < 100) cleaningDuration = 10;
+    else if (paxCapacity < 200) cleaningDuration = 15;
+    else if (paxCapacity < 300) cleaningDuration = 20;
+    else cleaningDuration = 25;
+    const postFlightDuration = deboardingDuration + cleaningDuration;
+
+    // Get all dates that could be affected (include day before first and day after last)
     const scheduleDates = flights.map(f => f.scheduledDate);
+    const minDate = new Date(Math.min(...scheduleDates.map(d => new Date(d))));
+    const maxDate = new Date(Math.max(...scheduleDates.map(d => new Date(d))));
+    minDate.setDate(minDate.getDate() - 1);
+    maxDate.setDate(maxDate.getDate() + 2); // +2 for multi-day flights
+
+    // Query all flights that could potentially overlap
     const existingFlights = await ScheduledFlight.findAll({
       where: {
         aircraftId,
-        scheduledDate: { [Op.in]: scheduleDates }
-      }
+        [Op.or]: [
+          { scheduledDate: { [Op.between]: [minDate.toISOString().split('T')[0], maxDate.toISOString().split('T')[0]] } },
+          { arrivalDate: { [Op.between]: [minDate.toISOString().split('T')[0], maxDate.toISOString().split('T')[0]] } }
+        ]
+      },
+      include: [
+        {
+          model: Route,
+          as: 'route',
+          include: [
+            { model: Airport, as: 'departureAirport' },
+            { model: Airport, as: 'arrivalAirport' }
+          ]
+        },
+        {
+          model: UserAircraft,
+          as: 'aircraft',
+          include: [{ model: Aircraft, as: 'aircraft' }]
+        }
+      ]
     });
 
-    // Build a set of existing date+time combinations
-    const existingSlots = new Set(
-      existingFlights.map(f => `${f.scheduledDate}_${f.departureTime}`)
-    );
+    // Helper to calculate existing flight's operation window
+    const getExistingFlightWindow = (existingFlight) => {
+      const exAcType = existingFlight.aircraft?.aircraft?.type || 'Narrowbody';
+      const exPax = existingFlight.aircraft?.aircraft?.passengerCapacity || 150;
+      const exDist = existingFlight.route?.distance || 0;
+
+      // Pre-flight
+      let exCatering = 0;
+      if (exPax >= 50 && exAcType !== 'Cargo') {
+        if (exPax < 100) exCatering = 5;
+        else if (exPax < 200) exCatering = 10;
+        else exCatering = 15;
+      }
+      let exBoarding = 0;
+      if (exAcType !== 'Cargo') {
+        if (exPax < 50) exBoarding = 10;
+        else if (exPax < 100) exBoarding = 15;
+        else if (exPax < 200) exBoarding = 20;
+        else if (exPax < 300) exBoarding = 25;
+        else exBoarding = 35;
+      }
+      let exFuelling = 0;
+      if (exDist < 500) exFuelling = 10;
+      else if (exDist < 1500) exFuelling = 15;
+      else if (exDist < 3000) exFuelling = 20;
+      else exFuelling = 25;
+      const exPreFlight = Math.max(exCatering + exBoarding, exFuelling);
+
+      // Post-flight
+      let exDeboard = 0;
+      if (exAcType !== 'Cargo') {
+        if (exPax < 50) exDeboard = 5;
+        else if (exPax < 100) exDeboard = 8;
+        else if (exPax < 200) exDeboard = 12;
+        else if (exPax < 300) exDeboard = 15;
+        else exDeboard = 20;
+      }
+      let exClean;
+      if (exPax < 50) exClean = 5;
+      else if (exPax < 100) exClean = 10;
+      else if (exPax < 200) exClean = 15;
+      else if (exPax < 300) exClean = 20;
+      else exClean = 25;
+      const exPostFlight = exDeboard + exClean;
+
+      const [exDepH, exDepM] = existingFlight.departureTime.split(':').map(Number);
+      const exDepMinutes = exDepH * 60 + exDepM;
+      const exPreStartMinutes = exDepMinutes - exPreFlight;
+
+      const [exArrH, exArrM] = existingFlight.arrivalTime.split(':').map(Number);
+      const exArrMinutes = exArrH * 60 + exArrM;
+      const exPostEndMinutes = exArrMinutes + exPostFlight;
+
+      const exOpStart = new Date(`${existingFlight.scheduledDate}T00:00:00`);
+      exOpStart.setMinutes(exOpStart.getMinutes() + exPreStartMinutes);
+
+      const exOpEnd = new Date(`${existingFlight.arrivalDate || existingFlight.scheduledDate}T00:00:00`);
+      exOpEnd.setMinutes(exOpEnd.getMinutes() + exPostEndMinutes);
+
+      return { start: exOpStart, end: exOpEnd };
+    };
+
+    // Pre-calculate existing flight windows
+    const existingWindows = existingFlights.map(f => ({
+      flight: f,
+      window: getExistingFlightWindow(f)
+    }));
 
     // Filter out conflicting flights and prepare batch data
     const flightsToCreate = [];
     const conflicts = [];
 
     for (const flight of flights) {
-      const slotKey = `${flight.scheduledDate}_${flight.departureTime}`;
-      if (existingSlots.has(slotKey)) {
+      // Calculate this new flight's operation window
+      const { arrivalDate, arrivalTime } = calculateArrivalDateTime(
+        flight.scheduledDate,
+        flight.departureTime,
+        route,
+        cruiseSpeed
+      );
+
+      const [depH, depM] = flight.departureTime.split(':').map(Number);
+      const depMinutes = depH * 60 + depM;
+      const preFlightStartMinutes = depMinutes - preFlightDuration;
+
+      const [arrH, arrM] = arrivalTime.split(':').map(Number);
+      const arrMinutes = arrH * 60 + arrM;
+      const postFlightEndMinutes = arrMinutes + postFlightDuration;
+
+      const opStartDateTime = new Date(`${flight.scheduledDate}T00:00:00`);
+      opStartDateTime.setMinutes(opStartDateTime.getMinutes() + preFlightStartMinutes);
+
+      const opEndDateTime = new Date(`${arrivalDate}T00:00:00`);
+      opEndDateTime.setMinutes(opEndDateTime.getMinutes() + postFlightEndMinutes);
+
+      // Check for overlap with existing flights
+      let hasConflict = false;
+      for (const { flight: existingFlight, window: exWindow } of existingWindows) {
+        const overlaps = opStartDateTime < exWindow.end && opEndDateTime > exWindow.start;
+        if (overlaps) {
+          hasConflict = true;
+          break;
+        }
+      }
+
+      if (hasConflict) {
         conflicts.push(flight.scheduledDate);
       } else {
-        // Calculate arrival date and time
-        const { arrivalDate, arrivalTime } = calculateArrivalDateTime(
-          flight.scheduledDate,
-          flight.departureTime,
-          route,
-          cruiseSpeed
-        );
-
         flightsToCreate.push({
           routeId,
           aircraftId,
@@ -742,6 +896,12 @@ router.post('/flights/batch', async (req, res) => {
           arrivalDate,
           arrivalTime,
           status: 'scheduled'
+        });
+
+        // Add this flight to existing windows for checking subsequent flights in batch
+        existingWindows.push({
+          flight: { scheduledDate: flight.scheduledDate, arrivalDate, departureTime: flight.departureTime, arrivalTime },
+          window: { start: opStartDateTime, end: opEndDateTime }
         });
       }
     }
@@ -1611,10 +1771,25 @@ router.get('/active', async (req, res) => {
 
     const worldMembershipId = membership.id;
 
-    // Fetch flights with status 'in_progress'
+    // Get current world time for including scheduled flights that are actually airborne
+    const worldTimeService = require('../services/worldTimeService');
+    const worldTime = worldTimeService.getCurrentTime(activeWorldId);
+    const currentDate = worldTime ? worldTime.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+    const currentTimeStr = worldTime ? worldTime.toTimeString().split(' ')[0] : new Date().toTimeString().split(' ')[0];
+
+    // Fetch flights that are either:
+    // 1. Already marked as 'in_progress', OR
+    // 2. Scheduled flights that have departed (scheduled date = today AND departure time <= now)
     const activeFlights = await ScheduledFlight.findAll({
       where: {
-        status: 'in_progress'
+        [Op.or]: [
+          { status: 'in_progress' },
+          {
+            status: 'scheduled',
+            scheduledDate: currentDate,
+            departureTime: { [Op.lte]: currentTimeStr }
+          }
+        ]
       },
       include: [
         {
@@ -1735,10 +1910,23 @@ router.get('/active-all', async (req, res) => {
     const membershipIds = allMemberships.map(m => m.id);
     const membershipMap = new Map(allMemberships.map(m => [m.id, { airlineName: m.airlineName, airlineCode: m.airlineCode }]));
 
-    // Fetch all active flights in this world
+    // Get current world time for including scheduled flights that are actually airborne
+    const worldTimeService = require('../services/worldTimeService');
+    const worldTime = worldTimeService.getCurrentTime(activeWorldId);
+    const currentDate = worldTime ? worldTime.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+    const currentTimeStr = worldTime ? worldTime.toTimeString().split(' ')[0] : new Date().toTimeString().split(' ')[0];
+
+    // Fetch all active flights in this world (including scheduled flights that have departed)
     const activeFlights = await ScheduledFlight.findAll({
       where: {
-        status: 'in_progress'
+        [Op.or]: [
+          { status: 'in_progress' },
+          {
+            status: 'scheduled',
+            scheduledDate: currentDate,
+            departureTime: { [Op.lte]: currentTimeStr }
+          }
+        ]
       },
       include: [
         {

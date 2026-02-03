@@ -120,21 +120,23 @@ function getEffectiveArrivalDate(flight) {
 }
 
 // Calculate days until target day of week
-// Uses a heuristic: show the closest occurrence of the target day
-// If target is more than 3 days back, assume user wants next week instead
+// FORWARD-ONLY: Shows a week from today through 6 days ahead
+// If the target day has passed this week, shows next week's occurrence
+// This ensures display and scheduling are always consistent
 function getDaysUntilTargetInWeek(currentDay, selectedDayOfWeek) {
   let diff = selectedDayOfWeek - currentDay;
 
-  // If diff is very negative (more than 3 days back), go forward to next week
-  if (diff < -3) {
+  // If the day has already passed this week (diff < 0), go to next week
+  if (diff < 0) {
     diff += 7;
-  }
-  // If diff is very positive (more than 3 days forward), go back to last week
-  else if (diff > 3) {
-    diff -= 7;
   }
 
   return diff;
+}
+
+// Alias for scheduling - same forward-only logic
+function getDaysUntilTargetForScheduling(currentDay, selectedDayOfWeek) {
+  return getDaysUntilTargetInWeek(currentDay, selectedDayOfWeek);
 }
 
 // Format route number with color differentiation (prefix letters vs numbers)
@@ -771,21 +773,237 @@ function roundTimeToNearest5(timeStr) {
   return `${finalHours.toString().padStart(2, '0')}:${finalMinutes.toString().padStart(2, '0')}`;
 }
 
+/**
+ * Render flight as segmented strips: Outbound → Turnaround (purple) → Return
+ * For tech stop routes: Out-Leg1 | Out-Leg2 → Turnaround → Ret-Leg1 | Ret-Leg2
+ *
+ * @param {Object} params - Parameters object
+ * @param {Object} params.flight - The flight object
+ * @param {Object} params.route - The route object
+ * @param {number} params.leftPercent - Starting position as percentage within cell
+ * @param {number} params.outboundMins - Outbound flight duration in minutes
+ * @param {number} params.turnaroundMins - Turnaround duration in minutes
+ * @param {number} params.returnMins - Return flight duration in minutes
+ * @param {boolean} params.hasTechStop - Whether route has tech stop
+ * @param {Object} params.legMins - Leg durations for tech stop routes {leg1, leg2, leg3, leg4}
+ * @param {string} params.depAirport - Departure airport code
+ * @param {string} params.arrAirport - Arrival airport code
+ * @param {string} params.techStopAirport - Tech stop airport code (if applicable)
+ * @param {string} params.depTime - Departure time string
+ * @param {string} params.returnArrTime - Return arrival time string
+ * @returns {string} HTML string for all segments
+ */
+function renderFlightSegments(params) {
+  const {
+    flight, route, leftPercent,
+    outboundMins, turnaroundMins, returnMins,
+    hasTechStop, legMins = {},
+    depAirport, arrAirport, techStopAirport,
+    depTime, returnArrTime
+  } = params;
+
+  const techStopGroundTime = 30; // Tech stop ground time in minutes
+  const totalMins = outboundMins + turnaroundMins + returnMins;
+  const totalWidthPercent = (totalMins / 60) * 100;
+
+  // Determine if we need compact display
+  const totalHours = totalMins / 60;
+  const isCompact = totalHours < 3;
+  const isVeryCompact = totalHours < 2;
+
+  let segmentsHtml = '';
+  let currentLeft = leftPercent;
+
+  // Get compact class based on size
+  const compactClass = isVeryCompact ? 'very-compact' : (isCompact ? 'compact' : '');
+
+  // Helper to format route number without HTML wrapper
+  const getRouteNum = (routeNum) => {
+    if (!routeNum) return '';
+    return routeNum;
+  };
+
+  // Helper to add minutes to a time string and return formatted time
+  const addMinutesToTime = (timeStr, minutes) => {
+    if (!timeStr || timeStr === '??:??') return '??:??';
+    const [hours, mins] = timeStr.split(':').map(Number);
+    const totalMins = hours * 60 + mins + minutes;
+    const newHours = Math.floor(totalMins / 60) % 24;
+    const newMins = Math.round(totalMins % 60 / 5) * 5; // Round to nearest 5
+    const finalHours = newMins === 60 ? (newHours + 1) % 24 : newHours;
+    const finalMins = newMins === 60 ? 0 : newMins;
+    return `${String(finalHours).padStart(2, '0')}:${String(finalMins).padStart(2, '0')}`;
+  };
+
+  // Calculate key times for each segment
+  const outboundArrTime = addMinutesToTime(depTime, outboundMins);
+  const returnDepTime = addMinutesToTime(depTime, outboundMins + turnaroundMins);
+
+  // Check if daily check is needed at turnaround (pre-flight for return sector)
+  const dailyCheckDue = flight.aircraft && flight.scheduledDate
+    ? isDailyCheckDue(flight.aircraft, flight.scheduledDate)
+    : false;
+  const dailyCheckDuration = 30; // Daily check takes 30 minutes
+
+  if (hasTechStop && legMins.leg1 && legMins.leg2) {
+    // Tech stop route: 5 segments with gaps
+    const { leg1, leg2, leg3, leg4 } = legMins;
+
+    // Calculate times for each leg
+    const leg1ArrTime = addMinutesToTime(depTime, leg1);
+    const leg2DepTime = addMinutesToTime(depTime, leg1 + techStopGroundTime);
+    const leg2ArrTime = addMinutesToTime(depTime, leg1 + techStopGroundTime + leg2);
+    const leg3DepTime = addMinutesToTime(depTime, leg1 + techStopGroundTime + leg2 + turnaroundMins);
+    const leg3ArrTime = addMinutesToTime(depTime, leg1 + techStopGroundTime + leg2 + turnaroundMins + leg3);
+    const leg4DepTime = addMinutesToTime(depTime, leg1 + techStopGroundTime + leg2 + turnaroundMins + leg3 + techStopGroundTime);
+
+    // Outbound Leg 1 (DEP → TECH)
+    const leg1Width = (leg1 / 60) * 100;
+    segmentsHtml += `
+      <div class="flight-segment segment-outbound-leg1 ${compactClass}"
+           style="left: ${currentLeft}%; width: ${leg1Width}%;"
+           onclick="viewFlightDetails('${flight.id}')"
+           title="${getRouteNum(route.routeNumber)}: ${depAirport} → ${techStopAirport} | Off: ${depTime} On: ${leg1ArrTime}">
+        <span class="segment-flight-num">${getRouteNum(route.routeNumber)}</span>
+        <span class="segment-route">${depAirport}-${techStopAirport}</span>
+        <span class="segment-time">${depTime}-${leg1ArrTime}</span>
+      </div>
+    `;
+    currentLeft += leg1Width;
+
+    // Tech stop gap (outbound)
+    const techGapWidth = (techStopGroundTime / 60) * 100;
+    segmentsHtml += `<div class="tech-stop-gap" style="left: ${currentLeft}%;" title="Tech stop at ${techStopAirport} (${techStopGroundTime}m)"></div>`;
+    currentLeft += techGapWidth;
+
+    // Outbound Leg 2 (TECH → ARR)
+    const leg2Width = (leg2 / 60) * 100;
+    segmentsHtml += `
+      <div class="flight-segment segment-outbound-leg2 ${compactClass}"
+           style="left: ${currentLeft}%; width: ${leg2Width}%;"
+           onclick="viewFlightDetails('${flight.id}')"
+           title="${getRouteNum(route.routeNumber)}: ${techStopAirport} → ${arrAirport} | Off: ${leg2DepTime} On: ${leg2ArrTime}">
+        <span class="segment-flight-num">${getRouteNum(route.routeNumber)}</span>
+        <span class="segment-route">${techStopAirport}-${arrAirport}</span>
+        <span class="segment-time">${leg2DepTime}-${leg2ArrTime}</span>
+      </div>
+    `;
+    currentLeft += leg2Width;
+
+    // Turnaround at destination (purple)
+    const turnaroundWidth = (turnaroundMins / 60) * 100;
+    const techTurnaroundTitle = dailyCheckDue
+      ? `Turnaround at ${arrAirport} (${turnaroundMins}m) - DAILY CHECK (${dailyCheckDuration}m)`
+      : `Turnaround at ${arrAirport} (${turnaroundMins}m)`;
+    segmentsHtml += `
+      <div class="flight-segment segment-turnaround ${compactClass} ${dailyCheckDue ? 'has-daily-check' : ''}"
+           style="left: ${currentLeft}%; width: ${turnaroundWidth}%;"
+           onclick="viewFlightDetails('${flight.id}')"
+           title="${techTurnaroundTitle}">
+        <span class="segment-label">${arrAirport}</span>
+        ${dailyCheckDue
+          ? `<span class="segment-time" style="color: #fbbf24;">Daily ${dailyCheckDuration}m</span>`
+          : `<span class="segment-time">${turnaroundMins}m</span>`
+        }
+      </div>
+    `;
+    currentLeft += turnaroundWidth;
+
+    // Return Leg 1 (ARR → TECH)
+    const leg3Width = (leg3 / 60) * 100;
+    segmentsHtml += `
+      <div class="flight-segment segment-return-leg1 ${compactClass}"
+           style="left: ${currentLeft}%; width: ${leg3Width}%;"
+           onclick="viewFlightDetails('${flight.id}')"
+           title="${getRouteNum(route.returnRouteNumber)}: ${arrAirport} → ${techStopAirport} | Off: ${leg3DepTime} On: ${leg3ArrTime}">
+        <span class="segment-flight-num">${getRouteNum(route.returnRouteNumber)}</span>
+        <span class="segment-route">${arrAirport}-${techStopAirport}</span>
+        <span class="segment-time">${leg3DepTime}-${leg3ArrTime}</span>
+      </div>
+    `;
+    currentLeft += leg3Width;
+
+    // Tech stop gap (return)
+    segmentsHtml += `<div class="tech-stop-gap" style="left: ${currentLeft}%;" title="Tech stop at ${techStopAirport} (${techStopGroundTime}m)"></div>`;
+    currentLeft += techGapWidth;
+
+    // Return Leg 2 (TECH → DEP)
+    const leg4Width = (leg4 / 60) * 100;
+    segmentsHtml += `
+      <div class="flight-segment segment-return-leg2 ${compactClass}"
+           style="left: ${currentLeft}%; width: ${leg4Width}%;"
+           onclick="viewFlightDetails('${flight.id}')"
+           title="${getRouteNum(route.returnRouteNumber)}: ${techStopAirport} → ${depAirport} | Off: ${leg4DepTime} On: ${returnArrTime}">
+        <span class="segment-flight-num">${getRouteNum(route.returnRouteNumber)}</span>
+        <span class="segment-route">${techStopAirport}-${depAirport}</span>
+        <span class="segment-time">${leg4DepTime}-${returnArrTime}</span>
+      </div>
+    `;
+  } else {
+    // Standard route: 3 segments
+    // Outbound segment
+    const outboundWidth = (outboundMins / 60) * 100;
+    segmentsHtml += `
+      <div class="flight-segment segment-outbound ${compactClass}"
+           style="left: ${currentLeft}%; width: ${outboundWidth}%;"
+           onclick="viewFlightDetails('${flight.id}')"
+           title="${getRouteNum(route.routeNumber)}: ${depAirport} → ${arrAirport} | Off: ${depTime} On: ${outboundArrTime}">
+        <span class="segment-flight-num">${getRouteNum(route.routeNumber)}</span>
+        <span class="segment-route">${depAirport}-${arrAirport}</span>
+        <span class="segment-time">${depTime}-${outboundArrTime}</span>
+      </div>
+    `;
+    currentLeft += outboundWidth;
+
+    // Turnaround segment (purple)
+    const turnaroundWidth = (turnaroundMins / 60) * 100;
+    const stdTurnaroundTitle = dailyCheckDue
+      ? `Turnaround at ${arrAirport} (${turnaroundMins}m) - DAILY CHECK (${dailyCheckDuration}m)`
+      : `Turnaround at ${arrAirport} (${turnaroundMins}m)`;
+    segmentsHtml += `
+      <div class="flight-segment segment-turnaround ${compactClass} ${dailyCheckDue ? 'has-daily-check' : ''}"
+           style="left: ${currentLeft}%; width: ${turnaroundWidth}%;"
+           onclick="viewFlightDetails('${flight.id}')"
+           title="${stdTurnaroundTitle}">
+        <span class="segment-label">${arrAirport}</span>
+        ${dailyCheckDue
+          ? `<span class="segment-time" style="color: #fbbf24;">Daily ${dailyCheckDuration}m</span>`
+          : `<span class="segment-time">${turnaroundMins}m</span>`
+        }
+      </div>
+    `;
+    currentLeft += turnaroundWidth;
+
+    // Return segment
+    const returnWidth = (returnMins / 60) * 100;
+    segmentsHtml += `
+      <div class="flight-segment segment-return ${compactClass}"
+           style="left: ${currentLeft}%; width: ${returnWidth}%;"
+           onclick="viewFlightDetails('${flight.id}')"
+           title="${getRouteNum(route.returnRouteNumber)}: ${arrAirport} → ${depAirport} | Off: ${returnDepTime} On: ${returnArrTime}">
+        <span class="segment-flight-num">${getRouteNum(route.returnRouteNumber)}</span>
+        <span class="segment-route">${arrAirport}-${depAirport}</span>
+        <span class="segment-time">${returnDepTime}-${returnArrTime}</span>
+      </div>
+    `;
+  }
+
+  return segmentsHtml;
+}
+
 // Render overnight arrival block (flight that departed yesterday, arriving today)
-// calculatedArrTime is the dynamically calculated arrival time with wind effects
-function renderOvernightArrivalBlock(flight, route, calculatedArrTime = null) {
+// Shows segmented display for the portion of the round-trip after midnight
+function renderOvernightArrivalBlock(flight, route, calculatedArrTime = null, segmentDurations = null) {
   // Use calculated time if provided, otherwise fall back to stored time
   const arrTime = calculatedArrTime || (flight.arrivalTime ? flight.arrivalTime.substring(0, 5) : '??:??');
   const depTime = flight.departureTime ? flight.departureTime.substring(0, 5) : '??:??';
   const [arrHours, arrMinutes] = arrTime.split(':').map(Number);
   const [depHours, depMinutes] = depTime.split(':').map(Number);
 
-  // Block spans from midnight (00:00) to arrivalTime
+  // Calculate timing
   const arrivalMinutesFromMidnight = (arrHours * 60) + arrMinutes;
-  const totalHoursFromMidnight = arrivalMinutesFromMidnight / 60;
-
-  // Width from midnight (00:00) to when aircraft returns
-  const widthPercent = totalHoursFromMidnight * 100;
+  const departureMinutesFromMidnight = (depHours * 60) + depMinutes;
+  const minutesFromDepToMidnight = (24 * 60) - departureMinutesFromMidnight;
 
   // Get airport codes
   const depAirport = route.departureAirport.iataCode || route.departureAirport.icaoCode;
@@ -795,17 +1013,11 @@ function renderOvernightArrivalBlock(flight, route, calculatedArrTime = null) {
   // Round the displayed return time to nearest 5 minutes
   const returnArrTime = arrTime !== '??:??' ? roundTimeToNearest5(arrTime) : arrTime;
 
-  // Calculate strip durations to determine if flight numbers should show
-  const departureStripHours = 24 - depHours - (depMinutes / 60);
-
-  // Show flight numbers only if BOTH strips have enough space (>= 2 hours each)
-  const showFlightNumbers = totalHoursFromMidnight >= 2 && departureStripHours >= 2;
-
   // Calculate post-flight extension for overnight arrival
   const postFlightInfo = calculatePostFlightDuration(flight.aircraft, flight.arrivalDate || flight.scheduledDate);
   const postFlightMinutes = postFlightInfo.duration;
   const postFlightWidthPercent = (postFlightMinutes / 60) * 100;
-  const postFlightLeftPercent = widthPercent; // Starts where flight ends
+  const postFlightLeftPercent = (arrivalMinutesFromMidnight / 60) * 100;
 
   const postFlightExtensionHtml = postFlightMinutes > 0 ? `
     <div
@@ -821,47 +1033,127 @@ function renderOvernightArrivalBlock(flight, route, calculatedArrTime = null) {
     >POST</div>
   ` : '';
 
-  // Overnight arrival block - shows the portion of round-trip after midnight
-  // Arrow on left (continuing from prev day), arrival info, then return info on right
+  // Get segment durations (passed from caller or use defaults)
+  const outboundMins = segmentDurations?.outbound || 120;
+  const turnaroundMins = segmentDurations?.turnaround || (route.turnaroundTime || 45);
+  const returnMins = segmentDurations?.return || 120;
+
+  // Helper to calculate time from minutes after midnight
+  const minsToTime = (mins) => {
+    const h = Math.floor(mins / 60) % 24;
+    const m = Math.round(mins % 60 / 5) * 5;
+    const finalH = m === 60 ? (h + 1) % 24 : h;
+    const finalM = m === 60 ? 0 : m;
+    return `${String(finalH).padStart(2, '0')}:${String(finalM).padStart(2, '0')}`;
+  };
+
+  // Calculate how much of each segment was completed before midnight
+  let segmentsHtml = '';
+  let currentLeft = 0; // Start from left edge (midnight)
+  let minutesConsumedBeforeMidnight = minutesFromDepToMidnight;
+
+  // Determine which segment we're in at midnight and render remaining segments
+  const getRouteNum = (routeNum) => routeNum || '';
+
+  if (minutesConsumedBeforeMidnight < outboundMins) {
+    // Outbound was still in progress at midnight - show remaining outbound
+    const remainingOutbound = outboundMins - minutesConsumedBeforeMidnight;
+    const outboundWidth = (remainingOutbound / 60) * 100;
+    const isCompact = remainingOutbound < 90;
+    const outboundOnTime = minsToTime(remainingOutbound);
+
+    segmentsHtml += `
+      <div class="flight-segment segment-outbound ${isCompact ? 'compact' : ''}"
+           style="left: -0.4rem; width: calc(${outboundWidth}% + 0.4rem); border-radius: 0 3px 3px 0;"
+           onclick="viewFlightDetails('${flight.id}')"
+           title="${getRouteNum(route.routeNumber)}: continuing to ${arrAirport} | On: ${outboundOnTime}">
+        <span class="segment-flight-num">${getRouteNum(route.routeNumber)}</span>
+        <span class="segment-route">→${arrAirport}</span>
+        <span class="segment-time">On: ${outboundOnTime}</span>
+      </div>
+    `;
+    currentLeft = outboundWidth;
+
+    // Calculate return departure time (after turnaround)
+    const returnDepMins = remainingOutbound + turnaroundMins;
+    const returnDepTimeStr = minsToTime(returnDepMins);
+
+    // Show full turnaround
+    const turnaroundWidth = (turnaroundMins / 60) * 100;
+    segmentsHtml += `
+      <div class="flight-segment segment-turnaround ${turnaroundMins < 60 ? 'compact' : ''}"
+           style="left: ${currentLeft}%; width: ${turnaroundWidth}%;"
+           onclick="viewFlightDetails('${flight.id}')"
+           title="Turnaround at ${arrAirport} (${turnaroundMins}m)">
+        <span class="segment-label">${arrAirport}</span>
+        <span class="segment-time">${turnaroundMins}m</span>
+      </div>
+    `;
+    currentLeft += turnaroundWidth;
+
+    // Show full return
+    const returnWidth = (returnMins / 60) * 100;
+    segmentsHtml += `
+      <div class="flight-segment segment-return ${returnMins < 90 ? 'compact' : ''}"
+           style="left: ${currentLeft}%; width: ${returnWidth}%;"
+           onclick="viewFlightDetails('${flight.id}')"
+           title="${getRouteNum(route.returnRouteNumber)}: ${arrAirport} → ${depAirport} | ${returnDepTimeStr}-${returnArrTime}">
+        <span class="segment-flight-num">${getRouteNum(route.returnRouteNumber)}</span>
+        <span class="segment-route">${arrAirport}-${depAirport}</span>
+        <span class="segment-time">${returnDepTimeStr}-${returnArrTime}</span>
+      </div>
+    `;
+  } else if (minutesConsumedBeforeMidnight < outboundMins + turnaroundMins) {
+    // Turnaround was in progress at midnight - show remaining turnaround + return
+    const remainingTurnaround = (outboundMins + turnaroundMins) - minutesConsumedBeforeMidnight;
+    const turnaroundWidth = (remainingTurnaround / 60) * 100;
+
+    segmentsHtml += `
+      <div class="flight-segment segment-turnaround ${remainingTurnaround < 30 ? 'compact' : ''}"
+           style="left: -0.4rem; width: calc(${turnaroundWidth}% + 0.4rem); border-radius: 0;"
+           onclick="viewFlightDetails('${flight.id}')"
+           title="Turnaround at ${arrAirport} (continuing)">
+        <span class="segment-label">${arrAirport}</span>
+        <span class="segment-time">${Math.round(remainingTurnaround)}m</span>
+      </div>
+    `;
+    currentLeft = turnaroundWidth;
+
+    // Calculate return departure time
+    const returnDepTimeStr = minsToTime(remainingTurnaround);
+
+    // Show full return
+    const returnWidth = (returnMins / 60) * 100;
+    segmentsHtml += `
+      <div class="flight-segment segment-return ${returnMins < 90 ? 'compact' : ''}"
+           style="left: ${currentLeft}%; width: ${returnWidth}%;"
+           onclick="viewFlightDetails('${flight.id}')"
+           title="${getRouteNum(route.returnRouteNumber)}: ${arrAirport} → ${depAirport} | ${returnDepTimeStr}-${returnArrTime}">
+        <span class="segment-flight-num">${getRouteNum(route.returnRouteNumber)}</span>
+        <span class="segment-route">${arrAirport}-${depAirport}</span>
+        <span class="segment-time">${returnDepTimeStr}-${returnArrTime}</span>
+      </div>
+    `;
+  } else {
+    // Return was in progress at midnight - show remaining return only
+    const remainingReturn = arrivalMinutesFromMidnight;
+    const returnWidth = (remainingReturn / 60) * 100;
+    const isCompact = remainingReturn < 90;
+
+    segmentsHtml += `
+      <div class="flight-segment segment-return ${isCompact ? 'compact' : ''}"
+           style="left: -0.4rem; width: calc(${returnWidth}% + 0.4rem); border-radius: 0 3px 3px 0;"
+           onclick="viewFlightDetails('${flight.id}')"
+           title="${getRouteNum(route.returnRouteNumber)}: returning to ${depAirport} | On: ${returnArrTime}">
+        <span class="segment-flight-num">${getRouteNum(route.returnRouteNumber)}</span>
+        <span class="segment-route">→${depAirport}</span>
+        <span class="segment-time">On: ${returnArrTime}</span>
+      </div>
+    `;
+  }
+
   return `
-    <div
-      class="flight-block overnight-arrival"
-      style="
-        position: absolute;
-        top: 0;
-        left: -0.4rem;
-        width: calc(${widthPercent}% + 0.4rem);
-        height: 100%;
-        min-height: 50px;
-        background: var(--accent-color);
-        border-radius: 0 3px 3px 0;
-        color: white;
-        font-size: 0.6rem;
-        font-weight: 600;
-        padding: 0.2rem 0.5rem;
-        cursor: pointer;
-        z-index: 1;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        box-sizing: border-box;
-      "
-      onclick="viewFlightDetails('${flight.id}')"
-      title="${route.routeNumber}/${route.returnRouteNumber}: ${techStopAirport ? `${depAirport}→${techStopAirport}→${arrAirport}→${techStopAirport}→${depAirport}` : `${depAirport}→${arrAirport}→${depAirport}`} | Arr ${arrAirport} ${arrTime}, returns ${depAirport} ${returnArrTime}"
-    >
-      <div style="width: 2.5rem;"></div>
-      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.7rem; line-height: 1.2;">
-        ${techStopAirport ? `<div style="font-size: 0.6rem; font-weight: 700; color: #10b981;">via ${techStopAirport}</div>` : ''}
-        <div>${formatRouteNumber(route.routeNumber)}</div>
-        <div>${formatRouteNumber(route.returnRouteNumber)}</div>
-        ${techStopAirport ? `<div style="font-size: 0.6rem; font-weight: 700; color: #10b981;">via ${techStopAirport}</div>` : ''}
-      </div>
-      <div style="text-align: right; display: flex; flex-direction: column; justify-content: space-between;">
-        <div style="font-size: 0.65rem;">${arrAirport}</div>
-        <div style="font-size: 0.55rem; opacity: 0.85;">${returnArrTime}</div>
-        <div style="font-size: 0.6rem;">${depAirport}</div>
-      </div>
-    </div>
+    ${segmentsHtml}
     ${postFlightExtensionHtml}
   `;
 }
@@ -949,6 +1241,9 @@ function renderFlightBlocks(flights, viewingDate) {
     const techStopMinutes = 30; // Tech stop ground time
     const hasTechStop = route.techStopAirport;
 
+    // Leg minutes for tech stop routes (accessible outside the if block for segment rendering)
+    let leg1Minutes = 0, leg2Minutes = 0, leg3Minutes = 0, leg4Minutes = 0;
+
     if (flight.aircraft && flight.aircraft.aircraft && flight.aircraft.aircraft.cruiseSpeed) {
       const cruiseSpeed = flight.aircraft.aircraft.cruiseSpeed;
       const depLat = parseFloat(route.departureAirport?.latitude) || 0;
@@ -964,13 +1259,13 @@ function renderFlightBlocks(flights, viewingDate) {
         const leg2Distance = route.legTwoDistance || Math.round(route.distance * 0.6);
 
         // Outbound: leg1 (DEP→TECH) + techStop + leg2 (TECH→ARR)
-        const leg1Minutes = calculateFlightMinutes(leg1Distance, cruiseSpeed, depLng, techLng, depLat, techLat);
-        const leg2Minutes = calculateFlightMinutes(leg2Distance, cruiseSpeed, techLng, arrLng, techLat, arrLat);
+        leg1Minutes = calculateFlightMinutes(leg1Distance, cruiseSpeed, depLng, techLng, depLat, techLat);
+        leg2Minutes = calculateFlightMinutes(leg2Distance, cruiseSpeed, techLng, arrLng, techLat, arrLat);
         outboundFlightMinutes = leg1Minutes + techStopMinutes + leg2Minutes;
 
         // Return: leg3 (ARR→TECH) + techStop + leg4 (TECH→DEP)
-        const leg3Minutes = calculateFlightMinutes(leg2Distance, cruiseSpeed, arrLng, techLng, arrLat, techLat);
-        const leg4Minutes = calculateFlightMinutes(leg1Distance, cruiseSpeed, techLng, depLng, techLat, depLat);
+        leg3Minutes = calculateFlightMinutes(leg2Distance, cruiseSpeed, arrLng, techLng, arrLat, techLat);
+        leg4Minutes = calculateFlightMinutes(leg1Distance, cruiseSpeed, techLng, depLng, techLat, depLat);
         returnFlightMinutes = leg3Minutes + techStopMinutes + leg4Minutes;
       } else {
         // Direct route: departure -> arrival (with wind effect)
@@ -996,15 +1291,13 @@ function renderFlightBlocks(flights, viewingDate) {
     // Check if this is an overnight arrival (flight departed before, arrives today)
     const isOvernightArrival = flight.arrivalDate === viewingDate && flight.scheduledDate !== viewingDate;
     if (isOvernightArrival) {
-      // Render overnight arrival block with calculated arrival time
-      return renderOvernightArrivalBlock(flight, route, calculatedArrTime);
+      // Render overnight arrival block with calculated arrival time and segment durations
+      return renderOvernightArrivalBlock(flight, route, calculatedArrTime, {
+        outbound: outboundFlightMinutes,
+        turnaround: turnaroundMinutes,
+        return: returnFlightMinutes
+      });
     }
-
-    // Convert duration to a percentage across multiple hour cells
-    const durationHours = totalDurationMinutes / 60;
-
-    // Width as percentage: span across cells (each cell is 100% of its width)
-    let widthPercent = (durationHours * 100) - minuteOffsetPercent;
 
     // Calculate pre-flight turnaround extension (for overnight flights that need it early)
     const preFlightMinutesEarly = calculatePreFlightDuration(flight.aircraft, route);
@@ -1027,72 +1320,104 @@ function renderFlightBlocks(flights, viewingDate) {
     // Check if this flight spans past midnight (overnight departure)
     const isOvernightDeparture = flight.arrivalDate && flight.arrivalDate !== flight.scheduledDate;
     if (isOvernightDeparture) {
-      // Cap the width to end at midnight (24:00 - departure hour)
-      // hoursUntilMidnight already accounts for minutes, so don't subtract minuteOffsetPercent
-      const hoursUntilMidnight = 24 - hours - (minutes / 60);
-      widthPercent = hoursUntilMidnight * 100;
+      // Calculate minutes from departure to midnight
+      const minutesUntilMidnight = (24 - hours) * 60 - minutes;
 
       // Get airport codes for overnight departure display
       const depAirport = route.departureAirport.iataCode || route.departureAirport.icaoCode;
       const arrAirport = route.arrivalAirport.iataCode || route.arrivalAirport.icaoCode;
       const techAirport = hasTechStop ? (route.techStopAirport.iataCode || route.techStopAirport.icaoCode) : null;
 
-      // Calculate arrival strip duration to determine if flight numbers should show
-      const arrTime = flight.arrivalTime ? flight.arrivalTime.substring(0, 5) : '00:00';
-      const [arrHours, arrMinutes] = arrTime.split(':').map(Number);
-      const arrivalStripHours = arrHours + (arrMinutes / 60);
-
-      // Show flight numbers only if BOTH strips have enough space (>= 2 hours each)
-      const showFlightNumbers = hoursUntilMidnight >= 2 && arrivalStripHours >= 2;
-
       // Build route string for tooltip
       const routeStr = hasTechStop
         ? `${depAirport}→${techAirport}→${arrAirport}→${techAirport}→${depAirport}`
         : `${depAirport}→${arrAirport}→${depAirport}`;
 
-      // Render overnight departure block - goes to edge with arrow indicator (centered)
-      // Render overnight departure block - departure info on left, flight numbers centered
+      // Helper to add minutes to a time string
+      const addMinsToTime = (timeStr, mins) => {
+        if (!timeStr) return '??:??';
+        const [h, m] = timeStr.split(':').map(Number);
+        const total = h * 60 + m + mins;
+        const newH = Math.floor(total / 60) % 24;
+        const newM = Math.round(total % 60 / 5) * 5;
+        const finalH = newM === 60 ? (newH + 1) % 24 : newH;
+        const finalM = newM === 60 ? 0 : newM;
+        return `${String(finalH).padStart(2, '0')}:${String(finalM).padStart(2, '0')}`;
+      };
+
+      // Calculate key times
+      const outboundArrTime = addMinsToTime(depTime, outboundFlightMinutes);
+      const returnDepTimeCalc = addMinsToTime(depTime, outboundFlightMinutes + turnaroundMinutes);
+
+      // Render overnight departure segments
+      // Determine which segments fit before midnight
+      let segmentsHtml = '';
+      let currentLeft = leftPercent;
+      let remainingMinutes = minutesUntilMidnight;
+
+      // Outbound segment (or first part of it)
+      const outboundWidth = Math.min(outboundFlightMinutes, remainingMinutes);
+      const outboundWidthPercent = (outboundWidth / 60) * 100;
+      const outboundContinues = outboundFlightMinutes > remainingMinutes;
+      const outboundCompact = outboundWidth < 90 ? 'compact' : '';
+
+      segmentsHtml += `
+        <div class="flight-segment segment-outbound ${outboundCompact}"
+             style="left: ${currentLeft}%; width: calc(${outboundWidthPercent}%${outboundContinues ? ' + 0.5rem' : ''}); ${outboundContinues ? 'border-radius: 3px 0 0 3px;' : ''}"
+             onclick="viewFlightDetails('${flight.id}')"
+             title="${route.routeNumber}: ${depAirport} → ${arrAirport} | ${depTime}-${outboundArrTime}${outboundContinues ? ' (continues tomorrow)' : ''}">
+          <span class="segment-flight-num">${route.routeNumber}</span>
+          <span class="segment-route">${depAirport}-${arrAirport}</span>
+          <span class="segment-time">${depTime}${outboundContinues ? ' →' : '-' + outboundArrTime}</span>
+        </div>
+      `;
+      currentLeft += outboundWidthPercent;
+      remainingMinutes -= outboundWidth;
+
+      // If outbound didn't finish, we're done for today
+      if (!outboundContinues && remainingMinutes > 0) {
+        // Turnaround segment (or first part of it)
+        const turnaroundWidth = Math.min(turnaroundMinutes, remainingMinutes);
+        const turnaroundWidthPercent = (turnaroundWidth / 60) * 100;
+        const turnaroundContinues = turnaroundMinutes > remainingMinutes;
+        const turnaroundCompact = turnaroundWidth < 45 ? 'compact' : '';
+
+        segmentsHtml += `
+          <div class="flight-segment segment-turnaround ${turnaroundCompact}"
+               style="left: ${currentLeft}%; width: calc(${turnaroundWidthPercent}%${turnaroundContinues ? ' + 0.5rem' : ''});"
+               onclick="viewFlightDetails('${flight.id}')"
+               title="Turnaround at ${arrAirport} (${turnaroundMinutes}m)${turnaroundContinues ? ' (continues tomorrow)' : ''}">
+            <span class="segment-label">${arrAirport}</span>
+            <span class="segment-time">${turnaroundMinutes}m${turnaroundContinues ? ' →' : ''}</span>
+          </div>
+        `;
+        currentLeft += turnaroundWidthPercent;
+        remainingMinutes -= turnaroundWidth;
+
+        // If turnaround finished, show return segment
+        if (!turnaroundContinues && remainingMinutes > 0) {
+          const returnWidth = Math.min(returnFlightMinutes, remainingMinutes);
+          const returnWidthPercent = (returnWidth / 60) * 100;
+          const returnContinues = returnFlightMinutes > remainingMinutes;
+          const returnCompact = returnWidth < 90 ? 'compact' : '';
+          const returnArrTimeCalc = addMinsToTime(returnDepTimeCalc, returnFlightMinutes);
+
+          segmentsHtml += `
+            <div class="flight-segment segment-return ${returnCompact}"
+                 style="left: ${currentLeft}%; width: calc(${returnWidthPercent}%${returnContinues ? ' + 0.5rem' : ''}); ${returnContinues ? 'border-radius: 0;' : ''}"
+                 onclick="viewFlightDetails('${flight.id}')"
+                 title="${route.returnRouteNumber}: ${arrAirport} → ${depAirport} | ${returnDepTimeCalc}-${returnArrTimeCalc}${returnContinues ? ' (continues tomorrow)' : ''}">
+              <span class="segment-flight-num">${route.returnRouteNumber}</span>
+              <span class="segment-route">${arrAirport}-${depAirport}</span>
+              <span class="segment-time">${returnContinues ? returnDepTimeCalc + ' →' : returnDepTimeCalc + '-' + returnArrTimeCalc}</span>
+            </div>
+          `;
+        }
+      }
+
       return `
         ${preFlightExtensionHtmlEarly}
-        <div
-          class="flight-block overnight-departure"
-          style="
-            position: absolute;
-            top: 0;
-            left: ${leftPercent}%;
-            width: calc(${widthPercent}% + 1.5rem);
-            height: 100%;
-            min-height: 50px;
-            background: var(--accent-color);
-            border-radius: 3px 0 0 3px;
-            color: white;
-            font-size: 0.65rem;
-            font-weight: 600;
-            padding: 0.25rem 0.5rem;
-            cursor: pointer;
-            z-index: 1;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            overflow: visible;
-            box-sizing: border-box;
-          "
-          onclick="viewFlightDetails('${flight.id}')"
-          title="${route.routeNumber}/${route.returnRouteNumber}: ${routeStr} | Departs ${depTime}, arrives ${flight.arrivalDate} at ${flight.arrivalTime?.substring(0, 5) || '??:??'}"
-        >
-          <div style="display: flex; flex-direction: column; gap: 0.05rem;">
-            <div>${depAirport}</div>
-            <div style="font-size: 0.55rem; opacity: 0.85;">${depTime}</div>
-            <div>${arrAirport}</div>
-          </div>
-          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.7rem; line-height: 1.2;">
-            ${hasTechStop ? `<div style="font-size: 0.6rem; font-weight: 700; color: #10b981;">via ${techAirport}</div>` : ''}
-            <div>${formatRouteNumber(route.routeNumber)}</div>
-            <div>${formatRouteNumber(route.returnRouteNumber)}</div>
-            ${hasTechStop ? `<div style="font-size: 0.6rem; font-weight: 700; color: #10b981;">via ${techAirport}</div>` : ''}
-          </div>
-          <div style="width: 2rem;"></div>
-        </div>
+        ${segmentsHtml}
       `;
     }
 
@@ -1133,7 +1458,9 @@ function renderFlightBlocks(flights, viewingDate) {
     // Pre-flight extension starts before the flight (to the left)
     const preFlightLeftPercent = leftPercent - preFlightWidthPercent;
     // Post-flight extension starts after the flight ends
-    const postFlightLeftPercent = leftPercent + widthPercent;
+    // Use actual total duration (not widthPercent which incorrectly subtracts offset)
+    const totalFlightWidthPercent = ((outboundFlightMinutes + turnaroundMinutes + returnFlightMinutes) / 60) * 100;
+    const postFlightLeftPercent = leftPercent + totalFlightWidthPercent;
 
     // Build pre-flight extension HTML (shown before the flight block)
     const preFlightExtensionHtml = preFlightMinutes > 0 ? `
@@ -1164,280 +1491,26 @@ function renderFlightBlocks(flights, viewingDate) {
       >POST</div>
     ` : '';
 
-    // Use simplified layout for short flights (under 2 hours total)
-    const isShortFlight = durationHours < 2;
-    const isVeryShortFlight = durationHours < 1.5;
-
-    if (isVeryShortFlight) {
-      // Ultra-compact layout for very short flights - IATA codes only
-      // For tech stops, show tech stop code in green above route info
-      if (techStopAirport) {
-        return `
-          ${preFlightExtensionHtml}
-          <div
-            class="flight-block"
-            style="
-              position: absolute;
-              top: 0;
-              left: ${leftPercent}%;
-              width: ${widthPercent}%;
-              height: 100%;
-              min-height: 50px;
-              background: var(--accent-color);
-              border-radius: 3px;
-              color: white;
-              font-size: 0.55rem;
-              font-weight: 600;
-              padding: 0.2rem 0.25rem;
-              cursor: pointer;
-              z-index: 1;
-              display: grid;
-              grid-template-columns: 1fr auto 1fr;
-              grid-template-rows: auto auto auto auto;
-              gap: 0.04rem 0.1rem;
-              line-height: 1;
-              align-items: center;
-            "
-            onclick="viewFlightDetails('${flight.id}')"
-            title="${route.routeNumber}/${route.returnRouteNumber}: ${depAirport}→${techStopAirport}→${arrAirport}→${techStopAirport}→${depAirport} | Block-Off ${depTime} Block-On ${returnArrTime}"
-          >
-            <div style="grid-column: 1; grid-row: 1; text-align: left;">${depAirport}</div>
-            <div style="grid-column: 2; grid-row: 1; text-align: center; color: #10b981; font-size: 0.5rem; font-weight: 700;">via ${techStopAirport}</div>
-            <div style="grid-column: 3; grid-row: 1; text-align: right;">${arrAirport}</div>
-
-            <div style="grid-column: 1 / 4; grid-row: 2; text-align: center; font-size: 0.5rem;">${formatRouteNumber(route.routeNumber)} / ${formatRouteNumber(route.returnRouteNumber)}</div>
-
-            <div style="grid-column: 1; grid-row: 3; text-align: left;">${arrAirport}</div>
-            <div style="grid-column: 2; grid-row: 3; text-align: center; color: #10b981; font-size: 0.5rem; font-weight: 700;">via ${techStopAirport}</div>
-            <div style="grid-column: 3; grid-row: 3; text-align: right;">${depAirport}</div>
-
-            <div style="grid-column: 1 / 4; grid-row: 4; text-align: center; font-size: 0.48rem; opacity: 0.85; margin-top: 0.02rem;">${depTime}</div>
-          </div>
-          ${postFlightExtensionHtml}
-        `;
-      }
-
-      return `
-        ${preFlightExtensionHtml}
-        <div
-          class="flight-block"
-          style="
-            position: absolute;
-            top: 0;
-            left: ${leftPercent}%;
-            width: ${widthPercent}%;
-            height: auto;
-            min-height: 62px;
-            background: var(--accent-color);
-            border-radius: 3px;
-            color: white;
-            font-size: 0.6rem;
-            font-weight: 600;
-            padding: 0.2rem 0.25rem;
-            cursor: pointer;
-            z-index: 1;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            grid-template-rows: auto auto auto;
-            gap: 0.05rem;
-            line-height: 1;
-            align-items: center;
-          "
-          onclick="viewFlightDetails('${flight.id}')"
-          title="${route.routeNumber}/${route.returnRouteNumber}: ${depAirport}→${arrAirport}→${depAirport} | Block-Off ${depTime} Block-On ${returnArrTime}"
-        >
-          <div style="grid-column: 1; grid-row: 1; text-align: left;">${depAirport}</div>
-          <div style="grid-column: 2; grid-row: 1; text-align: right;">${arrAirport}</div>
-          <div style="grid-column: 1; grid-row: 2; text-align: left;">${arrAirport}</div>
-          <div style="grid-column: 2; grid-row: 2; text-align: right;">${depAirport}</div>
-          <div style="grid-column: 1 / 3; grid-row: 3; text-align: center; font-size: 0.52rem; opacity: 0.85; margin-top: 0.05rem;">${depTime}</div>
-        </div>
-        ${postFlightExtensionHtml}
-      `;
-    }
-
-    if (isShortFlight) {
-      // Compact layout for short flights - hide bottom row and return time
-      // For tech stops, show tech stop code above route numbers in green
-      if (techStopAirport) {
-        return `
-          ${preFlightExtensionHtml}
-          <div
-            class="flight-block"
-            style="
-              position: absolute;
-              top: 0;
-              left: ${leftPercent}%;
-              width: ${widthPercent}%;
-              height: 100%;
-              min-height: 50px;
-              background: var(--accent-color);
-              border-radius: 3px;
-              color: white;
-              font-size: 0.6rem;
-              font-weight: 600;
-              padding: 0.2rem 0.25rem;
-              cursor: pointer;
-              z-index: 1;
-              display: grid;
-              grid-template-columns: auto 1fr auto;
-              grid-template-rows: auto auto auto;
-              gap: 0.08rem 0.2rem;
-              line-height: 1;
-            "
-            onclick="viewFlightDetails('${flight.id}')"
-            title="${route.routeNumber}/${route.returnRouteNumber}: ${depAirport}→${techStopAirport}→${arrAirport}→${techStopAirport}→${depAirport} | Block-Off ${depTime} Block-On ${returnArrTime}"
-          >
-            <div style="grid-column: 1; grid-row: 1; text-align: left;">${depAirport}</div>
-            <div style="grid-column: 2; grid-row: 1; text-align: center; color: #10b981; font-size: 0.58rem; font-weight: 700;">via ${techStopAirport}</div>
-            <div style="grid-column: 3; grid-row: 1; text-align: right;">${arrAirport}</div>
-            <div style="grid-column: 1; grid-row: 2; text-align: left; font-size: 0.52rem; opacity: 0.85;">${depTime}</div>
-            <div style="grid-column: 2; grid-row: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.58rem; gap: 0.02rem;">
-              <div>${formatRouteNumber(route.routeNumber)}</div>
-              <div>${formatRouteNumber(route.returnRouteNumber)}</div>
-            </div>
-            <div style="grid-column: 3; grid-row: 2; text-align: right; font-size: 0.52rem; opacity: 0.85;"></div>
-            <div style="grid-column: 1; grid-row: 3; text-align: left;">${arrAirport}</div>
-            <div style="grid-column: 2; grid-row: 3; text-align: center; color: #10b981; font-size: 0.58rem; font-weight: 700;">via ${techStopAirport}</div>
-            <div style="grid-column: 3; grid-row: 3; text-align: right;">${depAirport}</div>
-          </div>
-          ${postFlightExtensionHtml}
-        `;
-      }
-
-      return `
-        ${preFlightExtensionHtml}
-        <div
-          class="flight-block"
-          style="
-            position: absolute;
-            top: 0;
-            left: ${leftPercent}%;
-            width: ${widthPercent}%;
-            height: auto;
-            min-height: 62px;
-            background: var(--accent-color);
-            border-radius: 3px;
-            color: white;
-            font-size: 0.6rem;
-            font-weight: 600;
-            padding: 0.2rem 0.25rem;
-            cursor: pointer;
-            z-index: 1;
-            display: grid;
-            grid-template-columns: auto 1fr auto;
-            grid-template-rows: auto auto;
-            gap: 0.1rem 0.2rem;
-            line-height: 1;
-          "
-          onclick="viewFlightDetails('${flight.id}')"
-          title="${route.routeNumber}/${route.returnRouteNumber}: ${depAirport}→${arrAirport}→${depAirport} | Block-Off ${depTime} Block-On ${returnArrTime}"
-        >
-          <div style="grid-column: 1; grid-row: 1; text-align: left;">${depAirport}</div>
-          <div style="grid-column: 2; grid-row: 1 / 3; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.62rem; gap: 0.05rem;">
-            <div>${formatRouteNumber(route.routeNumber)}</div>
-            <div>${formatRouteNumber(route.returnRouteNumber)}</div>
-          </div>
-          <div style="grid-column: 3; grid-row: 1; text-align: right;">${arrAirport}</div>
-          <div style="grid-column: 1; grid-row: 2; text-align: left; font-size: 0.52rem; opacity: 0.85;">${depTime}</div>
-        </div>
-        ${postFlightExtensionHtml}
-      `;
-    }
-
-    // Full layout for longer flights
-    // For tech stops, show tech stop code in green above route numbers
-    if (techStopAirport) {
-      return `
-        ${preFlightExtensionHtml}
-        <div
-          class="flight-block"
-          style="
-            position: absolute;
-            top: 0;
-            left: ${leftPercent}%;
-            width: ${widthPercent}%;
-            height: auto;
-            min-height: 62px;
-            background: var(--accent-color);
-            border-radius: 3px;
-            color: white;
-            font-size: 0.65rem;
-            font-weight: 600;
-            padding: 0.25rem 0.35rem;
-            cursor: pointer;
-            z-index: 1;
-            display: grid;
-            grid-template-columns: auto 1fr auto;
-            grid-template-rows: auto auto auto;
-            gap: 0.12rem 0.25rem;
-            line-height: 1.1;
-          "
-          onclick="viewFlightDetails('${flight.id}')"
-          title="${route.routeNumber}/${route.returnRouteNumber}: ${depAirport}→${techStopAirport}→${arrAirport}→${techStopAirport}→${depAirport} | Block-Off ${depTime} Block-On ${returnArrTime}"
-        >
-          <div style="grid-column: 1; grid-row: 1; text-align: left;">${depAirport}</div>
-          <div style="grid-column: 2; grid-row: 1; display: flex; align-items: center; justify-content: center;">
-            <span style="color: #10b981; font-size: 0.6rem; font-weight: 700;">via ${techStopAirport}</span>
-          </div>
-          <div style="grid-column: 3; grid-row: 1; text-align: right;">${arrAirport}</div>
-
-          <div style="grid-column: 1; grid-row: 2; text-align: left; font-size: 0.58rem; opacity: 0.85;">${depTime}</div>
-          <div style="grid-column: 2; grid-row: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.68rem; gap: 0.08rem;">
-            <div>${formatRouteNumber(route.routeNumber)}</div>
-            <div>${formatRouteNumber(route.returnRouteNumber)}</div>
-          </div>
-          <div style="grid-column: 3; grid-row: 2; text-align: right; font-size: 0.58rem; opacity: 0.85;">${returnArrTime}</div>
-
-          <div style="grid-column: 1; grid-row: 3; text-align: left;">${arrAirport}</div>
-          <div style="grid-column: 2; grid-row: 3; display: flex; align-items: center; justify-content: center;">
-            <span style="color: #10b981; font-size: 0.6rem; font-weight: 700;">via ${techStopAirport}</span>
-          </div>
-          <div style="grid-column: 3; grid-row: 3; text-align: right;">${depAirport}</div>
-        </div>
-        ${postFlightExtensionHtml}
-      `;
-    }
+    // Render segmented flight strips: Outbound → Turnaround (purple) → Return
+    const segmentsHtml = renderFlightSegments({
+      flight,
+      route,
+      leftPercent,
+      outboundMins: outboundFlightMinutes,
+      turnaroundMins: turnaroundMinutes,
+      returnMins: returnFlightMinutes,
+      hasTechStop: !!hasTechStop,
+      legMins: hasTechStop ? { leg1: leg1Minutes, leg2: leg2Minutes, leg3: leg3Minutes, leg4: leg4Minutes } : {},
+      depAirport,
+      arrAirport,
+      techStopAirport,
+      depTime,
+      returnArrTime
+    });
 
     return `
       ${preFlightExtensionHtml}
-      <div
-        class="flight-block"
-        style="
-          position: absolute;
-          top: 0;
-          left: ${leftPercent}%;
-          width: ${widthPercent}%;
-          height: 100%;
-          min-height: 50px;
-          background: var(--accent-color);
-          border-radius: 3px;
-          color: white;
-          font-size: 0.65rem;
-          font-weight: 600;
-          padding: 0.25rem 0.35rem;
-          cursor: pointer;
-          z-index: 1;
-          display: grid;
-          grid-template-columns: auto 1fr auto;
-          grid-template-rows: auto auto auto;
-          gap: 0.15rem 0.25rem;
-          line-height: 1.1;
-        "
-        onclick="viewFlightDetails('${flight.id}')"
-        title="${route.routeNumber}/${route.returnRouteNumber}: ${depAirport}→${arrAirport}→${depAirport} | Block-Off ${depTime} Block-On ${returnArrTime}"
-      >
-        <div style="grid-column: 1; grid-row: 1; text-align: left;">${depAirport}</div>
-        <div style="grid-column: 2; grid-row: 1 / 4; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.7rem;">
-          <div>${formatRouteNumber(route.routeNumber)}</div>
-          <div>${formatRouteNumber(route.returnRouteNumber)}</div>
-        </div>
-        <div style="grid-column: 3; grid-row: 1; text-align: right;">${arrAirport}</div>
-        <div style="grid-column: 1; grid-row: 3; text-align: left;">${arrAirport}</div>
-        <div style="grid-column: 3; grid-row: 3; text-align: right;">${depAirport}</div>
-        <div style="grid-column: 1 / 2; grid-row: 2; text-align: left; font-size: 0.6rem; opacity: 0.85;">${depTime}</div>
-        <div style="grid-column: 3 / 4; grid-row: 2; text-align: right; font-size: 0.6rem; opacity: 0.85;">${returnArrTime}</div>
-      </div>
+      ${segmentsHtml}
       ${postFlightExtensionHtml}
     `;
   }).join('');
@@ -1910,6 +1983,23 @@ function isHeavyCheckDue(aircraft, checkType, flightDate) {
   return flightDateObj >= expiryDate;
 }
 
+// Check if a daily check is due for the flight date
+// Daily checks are valid for 2 calendar days until midnight UTC
+function isDailyCheckDue(aircraft, flightDate) {
+  const lastCheckDate = aircraft.lastDailyCheckDate;
+  if (!lastCheckDate) return true; // No daily check recorded, assume needed
+
+  const lastCheck = new Date(lastCheckDate);
+  const flightDateObj = new Date(flightDate + 'T23:59:59Z');
+
+  // Daily checks valid for 2 days
+  const expiryDate = new Date(lastCheck);
+  expiryDate.setUTCDate(expiryDate.getUTCDate() + 2);
+
+  // Daily check is due if flight date is past expiry
+  return flightDateObj >= expiryDate;
+}
+
 // Add days to a date string (YYYY-MM-DD format)
 function addDaysToDate(dateStr, days) {
   const date = new Date(dateStr + 'T00:00:00Z');
@@ -2286,7 +2376,7 @@ function showPostFlightModal(flightId) {
     const releaseDate = addDaysToDate(scheduledDate, 60);
     content += `
       <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center;">
-        <span style="color: #8b949e; font-size: 0.85rem;">Aircraft Available:</span>
+        <span style="color: #8b949e; font-size: 0.85rem;">Aircraft next available:</span>
         <span style="color: #f85149; font-size: 0.85rem; font-weight: 600;">${formatDateShort(releaseDate)} (after D Check)</span>
       </div>
     `;
@@ -2294,7 +2384,7 @@ function showPostFlightModal(flightId) {
     const releaseDate = addDaysToDate(scheduledDate, 14);
     content += `
       <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center;">
-        <span style="color: #8b949e; font-size: 0.85rem;">Aircraft Available:</span>
+        <span style="color: #8b949e; font-size: 0.85rem;">Aircraft next available:</span>
         <span style="color: #a371f7; font-size: 0.85rem; font-weight: 600;">${formatDateShort(releaseDate)} (after C Check)</span>
       </div>
     `;
@@ -2306,7 +2396,7 @@ function showPostFlightModal(flightId) {
     }
     content += `
       <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center;">
-        <span style="color: #8b949e; font-size: 0.85rem;">Aircraft Available:</span>
+        <span style="color: #8b949e; font-size: 0.85rem;">Aircraft next available:</span>
         <span style="color: #7ee787; font-size: 0.85rem; font-weight: 600;">${availableDay > 0 ? formatDateShort(availableDateStr) + ' ' : ''}${formatTime(availableMins)}</span>
       </div>
     `;
@@ -2543,7 +2633,7 @@ async function viewFlightDetailsLegacy(flightId) {
     availableHtml = `
       <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #30363d;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <span style="color: #8b949e; font-size: 0.85rem;">Aircraft Available:</span>
+          <span style="color: #8b949e; font-size: 0.85rem;">Aircraft next available:</span>
           <span style="color: #f85149; font-size: 0.85rem; font-weight: 600;">${formatDateShort(releaseDate)} (after D Check)</span>
         </div>
       </div>
@@ -2553,7 +2643,7 @@ async function viewFlightDetailsLegacy(flightId) {
     availableHtml = `
       <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #30363d;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <span style="color: #8b949e; font-size: 0.85rem;">Aircraft Available:</span>
+          <span style="color: #8b949e; font-size: 0.85rem;">Aircraft next available:</span>
           <span style="color: #a371f7; font-size: 0.85rem; font-weight: 600;">${formatDateShort(releaseDate)} (after C Check)</span>
         </div>
       </div>
@@ -2568,7 +2658,7 @@ async function viewFlightDetailsLegacy(flightId) {
     availableHtml = `
       <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #30363d;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <span style="color: #8b949e; font-size: 0.85rem;">Aircraft Available:</span>
+          <span style="color: #8b949e; font-size: 0.85rem;">Aircraft next available:</span>
           <span style="color: #7ee787; font-size: 0.85rem; font-weight: 600;">${availableDay > 0 ? formatDateShort(availableDateStr) + ' ' : ''}${formatTime(availableMins)}</span>
         </div>
       </div>
@@ -2720,6 +2810,15 @@ function showAircraftOnMap(registration) {
   window.location.href = `/world-map?aircraft=${encodeURIComponent(registration)}`;
 }
 
+// Create next flight - close modal and trigger add route dialog
+function createNextFlight(aircraftId, routeId) {
+  closeFlightDetailsModal();
+  // Trigger the add route dialog for this aircraft
+  if (typeof addRouteToAircraft === 'function') {
+    addRouteToAircraft(aircraftId);
+  }
+}
+
 // View flight details for weekly view (includes turnaround details)
 async function viewFlightDetailsWeekly(flightId) {
   const flight = scheduledFlights.find(f => f.id === flightId);
@@ -2773,8 +2872,6 @@ async function viewFlightDetailsWeekly(flightId) {
       returnMinutes = calculateFlightMinutes(route.distance, cruiseSpeed, arrLng, depLng, arrLat, depLat);
     }
   }
-
-  const totalMinutes = outboundMinutes + turnaroundMinutes + returnMinutes;
 
   const formatDuration = (mins) => {
     const roundedMins = Math.round(mins / 5) * 5;
@@ -2850,11 +2947,20 @@ async function viewFlightDetailsWeekly(flightId) {
   const cCheckDue = isHeavyCheckDue(aircraft, 'C', scheduledDate);
   const dCheckDue = isHeavyCheckDue(aircraft, 'D', scheduledDate);
 
+  // Check if daily check is due during turnaround
+  const dailyCheckDue = isDailyCheckDue(aircraft, scheduledDate);
+  const dailyCheckDuration = 30; // Daily check takes 30 minutes
+
   // Calculate all phase times - MUST match display times for consistency
   const now = typeof window.getGlobalWorldTime === 'function' ? window.getGlobalWorldTime() : new Date();
   const [year, month, day] = scheduledDate.split('-').map(Number);
   // Use local time (not UTC) to match how world time is represented
   const departureDateTime = new Date(year, month - 1, day, depH, depM);
+
+  // Check if this flight is in the future (scheduled date is after current world date)
+  const nowDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const flightDateOnly = new Date(year, month - 1, day);
+  const isFutureFlight = flightDateOnly > nowDateOnly;
 
   // Outbound sector times
   const outboundPreFlightStart = new Date(departureDateTime.getTime() - preFlightTotal * 60000);
@@ -2864,23 +2970,18 @@ async function viewFlightDetailsWeekly(flightId) {
   // Return departs at arrAtDestMins + turnaroundMinutes (same as display shows)
   const returnDepartureTime = new Date(outboundArrivalTime.getTime() + turnaroundMinutes * 60000);
   const returnArrivalTime = new Date(returnDepartureTime.getTime() + returnMinutes * 60000);
-  const returnPostFlightEnd = new Date(returnArrivalTime.getTime() + postFlightTotal * 60000);
 
   // For progress calculations: return pre-flight starts after outbound post-flight
   // Cap post-flight at turnaround time to ensure pre-flight doesn't start after return departure
   const effectivePostFlightAtDest = Math.min(postFlightTotal, turnaroundMinutes);
   const returnPreFlightStart = new Date(outboundArrivalTime.getTime() + effectivePostFlightAtDest * 60000);
 
-  // Total operation time
-  const totalOperationMs = returnPostFlightEnd.getTime() - outboundPreFlightStart.getTime();
-  const totalOperationMins = totalOperationMs / 60000;
-
-  // Overall flight progress
-  const overallElapsedMs = now.getTime() - outboundPreFlightStart.getTime();
-  const overallProgress = Math.max(0, Math.min(100, Math.round((overallElapsedMs / totalOperationMs) * 100)));
 
   // Helper to calculate progress for a phase
   const calcPhaseProgress = (phaseStartTime, phaseDurationMins) => {
+    // Future flights always show 0% progress
+    if (isFutureFlight) return 0;
+
     const phaseStartMs = phaseStartTime.getTime();
     const phaseDurationMs = phaseDurationMins * 60000;
     const elapsedMs = now.getTime() - phaseStartMs;
@@ -2902,6 +3003,10 @@ async function viewFlightDetailsWeekly(flightId) {
   const outPostFlightProgress = calcPhaseProgress(outboundArrivalTime, postFlightTotal);
   const outDeboardingProgress = deboardingDuration > 0 ? calcPhaseProgress(outboundArrivalTime, deboardingDuration) : 100;
   const outCleaningProgress = calcPhaseProgress(new Date(outboundArrivalTime.getTime() + deboardingDuration * 60000), cleaningDuration);
+
+  // Daily check progress (starts after cleaning, during turnaround)
+  const dailyCheckStartTime = new Date(outboundArrivalTime.getTime() + (deboardingDuration + cleaningDuration) * 60000);
+  const outDailyCheckProgress = dailyCheckDue ? calcPhaseProgress(dailyCheckStartTime, dailyCheckDuration) : 100;
 
   // Return pre-flight progress
   const retPreFlightProgress = calcPhaseProgress(returnPreFlightStart, preFlightTotal);
@@ -2938,6 +3043,11 @@ async function viewFlightDetailsWeekly(flightId) {
     retLeg4Progress = calcPhaseProgress(retLeg4Start, leg4Minutes);
   }
 
+  // Determine if sectors are complete (for dimming)
+  const isOutboundComplete = outFlightProgress === 100 && outPostFlightProgress === 100;
+  const isReturnComplete = retFlightProgress === 100 && retPostFlightProgress === 100;
+  const isFlightComplete = isOutboundComplete && isReturnComplete;
+
   // Helper to build progress bar HTML with optional ID for live updates
   const progressBar = (progress, color, height = '4px', id = null) => `
     <div style="display: flex; align-items: center; gap: 0.4rem; margin-top: 0.1rem;">
@@ -2972,8 +3082,9 @@ async function viewFlightDetailsWeekly(flightId) {
   };
 
   // Helper to build post-flight section with IDs for live updates
-  const buildPostFlightSection = (deboardingProg, cleaningProg, totalProg, prefix) => {
-    const allComplete = totalProg === 100;
+  // showDailyCheck and dailyCheckProg are optional - only used for outbound sector
+  const buildPostFlightSection = (deboardingProg, cleaningProg, totalProg, prefix, showDailyCheck = false, dailyCheckProg = 0) => {
+    const allComplete = showDailyCheck ? (totalProg === 100 && dailyCheckProg === 100) : totalProg === 100;
     const headerStyle = allComplete ? 'opacity: 0.4;' : '';
     return `
     <div style="flex: 1; min-width: 140px;">
@@ -2981,6 +3092,7 @@ async function viewFlightDetailsWeekly(flightId) {
       <div style="font-size: 0.75rem;">
         ${deboardingDuration > 0 ? actionRow('Deboarding', deboardingDuration, deboardingProg, '#58a6ff', `${prefix}-deboard`) : ''}
         ${actionRow('Cleaning', cleaningDuration, cleaningProg, '#58a6ff', `${prefix}-cleaning`)}
+        ${showDailyCheck ? actionRow('Daily Check', dailyCheckDuration, dailyCheckProg, '#fbbf24', `${prefix}-daily`) : ''}
       </div>
     </div>
   `;
@@ -3006,7 +3118,7 @@ async function viewFlightDetailsWeekly(flightId) {
     `;
   }
 
-  // Calculate aircraft available time
+  // Calculate aircraft available time (when post-flight ends and aircraft is ready for duty)
   const availableMins = arrHomeMins + postFlightTotal;
   let availableText = '';
   if (dCheckDue) {
@@ -3060,29 +3172,12 @@ async function viewFlightDetailsWeekly(flightId) {
           <div style="display: flex; gap: 2rem; margin-bottom: 1rem; font-size: 0.85rem; flex-wrap: wrap;">
             <div><span style="color: #8b949e;">Aircraft:</span> <span style="color: #f0f6fc; font-weight: 600;">${aircraft.registration}</span> <span style="color: #8b949e;">(${aircraft.aircraft.manufacturer} ${aircraft.aircraft.model})</span></div>
             <div><span style="color: #8b949e;">Date:</span> <span style="color: #f0f6fc;">${formattedDate}</span></div>
-            <div><span style="color: #8b949e;">Flight Time:</span> <span style="color: #7ee787; font-weight: 600;">${formatDuration(totalMinutes)}</span></div>
-            <div><span style="color: #8b949e;">Total Operation:</span> <span style="color: #ffa657; font-weight: 600;">${formatDuration(totalOperationMins)}</span></div>
-          </div>
-
-          <!-- Overall progress bar -->
-          <div style="margin-bottom: 1.25rem; padding: 0.75rem; background: #21262d; border-radius: 6px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-              <span style="color: #f0f6fc; font-weight: 600; font-size: 0.85rem;">Overall Flight Progress</span>
-              <span id="overall-pct" style="color: ${overallProgress === 100 ? '#7ee787' : '#ffa657'}; font-weight: 600; font-size: 0.9rem;">${overallProgress}%</span>
-            </div>
-            <div style="height: 8px; background: #30363d; border-radius: 4px; overflow: hidden;">
-              <div id="overall-bar" style="width: ${overallProgress}%; height: 100%; background: linear-gradient(90deg, #3fb950, #58a6ff); border-radius: 4px; transition: width 0.3s;"></div>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-top: 0.4rem; font-size: 0.7rem; color: #8b949e;">
-              <span>${formatTime(depTotalMins - preFlightTotal)}</span>
-              <span>Aircraft Available: ${availableText}</span>
-            </div>
           </div>
 
           <!-- Two sector columns -->
           <div style="display: flex; gap: 1.5rem;">
             <!-- Outbound Sector -->
-            <div style="flex: 1; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 1rem;">
+            <div id="outbound-sector" style="flex: 1; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 1rem; ${isOutboundComplete ? 'opacity: 0.5;' : ''}">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid #30363d;">
                 <div>
                   <div style="font-weight: 700; color: #58a6ff; font-size: 0.9rem;">OUTBOUND</div>
@@ -3135,12 +3230,12 @@ async function viewFlightDetailsWeekly(flightId) {
               <!-- Pre and Post flight side by side -->
               <div style="display: flex; gap: 0.75rem;">
                 ${buildPreFlightSection(outCateringProgress, outBoardingProgress, outFuellingProgress, outPreFlightProgress, 'out-pre')}
-                ${buildPostFlightSection(outDeboardingProgress, outCleaningProgress, outPostFlightProgress, 'out-post')}
+                ${buildPostFlightSection(outDeboardingProgress, outCleaningProgress, outPostFlightProgress, 'out-post', dailyCheckDue, outDailyCheckProgress)}
               </div>
             </div>
 
             <!-- Return Sector -->
-            <div style="flex: 1; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 1rem;">
+            <div id="return-sector" style="flex: 1; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 1rem; ${isReturnComplete ? 'opacity: 0.5;' : ''}">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid #30363d;">
                 <div>
                   <div style="font-weight: 700; color: #a855f7; font-size: 0.9rem;">RETURN</div>
@@ -3196,6 +3291,27 @@ async function viewFlightDetailsWeekly(flightId) {
                 ${buildPostFlightSection(retDeboardingProgress, retCleaningProgress, retPostFlightProgress, 'ret-post')}
               </div>
             </div>
+          </div>
+
+          <!-- Aircraft Next Available Section -->
+          <div style="margin-top: 1.25rem; padding: 1rem; background: #21262d; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <div style="font-size: 0.75rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.25rem;">Aircraft Next Available</div>
+              <div style="font-size: 1.25rem; font-weight: 700;">${availableText}</div>
+            </div>
+            <button onclick="createNextFlight('${aircraft.id}', '${route.id}')" style="
+              padding: 0.6rem 1.2rem;
+              background: #238636;
+              border: 1px solid #2ea043;
+              border-radius: 6px;
+              color: white;
+              cursor: pointer;
+              font-size: 0.85rem;
+              font-weight: 600;
+              display: flex;
+              align-items: center;
+              gap: 0.5rem;
+            "><span style="font-size: 1.1rem;">+</span> Create Next Flight</button>
           </div>
 
           ${maintenanceHtml}
@@ -3303,17 +3419,9 @@ async function viewFlightDetailsWeekly(flightId) {
     // Get current world time
     const now = typeof window.getGlobalWorldTime === 'function' ? window.getGlobalWorldTime() : new Date();
 
-    // Recalculate overall progress
-    const overallElapsedMs = now.getTime() - outboundPreFlightStart.getTime();
-    const newOverallProgress = Math.max(0, Math.min(100, Math.round((overallElapsedMs / totalOperationMs) * 100)));
-
-    // Update overall progress bar
-    const overallBar = document.getElementById('overall-bar');
-    const overallPct = document.getElementById('overall-pct');
-    if (overallBar) overallBar.style.width = `${newOverallProgress}%`;
-    if (overallPct) {
-      overallPct.textContent = `${newOverallProgress}%`;
-      overallPct.style.color = newOverallProgress === 100 ? '#7ee787' : '#ffa657';
+    // Skip progress updates for future flights - keep showing "SCHEDULED"
+    if (isFutureFlight) {
+      return;
     }
 
     // Helper to calculate phase progress (same logic as above)
@@ -3350,7 +3458,11 @@ async function viewFlightDetailsWeekly(flightId) {
     if (deboardingDuration > 0) updateProgressBar('out-post-deboard', calcProgress(outboundArrivalTime, deboardingDuration));
     updateProgressBar('out-post-cleaning', calcProgress(new Date(outboundArrivalTime.getTime() + deboardingDuration * 60000), cleaningDuration));
     const outPostTotal = calcProgress(outboundArrivalTime, postFlightTotal);
-    updateSectionComplete('out-post', outPostTotal === 100);
+    // Daily check progress (starts after cleaning)
+    const dailyCheckStart = new Date(outboundArrivalTime.getTime() + (deboardingDuration + cleaningDuration) * 60000);
+    const dailyProg = dailyCheckDue ? calcProgress(dailyCheckStart, dailyCheckDuration) : 100;
+    if (dailyCheckDue) updateProgressBar('out-post-daily', dailyProg);
+    updateSectionComplete('out-post', dailyCheckDue ? (outPostTotal === 100 && dailyProg === 100) : outPostTotal === 100);
 
     // Return pre-flight
     if (cateringDuration > 0) updateProgressBar('ret-pre-catering', calcProgress(returnPreFlightStart, cateringDuration));
@@ -3377,6 +3489,19 @@ async function viewFlightDetailsWeekly(flightId) {
     updateProgressBar('ret-post-cleaning', calcProgress(new Date(returnArrivalTime.getTime() + deboardingDuration * 60000), cleaningDuration));
     const retPostTotal = calcProgress(returnArrivalTime, postFlightTotal);
     updateSectionComplete('ret-post', retPostTotal === 100);
+
+    // Update sector dimming when complete
+    const outFlightProg = calcProgress(outboundDepartureTime, outboundMinutes);
+    const retFlightProg = calcProgress(returnDepartureTime, returnMinutes);
+    const outboundSector = document.getElementById('outbound-sector');
+    const returnSector = document.getElementById('return-sector');
+
+    if (outboundSector && outFlightProg === 100 && outPostTotal === 100) {
+      outboundSector.style.opacity = '0.5';
+    }
+    if (returnSector && retFlightProg === 100 && retPostTotal === 100) {
+      returnSector.style.opacity = '0.5';
+    }
   }, 1000);
 }
 
@@ -5083,7 +5208,7 @@ async function scheduleRouteForDay(routeId, dayOfWeek) {
 
   const today = new Date(worldTime);
   const currentDay = today.getDay();
-  const daysUntilTarget = getDaysUntilTargetInWeek(currentDay, dayOfWeek);
+  const daysUntilTarget = getDaysUntilTargetForScheduling(currentDay, dayOfWeek);
   const targetDate = new Date(today);
   targetDate.setDate(today.getDate() + daysUntilTarget);
   const scheduleDate = formatLocalDate(targetDate);
@@ -5881,7 +6006,7 @@ function openScheduleCheckModal(aircraftId, checkType) {
     ` : ''}
 
     <div style="margin-bottom: 1.25rem; padding: 0.65rem; background: rgba(88, 166, 255, 0.1); border: 1px solid rgba(88, 166, 255, 0.2); border-radius: 6px; display: flex; align-items: center; gap: 0.75rem;">
-      <span style="color: var(--text-secondary); font-size: 0.8rem;">Aircraft Available:</span>
+      <span style="color: var(--text-secondary); font-size: 0.8rem;">Aircraft next available:</span>
       <span id="scheduleAvailableTime" style="color: #58a6ff; font-weight: 600; font-size: 0.9rem;">--:--</span>
     </div>
 
@@ -5937,7 +6062,7 @@ function openScheduleCheckModal(aircraftId, checkType) {
       return;
     }
 
-    const daysUntilSelected = getDaysUntilTargetInWeek(currentDay, selectedDay);
+    const daysUntilSelected = getDaysUntilTargetForScheduling(currentDay, selectedDay);
     const selectedTargetDate = new Date(today);
     selectedTargetDate.setDate(today.getDate() + daysUntilSelected);
     const selectedDateStr = formatLocalDate(selectedTargetDate);
@@ -6438,7 +6563,7 @@ async function handleWeeklyDrop(event, aircraftId, dayOfWeek) {
 
   const today = new Date(worldTime);
   const currentDay = today.getDay();
-  const daysUntilTarget = getDaysUntilTargetInWeek(currentDay, dayOfWeek);
+  const daysUntilTarget = getDaysUntilTargetForScheduling(currentDay, dayOfWeek);
   const targetDate = new Date(today);
   targetDate.setDate(today.getDate() + daysUntilTarget);
   const scheduleDate = formatLocalDate(targetDate);
@@ -6546,7 +6671,7 @@ async function handleDrop(event, aircraftId, timeValue) {
 
   const today = new Date(worldTime);
   const currentDay = today.getDay();
-  const daysUntilTarget = getDaysUntilTargetInWeek(currentDay, selectedDayOfWeek);
+  const daysUntilTarget = getDaysUntilTargetForScheduling(currentDay, selectedDayOfWeek);
   const targetDate = new Date(today);
   targetDate.setDate(today.getDate() + daysUntilTarget);
   const scheduleDate = formatLocalDate(targetDate);

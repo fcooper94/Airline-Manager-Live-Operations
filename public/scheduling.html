@@ -278,6 +278,136 @@
     background: #7c3aed;
   }
 
+  /* Flight segment styles - for split outbound/turnaround/return display */
+  .flight-segment {
+    position: absolute;
+    top: 3px;
+    height: calc(100% - 6px);
+    cursor: pointer;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: white;
+    overflow: hidden;
+    padding: 2px 4px;
+    box-sizing: border-box;
+    gap: 1px;
+  }
+
+  .flight-segment .segment-flight-num {
+    font-size: 0.8rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: #ffd700;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  }
+
+  .flight-segment .segment-route {
+    font-size: 0.7rem;
+    font-weight: 600;
+    line-height: 1.1;
+    opacity: 0.95;
+  }
+
+  .flight-segment .segment-time {
+    font-size: 0.65rem;
+    font-weight: 500;
+    line-height: 1.1;
+    opacity: 0.85;
+  }
+
+  .flight-segment .segment-label {
+    font-size: 0.65rem;
+    font-weight: 500;
+    opacity: 0.9;
+  }
+
+  .flight-segment:hover {
+    opacity: 0.9;
+    z-index: 3;
+  }
+
+  /* Outbound segment - dark blue */
+  .segment-outbound {
+    background: #2563eb;
+    border-radius: 3px 0 0 3px;
+  }
+
+  /* Turnaround segment - purple (at destination) */
+  .segment-turnaround {
+    background: #a855f7;
+    border-radius: 0;
+  }
+
+  /* Turnaround with daily check due - amber/yellow highlight */
+  .segment-turnaround.has-daily-check {
+    background: linear-gradient(135deg, #a855f7 0%, #d97706 100%);
+    border: 1px solid #fbbf24;
+  }
+
+  /* Return segment - lighter blue */
+  .segment-return {
+    background: #3b82f6;
+    border-radius: 0 3px 3px 0;
+  }
+
+  /* Tech stop variants - with separation between legs */
+  .segment-outbound-leg1 {
+    background: #2563eb;
+    border-radius: 3px 0 0 3px;
+  }
+
+  .segment-outbound-leg2 {
+    background: #1d4ed8;
+    border-radius: 0;
+  }
+
+  .segment-return-leg1 {
+    background: #60a5fa;
+    border-radius: 0;
+  }
+
+  .segment-return-leg2 {
+    background: #3b82f6;
+    border-radius: 0 3px 3px 0;
+  }
+
+  /* Tech stop gap indicator */
+  .tech-stop-gap {
+    position: absolute;
+    width: 2px;
+    height: calc(100% - 6px);
+    top: 3px;
+    background: rgba(255, 255, 255, 0.4);
+    z-index: 2;
+  }
+
+  /* Compact segment for very short flights */
+  .flight-segment.compact {
+    padding: 1px 2px;
+  }
+  .flight-segment.compact .segment-flight-num {
+    font-size: 0.65rem;
+  }
+  .flight-segment.compact .segment-route,
+  .flight-segment.compact .segment-time {
+    display: none;
+  }
+
+  /* Very compact - hide most text */
+  .flight-segment.very-compact .segment-flight-num {
+    font-size: 0.55rem;
+  }
+  .flight-segment.very-compact .segment-route,
+  .flight-segment.very-compact .segment-time,
+  .flight-segment.very-compact .segment-label {
+    display: none;
+  }
+
   /* Route number styling - prefix (letters) vs number differentiation */
   .route-prefix {
     color: rgba(255, 255, 255, 0.6);
