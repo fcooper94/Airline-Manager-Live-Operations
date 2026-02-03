@@ -306,6 +306,16 @@ function showAircraftDetails(aircraftId) {
             <span class="info-label">Condition</span>
             <span class="info-value" style="font-weight: bold; color: var(--text-primary);">${aircraft.conditionPercentage || (aircraft.condition ? (aircraft.condition === 'New' ? 100 : 70) : 100)}%</span>
           </div>
+          ${aircraft.category === 'used' || aircraft.cCheckRemaining ? `
+          <div class="info-row" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+            <span class="info-label" style="color: #DC2626;">C Check Valid</span>
+            <span class="info-value" style="font-weight: bold; color: ${aircraft.cCheckRemainingDays < 180 ? '#DC2626' : 'var(--text-primary)'};">${aircraft.cCheckRemaining || 'Full'}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label" style="color: #10B981;">D Check Valid</span>
+            <span class="info-value" style="font-weight: bold; color: ${aircraft.dCheckRemainingDays < 365 ? '#FFA500' : 'var(--text-primary)'};">${aircraft.dCheckRemaining || 'Full'}</span>
+          </div>
+          ` : ''}
         </div>
         <div class="card" style="padding: 1.5rem;">
           <h4 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-primary);">SPECIFICATIONS</h4>
@@ -504,7 +514,7 @@ function hideProcessingOverlay() {
 }
 
 // Actually process the purchase after confirmation
-async function confirmPurchase(registration) {
+async function confirmPurchase(registration, autoSchedulePrefs = {}) {
   if (!selectedAircraft) return;
 
   // Show processing overlay
@@ -531,7 +541,14 @@ async function confirmPurchase(registration) {
         purchasePrice: selectedAircraft.purchasePrice,
         maintenanceCostPerHour: selectedAircraft.maintenanceCostPerHour,
         fuelBurnPerHour: selectedAircraft.fuelBurnPerHour,
-        registration: registration
+        registration: registration,
+        // Check validity for used aircraft
+        cCheckRemainingDays: selectedAircraft.cCheckRemainingDays || null,
+        dCheckRemainingDays: selectedAircraft.dCheckRemainingDays || null,
+        // Auto-schedule preferences (light checks only - C/D scheduled manually)
+        autoScheduleDaily: autoSchedulePrefs.autoScheduleDaily || false,
+        autoScheduleA: autoSchedulePrefs.autoScheduleA || false,
+        autoScheduleB: autoSchedulePrefs.autoScheduleB || false
       })
     });
 
@@ -573,10 +590,12 @@ function showConfirmationDialog(title, aircraftName, condition, price, actionTyp
     display: flex;
     justify-content: center;
     align-items: center;
+    overflow-y: auto;
+    padding: 2rem 0;
   `;
 
   overlay.innerHTML = `
-    <div style="background: var(--surface); border: 1px solid var(--border-color); border-radius: 8px; padding: 2rem; width: 90%; max-width: 550px;">
+    <div style="background: var(--surface); border: 1px solid var(--border-color); border-radius: 8px; padding: 2rem; width: 90%; max-width: 550px; margin: auto;">
       <h2 style="margin-bottom: 1.5rem; color: var(--text-primary); text-align: center;">${title}</h2>
 
       <div style="margin-bottom: 1.5rem; padding: 1rem; background: var(--surface-elevated); border-radius: 4px;">
@@ -607,11 +626,75 @@ function showConfirmationDialog(title, aircraftName, condition, price, actionTyp
         <div id="registrationError" style="margin-top: 0.5rem; color: var(--warning-color); font-size: 0.85rem; display: none;"></div>
       </div>
 
+      <!-- Maintenance Auto-Scheduling Options -->
+      <div style="margin-bottom: 1.5rem; padding: 1rem; background: var(--surface-elevated); border-radius: 4px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <label style="color: var(--text-primary); font-weight: 600;">Maintenance Scheduling</label>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-size: 0.8rem; color: var(--text-secondary);">Auto All</span>
+            <label class="toggle-switch" style="position: relative; display: inline-block; width: 44px; height: 24px;">
+              <input type="checkbox" id="autoScheduleAll" style="opacity: 0; width: 0; height: 0;">
+              <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #4b5563; transition: 0.3s; border-radius: 24px;"></span>
+            </label>
+          </div>
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">
+          Auto-schedule recurring maintenance checks to keep them valid.
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--surface); border-radius: 4px;">
+            <span style="font-size: 0.85rem; color: #FFA500;">Daily</span>
+            <label class="toggle-switch" style="position: relative; display: inline-block; width: 36px; height: 20px;">
+              <input type="checkbox" id="autoScheduleDaily" style="opacity: 0; width: 0; height: 0;">
+              <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #4b5563; transition: 0.3s; border-radius: 20px;"></span>
+            </label>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--surface); border-radius: 4px;">
+            <span style="font-size: 0.85rem; color: #3B82F6;">A Check</span>
+            <label class="toggle-switch" style="position: relative; display: inline-block; width: 36px; height: 20px;">
+              <input type="checkbox" id="autoScheduleA" style="opacity: 0; width: 0; height: 0;">
+              <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #4b5563; transition: 0.3s; border-radius: 20px;"></span>
+            </label>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--surface); border-radius: 4px;">
+            <span style="font-size: 0.85rem; color: #8B5CF6;">B Check</span>
+            <label class="toggle-switch" style="position: relative; display: inline-block; width: 36px; height: 20px;">
+              <input type="checkbox" id="autoScheduleB" style="opacity: 0; width: 0; height: 0;">
+              <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #4b5563; transition: 0.3s; border-radius: 20px;"></span>
+            </label>
+          </div>
+        </div>
+        <div style="margin-top: 0.75rem; padding: 0.5rem; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 4px;">
+          <div style="font-size: 0.75rem; color: #f59e0b;">
+            <strong>C &amp; D Checks</strong> are heavy maintenance (14-60 days). Schedule manually when due.
+          </div>
+        </div>
+      </div>
+
       <div style="display: flex; gap: 1rem;">
         <button id="confirmActionBtn" class="btn btn-primary" style="flex: 1; padding: 0.75rem;">${actionType}</button>
         <button id="cancelActionBtn" class="btn btn-secondary" style="flex: 1; padding: 0.75rem;">Cancel</button>
       </div>
     </div>
+    <style>
+      .toggle-switch input:checked + .toggle-slider {
+        background-color: var(--accent-color);
+      }
+      .toggle-switch .toggle-slider:before {
+        content: "";
+        position: absolute;
+        height: calc(100% - 4px);
+        aspect-ratio: 1;
+        left: 2px;
+        bottom: 2px;
+        background-color: white;
+        transition: 0.3s;
+        border-radius: 50%;
+      }
+      .toggle-switch input:checked + .toggle-slider:before {
+        transform: translateX(calc(100% - 2px));
+      }
+    </style>
   `;
 
   document.body.appendChild(overlay);
@@ -620,6 +703,33 @@ function showConfirmationDialog(title, aircraftName, condition, price, actionTyp
   const registrationError = document.getElementById('registrationError');
   const confirmBtn = document.getElementById('confirmActionBtn');
   const inputContainer = registrationSuffix.parentElement;
+
+  // Auto-schedule toggle handlers (only for light checks: Daily, A, B)
+  // C and D checks are heavy maintenance and scheduled manually when due
+  const autoScheduleAll = document.getElementById('autoScheduleAll');
+  const autoScheduleDaily = document.getElementById('autoScheduleDaily');
+  const autoScheduleA = document.getElementById('autoScheduleA');
+  const autoScheduleB = document.getElementById('autoScheduleB');
+
+  const individualToggles = [autoScheduleDaily, autoScheduleA, autoScheduleB];
+
+  // Auto All toggle
+  autoScheduleAll.addEventListener('change', () => {
+    const checked = autoScheduleAll.checked;
+    individualToggles.forEach(toggle => {
+      toggle.checked = checked;
+    });
+  });
+
+  // Individual toggles update Auto All state
+  individualToggles.forEach(toggle => {
+    toggle.addEventListener('change', () => {
+      const allChecked = individualToggles.every(t => t.checked);
+      const noneChecked = individualToggles.every(t => !t.checked);
+      autoScheduleAll.checked = allChecked;
+      autoScheduleAll.indeterminate = !allChecked && !noneChecked;
+    });
+  });
 
   // Validate registration suffix and combine with prefix
   function validateRegistration(suffix) {
@@ -667,9 +777,16 @@ function showConfirmationDialog(title, aircraftName, condition, price, actionTyp
       return;
     }
 
-    // Remove overlay and call confirm callback
+    // Collect auto-schedule preferences (only light checks - C/D are heavy maintenance)
+    const autoSchedulePrefs = {
+      autoScheduleDaily: autoScheduleDaily.checked,
+      autoScheduleA: autoScheduleA.checked,
+      autoScheduleB: autoScheduleB.checked
+    };
+
+    // Remove overlay and call confirm callback with registration and auto-schedule prefs
     document.body.removeChild(overlay);
-    confirmCallback(validation.value);
+    confirmCallback(validation.value, autoSchedulePrefs);
   });
 
   // Add event listener for cancel button
@@ -716,7 +833,7 @@ function processLease() {
 }
 
 // Actually process the lease after confirmation
-async function confirmLease(registration) {
+async function confirmLease(registration, autoSchedulePrefs = {}) {
   if (!selectedAircraft) return;
 
   // Show processing overlay
@@ -745,7 +862,14 @@ async function confirmLease(registration) {
         maintenanceCostPerHour: selectedAircraft.maintenanceCostPerHour,
         fuelBurnPerHour: selectedAircraft.fuelBurnPerHour,
         purchasePrice: selectedAircraft.purchasePrice, // For reference
-        registration: registration
+        registration: registration,
+        // Check validity for used aircraft
+        cCheckRemainingDays: selectedAircraft.cCheckRemainingDays || null,
+        dCheckRemainingDays: selectedAircraft.dCheckRemainingDays || null,
+        // Auto-schedule preferences (light checks only - C/D scheduled manually)
+        autoScheduleDaily: autoSchedulePrefs.autoScheduleDaily || false,
+        autoScheduleA: autoSchedulePrefs.autoScheduleA || false,
+        autoScheduleB: autoSchedulePrefs.autoScheduleB || false
       })
     });
 

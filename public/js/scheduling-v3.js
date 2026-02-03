@@ -22,6 +22,35 @@ let flightDetailsUpdateInterval = null; // Interval for auto-updating flight det
 const WIND_ADJUSTMENT_FACTOR = 0.13; // 13% variation for jet stream effect
 const ROUTE_VARIATION_FACTOR = 0.035; // ±3.5% for natural-looking times
 
+// Generate deterministic random interval for C and D checks based on aircraft ID
+// C check: 18-24 months (548-730 days)
+// D check: 6-10 years (2190-3650 days)
+function getCheckIntervalForAircraft(aircraftId, checkType) {
+  // Create a hash from aircraft ID to get consistent "random" value
+  let hash = 0;
+  const str = aircraftId + checkType;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  hash = Math.abs(hash);
+
+  if (checkType === 'C') {
+    // 18-24 months = 548-730 days
+    const minDays = 548;
+    const maxDays = 730;
+    return minDays + (hash % (maxDays - minDays + 1));
+  } else if (checkType === 'D') {
+    // 6-10 years = 2190-3650 days
+    const minDays = 2190;
+    const maxDays = 3650;
+    return minDays + (hash % (maxDays - minDays + 1));
+  }
+
+  return null;
+}
+
 // Format a Date object to YYYY-MM-DD using local time (avoids UTC timezone shift issues)
 function formatLocalDate(date) {
   const year = date.getFullYear();
@@ -508,6 +537,40 @@ async function fetchScheduledMaintenance() {
     }
   } catch (error) {
     console.error('Error fetching scheduled maintenance:', error);
+  }
+}
+
+// Save auto-schedule preference to the backend
+async function saveAutoSchedulePreference(aircraftId, checkType, isEnabled) {
+  try {
+    const response = await fetch(`/api/fleet/${aircraftId}/auto-schedule`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        checkType: checkType,
+        enabled: isEnabled
+      })
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      console.error('Failed to save auto-schedule preference:', data.error);
+      return false;
+    }
+
+    // Update local fleet data
+    const aircraft = userFleet.find(a => a.id === aircraftId);
+    if (aircraft) {
+      const key = checkType === 'daily' ? 'autoScheduleDaily' : `autoSchedule${checkType}`;
+      aircraft[key] = isEnabled;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error saving auto-schedule preference:', error);
+    return false;
   }
 }
 
@@ -1818,12 +1881,12 @@ function buildPostFlightHtml(aircraft, flight, arrHomeMins, formatTime, allFligh
 function isHeavyCheckDue(aircraft, checkType, flightDate) {
   const lastCheckField = checkType === 'C' ? 'lastCCheckDate' : 'lastDCheckDate';
   const intervalField = checkType === 'C' ? 'cCheckIntervalDays' : 'dCheckIntervalDays';
-  const defaultInterval = checkType === 'C' ? 660 : 2920; // ~22 months for C, ~8 years for D
 
   const lastCheckDate = aircraft[lastCheckField];
   if (!lastCheckDate) return false; // Never had a check, not automatically due yet
 
-  const interval = aircraft[intervalField] || defaultInterval;
+  // Use stored interval or generate random interval for this aircraft (18-24 months for C, 6-10 years for D)
+  const interval = aircraft[intervalField] || getCheckIntervalForAircraft(aircraft.id, checkType);
   const lastCheck = new Date(lastCheckDate);
   const flightDateObj = new Date(flightDate + 'T23:59:59Z');
 
@@ -3358,11 +3421,6 @@ async function viewMaintenanceDetails(maintenanceId) {
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const dayName = dayNames[date.getUTCDay()];
 
-  // Count how many checks of this type exist for this aircraft
-  const checksOfType = scheduledMaintenance.filter(m =>
-    m.aircraft.id === aircraft.id && m.checkType === maintenance.checkType
-  );
-
   // Determine maintenance status based on current game time
   const gameTime = typeof getGlobalWorldTime === 'function' ? getGlobalWorldTime() : new Date();
   const currentTimeStr = gameTime.toISOString().substring(11, 16);
@@ -3430,8 +3488,8 @@ async function viewMaintenanceDetails(maintenanceId) {
           </div>
           <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #30363d;">
             <div style="font-size: 0.85rem; color: #8b949e;">
-              This ${checkType.toLowerCase()} is scheduled every ${dayName}. Interval: ${checkInterval}.
-              ${checksOfType.length > 1 ? `There are ${checksOfType.length} ${checkType.toLowerCase()}s scheduled for this aircraft.` : ''}
+              This ${checkType.toLowerCase()} is scheduled for ${maintenance.scheduledDate} (${dayName}) to maintain aircraft legality.
+              Check interval: ${checkInterval}.
             </div>
           </div>
         </div>
@@ -3444,16 +3502,7 @@ async function viewMaintenanceDetails(maintenanceId) {
             color: white;
             cursor: pointer;
             font-size: 0.85rem;
-          ">Remove ${dayName} Check</button>
-          <button onclick="removeAllMaintenanceOfType('${aircraft.id}', '${maintenance.checkType}')" style="
-            padding: 0.5rem 1rem;
-            background: #6e2d2d;
-            border: 1px solid #da3633;
-            border-radius: 6px;
-            color: #ffa198;
-            cursor: pointer;
-            font-size: 0.85rem;
-          ">Remove All ${checkType}s</button>
+          ">Remove This Check</button>
         </div>
       </div>
     </div>
@@ -5220,11 +5269,11 @@ function getCheckStatus(aircraft, checkType) {
       break;
     case 'C':
       lastCheckDate = aircraft.lastCCheckDate;
-      intervalDays = aircraft.cCheckIntervalDays || 730;
+      intervalDays = aircraft.cCheckIntervalDays || getCheckIntervalForAircraft(aircraft.id, 'C'); // 18-24 months random
       break;
     case 'D':
       lastCheckDate = aircraft.lastDCheckDate;
-      intervalDays = aircraft.dCheckIntervalDays || 2920;
+      intervalDays = aircraft.dCheckIntervalDays || getCheckIntervalForAircraft(aircraft.id, 'D'); // 6-10 years random
       break;
     default:
       return { status: 'none', text: 'N/A' };
@@ -5280,12 +5329,14 @@ async function scheduleMaintenance(aircraftId) {
   }
 
   // Get status for all check types
+  // All checks are schedulable for auto-scheduling (scheduled close to expiry)
+  // C and D checks are marked as "heavy" since they take weeks/months
   const checks = [
     { type: 'daily', name: 'Daily Check', duration: '1 hour', color: '#FFA500', schedulable: true },
-    { type: 'A', name: 'A Check', duration: '3 hours', color: '#17A2B8', schedulable: true },
+    { type: 'A', name: 'A Check', duration: '3 hours', color: '#3B82F6', schedulable: true },
     { type: 'B', name: 'B Check', duration: '6 hours', color: '#8B5CF6', schedulable: true },
-    { type: 'C', name: 'C Check', duration: '14 days', color: '#6C757D', schedulable: false },
-    { type: 'D', name: 'D Check', duration: '60 days', color: '#6C757D', schedulable: false }
+    { type: 'C', name: 'C Check', duration: '14 days', color: '#DC2626', schedulable: true, heavy: true },
+    { type: 'D', name: 'D Check', duration: '60 days', color: '#10B981', schedulable: true, heavy: true }
   ];
 
   // Build check rows HTML
@@ -5302,45 +5353,68 @@ async function scheduleMaintenance(aircraftId) {
     const lastCheckText = status.lastCheck ? formatCheckDate(status.lastCheck) : 'Never';
     const expiryText = status.expiryDate ? formatCheckDate(status.expiryDate) : '-';
 
-    // Auto toggle for schedulable checks, "Always" label for C/D
-    const autoToggle = check.schedulable ? `
-      <label style="position: relative; display: inline-block; width: 32px; height: 18px; cursor: pointer;">
-        <input type="checkbox" class="auto-check-toggle" data-check-type="${check.type}" style="opacity: 0; width: 0; height: 0;">
-        <span class="auto-toggle-slider" data-check-type="${check.type}" style="
-          position: absolute;
-          cursor: pointer;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background-color: #4b5563;
-          transition: 0.3s;
-          border-radius: 18px;
-        "></span>
-        <span class="auto-toggle-knob" data-check-type="${check.type}" style="
-          position: absolute;
-          height: 12px;
-          width: 12px;
-          left: 3px;
-          bottom: 3px;
-          background-color: white;
-          transition: 0.3s;
-          border-radius: 50%;
-        "></span>
-      </label>
-    ` : `<span style="color: #6b7280; font-size: 0.65rem;">Always</span>`;
+    // Get stored auto-schedule preference for this check type
+    const autoScheduleKey = check.type === 'daily' ? 'autoScheduleDaily' : `autoSchedule${check.type}`;
+    const isAutoEnabled = aircraft[autoScheduleKey] || false;
 
-    // Schedule button only for schedulable checks
-    const scheduleBtn = check.schedulable ? `
+    // Auto toggle for all schedulable checks
+    // Heavy checks (C/D) show toggle with HEAVY badge
+    let autoToggle;
+    if (check.schedulable) {
+      const heavyBadge = check.heavy ? `<span style="color: #f59e0b; font-size: 0.5rem; font-weight: 600; margin-right: 4px;">H</span>` : '';
+      autoToggle = `
+      <div style="display: flex; align-items: center;">
+        ${heavyBadge}
+        <label style="position: relative; display: inline-block; width: 32px; height: 18px; cursor: pointer;">
+          <input type="checkbox" class="auto-check-toggle" data-check-type="${check.type}" ${isAutoEnabled ? 'checked' : ''} style="opacity: 0; width: 0; height: 0;">
+          <span class="auto-toggle-slider" data-check-type="${check.type}" style="
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: ${isAutoEnabled ? 'var(--accent-color)' : '#4b5563'};
+            transition: 0.3s;
+            border-radius: 18px;
+          "></span>
+          <span class="auto-toggle-knob" data-check-type="${check.type}" style="
+            position: absolute;
+            height: 12px;
+            width: 12px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+            ${isAutoEnabled ? 'transform: translateX(14px);' : ''}
+          "></span>
+        </label>
+      </div>
+    `;
+    } else {
+      autoToggle = `<span style="color: #6b7280; font-size: 0.65rem;">-</span>`;
+    }
+
+    // Schedule button - disabled when auto-enabled, shows Plan for heavy checks
+    let scheduleBtn;
+    if (check.schedulable) {
+      const btnLabel = check.heavy ? 'Plan' : 'Schedule';
+      const btnTitle = check.heavy ? `${check.duration} - Heavy maintenance` : '';
+      scheduleBtn = `
       <button
         class="schedule-check-btn"
         data-check-type="${check.type}"
         data-aircraft-id="${aircraftId}"
         data-color="${check.color}"
         onclick="openScheduleCheckModal('${aircraftId}', '${check.type}')"
-        style="padding: 0.35rem 0.6rem; background: ${check.color}; border: none; border-radius: 4px; color: white; font-size: 0.7rem; font-weight: 600; cursor: pointer;"
-      >Schedule</button>
-    ` : `<span style="color: #6b7280; font-size: 0.7rem;">-</span>`;
+        ${isAutoEnabled ? 'disabled' : ''}
+        style="padding: 0.35rem 0.6rem; background: ${isAutoEnabled ? '#4b5563' : check.color}; border: none; border-radius: 4px; color: white; font-size: 0.7rem; font-weight: 600; cursor: ${isAutoEnabled ? 'not-allowed' : 'pointer'}; ${isAutoEnabled ? 'opacity: 0.5;' : ''}"
+        title="${btnTitle}"
+      >${btnLabel}</button>`;
+    } else {
+      scheduleBtn = `<span style="color: #6b7280; font-size: 0.7rem;">-</span>`;
+    }
 
     return `
       <div style="display: grid; grid-template-columns: 95px 65px 1fr 1fr 45px 70px; gap: 0.5rem; align-items: center; padding: 0.65rem; background: var(--surface-elevated); border-radius: 6px; margin-bottom: 0.5rem;">
@@ -5454,7 +5528,16 @@ async function scheduleMaintenance(aircraftId) {
     </div>
 
     <div style="padding-top: 1rem; border-top: 1px solid var(--border-color); color: #8b949e; font-size: 0.75rem;">
-      <p style="margin: 0;"><strong>Note:</strong> C and D checks are always auto-scheduled. Enable auto-scheduling for Daily, A, and B checks to have them scheduled automatically when due.</p>
+      <p style="margin: 0;"><strong>Note:</strong> Enable auto-scheduling to have checks scheduled automatically when due. C and D checks are heavy maintenance requiring 14 and 60 days respectively.</p>
+    </div>
+
+    <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+      <button id="saveAutoScheduleBtn" style="flex: 1; padding: 0.75rem 1.5rem; background: var(--accent-color); border: none; border-radius: 6px; color: white; font-weight: 600; cursor: pointer; font-size: 0.9rem;">
+        Save Preferences
+      </button>
+      <button id="closeMaintenanceModalBtn" style="flex: 1; padding: 0.75rem 1.5rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-weight: 600; cursor: pointer; font-size: 0.9rem;">
+        Cancel
+      </button>
     </div>
   `;
 
@@ -5518,7 +5601,7 @@ async function scheduleMaintenance(aircraftId) {
     }
   }
 
-  // Auto Schedule All toggle handler
+  // Auto Schedule All toggle handler (visual only, no save)
   autoAllCheckbox.addEventListener('change', () => {
     updateMainToggleVisual(autoAllCheckbox, autoAllSlider, autoAllKnob);
     // Toggle all individual checkboxes, visuals, and buttons
@@ -5530,7 +5613,7 @@ async function scheduleMaintenance(aircraftId) {
     });
   });
 
-  // Individual toggle handlers - update visual, button, and "All" toggle state
+  // Individual toggle handlers - update visual, button, and "All" toggle state (no save)
   individualToggles.forEach(toggle => {
     toggle.addEventListener('change', () => {
       const checkType = toggle.getAttribute('data-check-type');
@@ -5552,6 +5635,65 @@ async function scheduleMaintenance(aircraftId) {
         updateMainToggleVisual(autoAllCheckbox, autoAllSlider, autoAllKnob);
       }
     });
+  });
+
+  // Initialize "Auto Schedule All" toggle based on stored preferences
+  const allCheckedInitial = Array.from(individualToggles).every(t => t.checked);
+  if (allCheckedInitial) {
+    autoAllCheckbox.checked = true;
+    updateMainToggleVisual(autoAllCheckbox, autoAllSlider, autoAllKnob);
+  }
+
+  // Save button handler
+  const saveBtn = document.getElementById('saveAutoScheduleBtn');
+  saveBtn.addEventListener('click', async () => {
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+    saveBtn.style.opacity = '0.7';
+
+    try {
+      // Save all preferences
+      const promises = [];
+      individualToggles.forEach(toggle => {
+        const checkType = toggle.getAttribute('data-check-type');
+        promises.push(saveAutoSchedulePreference(aircraftId, checkType, toggle.checked));
+      });
+      await Promise.all(promises);
+
+      // Update local fleet data
+      const aircraft = userFleet.find(a => a.id === aircraftId);
+      if (aircraft) {
+        individualToggles.forEach(toggle => {
+          const checkType = toggle.getAttribute('data-check-type');
+          const key = checkType === 'daily' ? 'autoScheduleDaily' : `autoSchedule${checkType}`;
+          aircraft[key] = toggle.checked;
+        });
+      }
+
+      // Show success and close modal
+      saveBtn.textContent = 'Saved!';
+      saveBtn.style.background = '#10B981';
+
+      // Refresh the schedule to show new recurring maintenance
+      await loadSchedule();
+
+      // Close modal after brief delay
+      setTimeout(() => {
+        overlay.remove();
+      }, 800);
+    } catch (error) {
+      console.error('Error saving preferences:', error);
+      saveBtn.textContent = 'Error - Try Again';
+      saveBtn.style.background = '#DC2626';
+      saveBtn.disabled = false;
+      saveBtn.style.opacity = '1';
+    }
+  });
+
+  // Cancel button handler
+  const cancelBtn = document.getElementById('closeMaintenanceModalBtn');
+  cancelBtn.addEventListener('click', () => {
+    overlay.remove();
   });
 }
 
@@ -5586,16 +5728,31 @@ function openScheduleCheckModal(aircraftId, checkType) {
     align-items: center;
   `;
 
-  const checkNames = { 'daily': 'Daily Check', 'A': 'A Check', 'B': 'B Check' };
-  const checkDurations = { 'daily': '1 hour', 'A': '3 hours', 'B': '6 hours' };
-  const checkColors = { 'daily': '#FFA500', 'A': '#17A2B8', 'B': '#8B5CF6' };
-  const checkIntervals = { 'daily': '2 days', 'A': '6 weeks', 'B': '6-8 months' };
+  const checkNames = { 'daily': 'Daily Check', 'A': 'A Check', 'B': 'B Check', 'C': 'C Check', 'D': 'D Check' };
+  const checkDurations = { 'daily': '1 hour', 'A': '3 hours', 'B': '6 hours', 'C': '14 days', 'D': '60 days' };
+  const checkColors = { 'daily': '#FFA500', 'A': '#17A2B8', 'B': '#8B5CF6', 'C': '#DC2626', 'D': '#0E7490' };
+  const checkIntervals = { 'daily': '2 days', 'A': '6 weeks', 'B': '6-8 months', 'C': '18-24 months', 'D': '6-10 years' };
 
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const dayOptionsHtml = dayNames.map((name, index) => {
-    const isSelected = index === selectedDayOfWeek ? 'selected' : '';
-    return `<option value="${index}" ${isSelected}>${name.toUpperCase()}</option>`;
-  }).join('');
+  const isDailyView = viewMode === 'daily';
+
+  // Day selector HTML - only show in weekly view
+  let daySelectorHtml = '';
+  if (!isDailyView) {
+    const dayOptionsHtml = dayNames.map((name, index) => {
+      const isSelected = index === selectedDayOfWeek ? 'selected' : '';
+      return `<option value="${index}" ${isSelected}>${name.toUpperCase()}</option>`;
+    }).join('');
+
+    daySelectorHtml = `
+      <div style="margin-bottom: 1.25rem;">
+        <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 600; font-size: 0.85rem;">Day</label>
+        <select id="scheduleDay" style="width: 100%; padding: 0.65rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.95rem;">
+          ${dayOptionsHtml}
+        </select>
+      </div>
+    `;
+  }
 
   const showRepeat = checkType === 'daily';
 
@@ -5608,6 +5765,13 @@ function openScheduleCheckModal(aircraftId, checkType) {
     width: 90%;
     max-width: 450px;
   `;
+
+  // Show which day we're scheduling for in daily view
+  const dayInfoText = isDailyView
+    ? `<div style="margin-bottom: 1rem; padding: 0.5rem 0.75rem; background: var(--surface-elevated); border-radius: 4px; color: var(--text-secondary); font-size: 0.85rem;">
+        Scheduling for: <strong style="color: var(--text-primary);">${dayNames[selectedDayOfWeek].toUpperCase()}</strong>
+      </div>`
+    : '';
 
   modalContent.innerHTML = `
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
@@ -5623,12 +5787,8 @@ function openScheduleCheckModal(aircraftId, checkType) {
       <span style="margin-left: 1rem; color: #8b949e;">Duration: ${checkDurations[checkType]} • Interval: ${checkIntervals[checkType]}</span>
     </p>
 
-    <div style="margin-bottom: 1.25rem;">
-      <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 600; font-size: 0.85rem;">Day</label>
-      <select id="scheduleDay" style="width: 100%; padding: 0.65rem; background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.95rem;">
-        ${dayOptionsHtml}
-      </select>
-    </div>
+    ${dayInfoText}
+    ${daySelectorHtml}
 
     <div style="margin-bottom: 1.25rem;">
       <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-weight: 600; font-size: 0.85rem;">Start Time</label>
@@ -5658,12 +5818,19 @@ function openScheduleCheckModal(aircraftId, checkType) {
   overlay.appendChild(modalContent);
   document.body.appendChild(overlay);
 
-  // Update available time
-  const durations = { 'daily': 60, 'A': 180, 'B': 360 };
+  // Update available time - C and D checks are multi-day
+  const durations = { 'daily': 60, 'A': 180, 'B': 360, 'C': 20160, 'D': 86400 }; // minutes
+  const isMultiDay = checkType === 'C' || checkType === 'D';
   function updateAvailableTime() {
     const startTime = document.getElementById('scheduleTime').value;
-    const endTime = calculateEndTime(startTime, durations[checkType]);
-    document.getElementById('scheduleAvailableTime').textContent = endTime;
+    if (isMultiDay) {
+      // For C and D checks, show days until available
+      const daysUntil = checkType === 'C' ? 14 : 60;
+      document.getElementById('scheduleAvailableTime').textContent = `+${daysUntil} days at ${startTime}`;
+    } else {
+      const endTime = calculateEndTime(startTime, durations[checkType]);
+      document.getElementById('scheduleAvailableTime').textContent = endTime;
+    }
   }
   document.getElementById('scheduleTime').addEventListener('change', updateAvailableTime);
   updateAvailableTime();
@@ -5682,7 +5849,10 @@ function openScheduleCheckModal(aircraftId, checkType) {
 
   // Confirm button
   document.getElementById('confirmScheduleBtn').addEventListener('click', async () => {
-    const selectedDay = parseInt(document.getElementById('scheduleDay').value);
+    // In daily view, use the currently viewed day; in weekly view, read from dropdown
+    const selectedDay = isDailyView
+      ? selectedDayOfWeek
+      : parseInt(document.getElementById('scheduleDay').value);
     const startTime = document.getElementById('scheduleTime').value;
     const repeatCheck = showRepeat ? document.getElementById('scheduleRepeat')?.checked : false;
 

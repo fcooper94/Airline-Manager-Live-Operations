@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { Op } = require('sequelize');
 const { ScheduledFlight, RecurringMaintenance, Route, UserAircraft, Airport, Aircraft, WorldMembership, User, World } = require('../models');
+const { checkMaintenanceConflict, attemptMaintenanceReschedule } = require('./fleet');
 
 // Wind and route variation constants (must match frontend scheduling-v3.js)
 const WIND_ADJUSTMENT_FACTOR = 0.13; // 13% variation for jet stream effect
@@ -493,7 +494,7 @@ router.post('/flight', async (req, res) => {
       }
     }
 
-    // Check for overlapping maintenance
+    // Check for overlapping maintenance and attempt to reschedule
     const dayOfWeek = new Date(`${scheduledDate}T00:00:00`).getDay();
     const maintenancePatterns = await RecurringMaintenance.findAll({
       where: {
@@ -502,6 +503,8 @@ router.post('/flight', async (req, res) => {
         dayOfWeek: dayOfWeek
       }
     });
+
+    const rescheduledMaintenance = [];
 
     for (const maint of maintenancePatterns) {
       const [maintH, maintM] = maint.startTime.split(':').map(Number);
@@ -520,17 +523,36 @@ router.post('/flight', async (req, res) => {
         const checkNames = { 'daily': 'Daily Check', 'A': 'A Check', 'B': 'B Check', 'C': 'C Check', 'D': 'D Check' };
         const checkName = checkNames[maint.checkType] || `${maint.checkType} Check`;
 
-        return res.status(409).json({
-          error: 'Schedule conflict detected',
-          conflict: {
-            type: 'maintenance',
+        // Try to reschedule the maintenance
+        const rescheduleResult = await attemptMaintenanceReschedule(
+          maint.id,
+          aircraftId,
+          newOpStartMins,
+          newOpEndMins
+        );
+
+        if (rescheduleResult.success) {
+          // Maintenance was successfully rescheduled
+          rescheduledMaintenance.push({
             checkType: maint.checkType,
             checkName: checkName,
-            startTime: maint.startTime.substring(0, 5),
-            duration: maint.duration,
-            message: `Conflicts with ${checkName} scheduled at ${maint.startTime.substring(0, 5)} (${maint.duration} minutes)`
-          }
-        });
+            originalTime: maint.startTime.substring(0, 5),
+            newSlot: rescheduleResult.newSlot
+          });
+        } else {
+          // Cannot reschedule - return error
+          return res.status(409).json({
+            error: 'Cannot schedule flight - maintenance check would expire',
+            conflict: {
+              type: 'maintenance',
+              checkType: maint.checkType,
+              checkName: checkName,
+              startTime: maint.startTime.substring(0, 5),
+              duration: maint.duration,
+              message: rescheduleResult.error || `${checkName} cannot be moved without expiring. Clear some flights first.`
+            }
+          });
+        }
       }
     }
 
@@ -567,7 +589,13 @@ router.post('/flight', async (req, res) => {
       ]
     });
 
-    res.status(201).json(completeFlightData);
+    // Include rescheduled maintenance info in response
+    const response = completeFlightData.toJSON();
+    if (rescheduledMaintenance.length > 0) {
+      response.rescheduledMaintenance = rescheduledMaintenance;
+    }
+
+    res.status(201).json(response);
   } catch (error) {
     console.error('Error creating scheduled flight:', error);
     res.status(500).json({ error: error.message });

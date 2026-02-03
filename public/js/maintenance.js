@@ -10,6 +10,35 @@ const CHECK_DURATIONS = {
   D: 86400             // 60 days (60 * 24 * 60)
 };
 
+// Generate deterministic random interval for C and D checks based on aircraft ID
+// C check: 18-24 months (548-730 days)
+// D check: 6-10 years (2190-3650 days)
+function getCheckIntervalForAircraft(aircraftId, checkType) {
+  // Create a hash from aircraft ID to get consistent "random" value
+  let hash = 0;
+  const str = aircraftId + checkType;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  hash = Math.abs(hash);
+
+  if (checkType === 'C') {
+    // 18-24 months = 548-730 days
+    const minDays = 548;
+    const maxDays = 730;
+    return minDays + (hash % (maxDays - minDays + 1));
+  } else if (checkType === 'D') {
+    // 6-10 years = 2190-3650 days
+    const minDays = 2190;
+    const maxDays = 3650;
+    return minDays + (hash % (maxDays - minDays + 1));
+  }
+
+  return null;
+}
+
 // Engineer names by culture/region
 const ENGINEER_NAMES = {
   british: [
@@ -215,11 +244,11 @@ function getCheckStatus(ac, checkType) {
       break;
     case 'C':
       lastCheckDate = ac.lastCCheckDate;
-      intervalDays = ac.cCheckIntervalDays || 660; // Default ~22 months if not set
+      intervalDays = ac.cCheckIntervalDays || getCheckIntervalForAircraft(ac.id, 'C'); // 18-24 months random
       break;
     case 'D':
       lastCheckDate = ac.lastDCheckDate;
-      intervalDays = ac.dCheckIntervalDays || 2920; // Default ~8 years if not set
+      intervalDays = ac.dCheckIntervalDays || getCheckIntervalForAircraft(ac.id, 'D'); // 6-10 years random
       break;
     default:
       return { status: 'none', text: '--', expiryText: '', lastCheckTime: null };

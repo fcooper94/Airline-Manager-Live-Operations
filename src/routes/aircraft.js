@@ -4,6 +4,25 @@ const { Aircraft, World, WorldMembership, User } = require('../models');
 const { Op } = require('sequelize');
 
 /**
+ * Format days remaining into human-readable string
+ */
+function formatDaysRemaining(days) {
+  if (days >= 365) {
+    const years = Math.floor(days / 365);
+    const months = Math.floor((days % 365) / 30);
+    if (months > 0) {
+      return `${years}y ${months}m`;
+    }
+    return `${years} year${years > 1 ? 's' : ''}`;
+  } else if (days >= 30) {
+    const months = Math.floor(days / 30);
+    return `${months} month${months > 1 ? 's' : ''}`;
+  } else {
+    return `${days} days`;
+  }
+}
+
+/**
  * Get all active aircraft for marketplace
  */
 router.get('/', async (req, res) => {
@@ -128,6 +147,36 @@ function generateUsedAircraft(variants, currentYear = null) {
         conditionPercentage = 20 + Math.floor(Math.random() * 30); // 20-50%
       }
 
+      // Generate C and D check validity remaining
+      // D check interval: 6-10 years (2190-3650 days), C check: 18-24 months (540-720 days)
+      // For used aircraft, remaining validity depends on age and randomness
+
+      // D Check: newer aircraft have more validity remaining
+      let dCheckRemainingDays;
+      if (age <= 3) {
+        // Recently delivered, 5-10 years remaining
+        dCheckRemainingDays = 1825 + Math.floor(Math.random() * 1825); // 5-10 years
+      } else if (age <= 8) {
+        // Mid-life, 2-6 years remaining
+        dCheckRemainingDays = 730 + Math.floor(Math.random() * 1460); // 2-6 years
+      } else if (age <= 15) {
+        // Older, 1-3 years remaining
+        dCheckRemainingDays = 365 + Math.floor(Math.random() * 730); // 1-3 years
+      } else {
+        // Very old, 6 months to 2 years remaining
+        dCheckRemainingDays = 180 + Math.floor(Math.random() * 550); // 0.5-2 years
+      }
+
+      // C Check: 3 months to 2 years remaining
+      let cCheckRemainingDays;
+      if (age <= 5) {
+        cCheckRemainingDays = 365 + Math.floor(Math.random() * 365); // 1-2 years
+      } else if (age <= 10) {
+        cCheckRemainingDays = 180 + Math.floor(Math.random() * 365); // 6-18 months
+      } else {
+        cCheckRemainingDays = 90 + Math.floor(Math.random() * 270); // 3-12 months
+      }
+
       // Calculate depreciation based on age and condition
       let depreciationFactor;
       if (age <= 5) depreciationFactor = 0.70 - (age * 0.05); // 70% to 45%
@@ -138,6 +187,18 @@ function generateUsedAircraft(variants, currentYear = null) {
       // Apply condition modifier to depreciation
       const conditionModifier = conditionPercentage / 100;
       depreciationFactor = Math.max(depreciationFactor * conditionModifier, 0.05); // Minimum 5%
+
+      // Apply check validity discount (up to 15% off for low validity)
+      // D check cost is significant (~$5-15M), so low validity = big discount
+      const dCheckMaxDays = 3650; // 10 years max
+      const cCheckMaxDays = 720; // 2 years max
+      const dCheckValidityRatio = Math.min(dCheckRemainingDays / dCheckMaxDays, 1);
+      const cCheckValidityRatio = Math.min(cCheckRemainingDays / cCheckMaxDays, 1);
+
+      // Weight D check more heavily (it's more expensive)
+      const checkValidityDiscount = 1 - ((1 - dCheckValidityRatio) * 0.10 + (1 - cCheckValidityRatio) * 0.05);
+      depreciationFactor *= checkValidityDiscount;
+      depreciationFactor = Math.max(depreciationFactor, 0.03); // Minimum 3%
 
       const usedPrice = variant.purchasePrice ?
         parseFloat(variant.purchasePrice) * depreciationFactor :
@@ -178,7 +239,14 @@ function generateUsedAircraft(variants, currentYear = null) {
         age: age,
         condition: condition,
         conditionPercentage: conditionPercentage,
-        category: 'used'
+        category: 'used',
+
+        // Check validity (days remaining)
+        cCheckRemainingDays: cCheckRemainingDays,
+        dCheckRemainingDays: dCheckRemainingDays,
+        // Convert to human-readable format
+        cCheckRemaining: formatDaysRemaining(cCheckRemainingDays),
+        dCheckRemaining: formatDaysRemaining(dCheckRemainingDays)
       };
 
       usedAircraft.push(usedAc);

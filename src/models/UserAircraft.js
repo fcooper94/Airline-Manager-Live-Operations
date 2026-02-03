@@ -175,6 +175,37 @@ const UserAircraft = sequelize.define('UserAircraft', {
     allowNull: true,
     field: 'd_check_interval_days',
     comment: 'D Check interval in days (2190-3650, i.e. 6-10 years)'
+  },
+  // Auto-scheduling preferences
+  autoScheduleDaily: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'auto_schedule_daily',
+    comment: 'Automatically schedule daily checks'
+  },
+  autoScheduleA: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'auto_schedule_a',
+    comment: 'Automatically schedule A checks'
+  },
+  autoScheduleB: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'auto_schedule_b',
+    comment: 'Automatically schedule B checks'
+  },
+  autoScheduleC: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'auto_schedule_c',
+    comment: 'Automatically schedule C checks'
+  },
+  autoScheduleD: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'auto_schedule_d',
+    comment: 'Automatically schedule D checks'
   }
 }, {
   tableName: 'user_aircraft',
