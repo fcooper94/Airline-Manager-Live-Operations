@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { Aircraft, World, WorldMembership, User } = require('../models');
 const { Op } = require('sequelize');
+const { getRandomLessor, getUsedAircraftSeller, getManufacturer } = require('../data/aircraftSellers');
 
 /**
  * Format days remaining into human-readable string
@@ -82,7 +83,17 @@ router.get('/', async (req, res) => {
 
       console.log(`Found ${newAircraft.length} aircraft variants available for year ${currentYear || 'any'} (new category)`);
 
-      res.json(newAircraft);
+      // Add manufacturer/seller info and lessor info to each aircraft
+      const aircraftWithSellers = newAircraft.map(ac => {
+        const acData = ac.toJSON();
+        // For new aircraft, seller is the manufacturer
+        acData.seller = getManufacturer(ac.manufacturer);
+        // Lessor is a random leasing company
+        acData.lessor = getRandomLessor(ac.type);
+        return acData;
+      });
+
+      res.json(aircraftWithSellers);
     }
   } catch (error) {
     if (process.env.NODE_ENV === 'development') {
@@ -98,10 +109,10 @@ router.get('/', async (req, res) => {
 function generateUsedAircraft(variants, currentYear = null) {
   const usedAircraft = [];
 
-  // For each variant, generate 1-3 used examples with different conditions
+  // For each variant, generate 5-15 used examples with different conditions
   for (const variant of variants) {
-    // Determine how many used examples to create for this variant (1-3)
-    const count = Math.floor(Math.random() * 3) + 1;
+    // Determine how many used examples to create for this variant (5-15)
+    const count = Math.floor(Math.random() * 11) + 5;
 
     for (let i = 0; i < count; i++) {
       // Calculate maximum age based on when aircraft was introduced
@@ -215,6 +226,7 @@ function generateUsedAircraft(variants, currentYear = null) {
         manufacturer: variant.manufacturer,
         model: variant.model,
         variant: variant.variant,
+        icaoCode: variant.icaoCode,
         type: variant.type,
         rangeCategory: variant.rangeCategory,
         rangeNm: variant.rangeNm,
@@ -246,7 +258,12 @@ function generateUsedAircraft(variants, currentYear = null) {
         dCheckRemainingDays: dCheckRemainingDays,
         // Convert to human-readable format
         cCheckRemaining: formatDaysRemaining(cCheckRemainingDays),
-        dCheckRemaining: formatDaysRemaining(dCheckRemainingDays)
+        dCheckRemaining: formatDaysRemaining(dCheckRemainingDays),
+
+        // Seller info (who's selling this used aircraft)
+        seller: getUsedAircraftSeller(age, condition),
+        // Lessor info (who you'd lease from)
+        lessor: getRandomLessor(variant.type)
       };
 
       usedAircraft.push(usedAc);

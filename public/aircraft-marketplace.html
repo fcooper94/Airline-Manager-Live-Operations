@@ -2,6 +2,155 @@
 <!-- SUBTITLE: Aircraft Marketplace -->
 <!-- SCRIPTS: /js/registrationPrefixes.js,/js/aircraft-marketplace.js -->
 
+<style>
+  .market-grid-wrapper {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .market-type-group {
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .market-type-header {
+    background: var(--surface-elevated);
+    padding: 0.75rem 1rem;
+    border-bottom: 2px solid var(--accent-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .market-type-header h3 {
+    margin: 0;
+    color: var(--accent-color);
+    font-size: 0.9rem;
+    font-weight: 700;
+  }
+
+  .market-type-header .type-badge {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--accent-color);
+    border-radius: 3px;
+  }
+
+  .market-header {
+    display: grid;
+    grid-template-columns: 1fr 0.6fr 0.7fr 1fr 1fr 50px;
+    padding: 0.4rem 0.75rem;
+    background: var(--surface-elevated);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+  }
+
+  .market-header span {
+    text-align: center;
+  }
+
+  .market-header span:first-child {
+    text-align: left;
+  }
+
+  .market-row {
+    display: grid;
+    grid-template-columns: 1fr 0.6fr 0.7fr 1fr 1fr 50px;
+    align-items: center;
+    padding: 0.4rem 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .market-row:last-child {
+    border-bottom: none;
+  }
+
+  .market-row:hover {
+    background: var(--surface-elevated);
+  }
+
+  .market-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+  }
+
+  .market-cell:first-child {
+    justify-content: flex-start;
+  }
+
+  .market-variant {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+  }
+
+  .market-specs {
+    display: flex;
+    gap: 1rem;
+    padding: 0.5rem 1rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .market-specs span {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    min-width: 50px;
+  }
+
+  .cond-excellent {
+    background: rgba(5, 150, 105, 0.15);
+    color: var(--success-color);
+    border: 1px solid var(--success-color);
+  }
+
+  .cond-good {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid #10b981;
+  }
+
+  .cond-fair {
+    background: rgba(96, 165, 250, 0.15);
+    color: #60a5fa;
+    border: 1px solid #60a5fa;
+  }
+
+  .cond-poor {
+    background: rgba(217, 119, 6, 0.15);
+    color: var(--warning-color);
+    border: 1px solid var(--warning-color);
+  }
+</style>
+
 <div class="dashboard-container">
   <main class="main-content">
     <div class="page-header">
@@ -76,19 +225,19 @@
 
 <!-- Aircraft Detail Modal -->
 <div id="aircraftDetailModal" class="modal" style="display: none;">
-  <div class="modal-content" style="max-width: 800px;">
+  <div class="modal-content" style="max-width: 950px;">
     <div class="modal-header">
       <h2 id="detailModalTitle">AIRCRAFT DETAILS</h2>
       <button class="modal-close" onclick="closeAircraftDetailModal()">&times;</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" style="padding: 1.5rem;">
       <div id="aircraftDetailContent">
         <!-- Aircraft details will be loaded here -->
       </div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeAircraftDetailModal()">Close</button>
-      <button class="btn btn-primary" id="purchaseAircraftBtn" onclick="purchaseAircraft()">Purchase Aircraft</button>
+    <div class="modal-footer" style="justify-content: center;">
+      <button class="btn btn-secondary" onclick="closeAircraftDetailModal()" style="min-width: 120px;">Close</button>
+      <button class="btn btn-primary" id="purchaseAircraftBtn" onclick="purchaseAircraft()" style="display: none;">Purchase Aircraft</button>
     </div>
   </div>
 </div>

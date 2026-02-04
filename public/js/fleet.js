@@ -1,4 +1,5 @@
 let fleetData = [];
+let filteredFleet = [];
 
 // Load fleet data
 async function loadFleet() {
@@ -11,7 +12,9 @@ async function loadFleet() {
     }
 
     fleetData = fleet;
-    updateFleetStats();
+    filteredFleet = fleet;
+    populateTypeFilter();
+    updateAircraftCount();
     displayFleet();
   } catch (error) {
     console.error('Error loading fleet:', error);
@@ -21,140 +24,165 @@ async function loadFleet() {
   }
 }
 
-// Update fleet statistics
-function updateFleetStats() {
-  const totalAircraft = fleetData.length;
-  const ownedAircraft = fleetData.filter(a => a.acquisitionType === 'purchase').length;
-  const leasedAircraft = fleetData.filter(a => a.acquisitionType === 'lease').length;
-  // Only count purchase price for owned aircraft
-  const totalValue = fleetData
-    .filter(a => a.acquisitionType === 'purchase')
-    .reduce((sum, a) => sum + Number(a.purchasePrice || 0), 0);
+// Populate type filter dropdown
+function populateTypeFilter() {
+  const typeFilter = document.getElementById('typeFilter');
+  const types = new Set();
 
-  // Update elements if they exist (fleet overview section may be removed)
-  const totalAircraftEl = document.getElementById('totalAircraftCount');
-  const ownedAircraftEl = document.getElementById('ownedAircraftCount');
-  const leasedAircraftEl = document.getElementById('leasedAircraftCount');
-  const totalFleetValueEl = document.getElementById('totalFleetValue');
-  const fleetCountBadgeEl = document.getElementById('fleetCountBadge');
+  fleetData.forEach(userAircraft => {
+    const aircraft = userAircraft.aircraft;
+    if (aircraft) {
+      const typeName = `${aircraft.manufacturer} ${aircraft.model}${aircraft.variant ? '-' + aircraft.variant : ''}`;
+      types.add(typeName);
+    }
+  });
 
-  if (totalAircraftEl) totalAircraftEl.textContent = totalAircraft;
-  if (ownedAircraftEl) ownedAircraftEl.textContent = ownedAircraft;
-  if (leasedAircraftEl) leasedAircraftEl.textContent = leasedAircraft;
-  if (totalFleetValueEl) totalFleetValueEl.textContent = `$${formatCurrency(totalValue)}`;
-  if (fleetCountBadgeEl) fleetCountBadgeEl.textContent = `${totalAircraft} AIRCRAFT`;
+  const sortedTypes = Array.from(types).sort();
+  typeFilter.innerHTML = '<option value="">All Types</option>' +
+    sortedTypes.map(type => `<option value="${type}">${type}</option>`).join('');
+}
+
+// Filter fleet based on current filter values
+function filterFleet() {
+  const searchTerm = document.getElementById('searchFilter').value.toLowerCase();
+  const typeFilter = document.getElementById('typeFilter').value;
+  const statusFilter = document.getElementById('statusFilter').value;
+
+  filteredFleet = fleetData.filter(userAircraft => {
+    const aircraft = userAircraft.aircraft;
+    if (!aircraft) return false;
+
+    // Search filter (registration)
+    if (searchTerm && !userAircraft.registration?.toLowerCase().includes(searchTerm)) {
+      return false;
+    }
+
+    // Type filter
+    if (typeFilter) {
+      const typeName = `${aircraft.manufacturer} ${aircraft.model}${aircraft.variant ? '-' + aircraft.variant : ''}`;
+      if (typeName !== typeFilter) return false;
+    }
+
+    // Status filter (owned/leased)
+    if (statusFilter) {
+      const isOwned = userAircraft.acquisitionType === 'purchase';
+      if (statusFilter === 'owned' && !isOwned) return false;
+      if (statusFilter === 'leased' && isOwned) return false;
+    }
+
+    return true;
+  });
+
+  updateAircraftCount();
+  displayFleet();
+}
+
+// Update aircraft count display
+function updateAircraftCount() {
+  document.getElementById('aircraftCount').textContent = filteredFleet.length;
+}
+
+// Get condition class based on percentage
+function getConditionClass(conditionPercent) {
+  if (conditionPercent >= 90) return 'cond-excellent';
+  if (conditionPercent >= 70) return 'cond-good';
+  if (conditionPercent >= 50) return 'cond-fair';
+  return 'cond-poor';
 }
 
 // Display fleet
 function displayFleet() {
   const grid = document.getElementById('fleetGrid');
 
-  if (fleetData.length === 0) {
+  if (filteredFleet.length === 0) {
     grid.innerHTML = `
-      <div class="table-empty">
-        <div class="empty-message">NO AIRCRAFT IN FLEET</div>
-        <div class="empty-action">
-          <button class="btn btn-action" onclick="window.location.href='/aircraft-marketplace'">ADD AIRCRAFT</button>
-        </div>
+      <div class="table-empty" style="padding: 3rem; text-align: center;">
+        <div class="empty-message" style="color: var(--text-muted);">NO AIRCRAFT FOUND</div>
+        ${fleetData.length === 0 ? `
+          <div style="margin-top: 1rem;">
+            <button class="btn btn-primary" onclick="window.location.href='/aircraft-marketplace'">ADD AIRCRAFT</button>
+          </div>
+        ` : ''}
       </div>
     `;
     return;
   }
 
-  // Group aircraft by manufacturer and model
+  // Group aircraft by type (manufacturer + model + variant)
   const groupedAircraft = {};
-  fleetData.forEach(userAircraft => {
+  filteredFleet.forEach(userAircraft => {
     const aircraft = userAircraft.aircraft;
     if (!aircraft) return;
 
-    if (!groupedAircraft[aircraft.manufacturer]) {
-      groupedAircraft[aircraft.manufacturer] = {};
+    const typeKey = `${aircraft.manufacturer} ${aircraft.model}${aircraft.variant ? '-' + aircraft.variant : ''}`;
+    if (!groupedAircraft[typeKey]) {
+      groupedAircraft[typeKey] = [];
     }
-
-    const modelKey = `${aircraft.model}${aircraft.variant ? '-' + aircraft.variant : ''}`;
-    if (!groupedAircraft[aircraft.manufacturer][modelKey]) {
-      groupedAircraft[aircraft.manufacturer][modelKey] = [];
-    }
-
-    groupedAircraft[aircraft.manufacturer][modelKey].push(userAircraft);
+    groupedAircraft[typeKey].push(userAircraft);
   });
 
-  // Generate HTML for fleet table
-  let tableRows = '';
-  for (const [manufacturer, models] of Object.entries(groupedAircraft)) {
-    // Add manufacturer header
-    tableRows += `
-      <tr style="background: var(--surface-elevated);">
-        <td colspan="6" style="padding: 0.75rem 1rem 0.5rem; font-weight: bold; color: var(--accent-color); border-top: 2px solid var(--border-color); font-size: 0.9rem;">
-          ${manufacturer}
-        </td>
-      </tr>
+  // Generate HTML - wrap in 2-column grid
+  let html = '<div class="fleet-grid-wrapper">';
+  const sortedTypes = Object.keys(groupedAircraft).sort();
+
+  sortedTypes.forEach((typeKey) => {
+    const aircraftList = groupedAircraft[typeKey];
+    const count = aircraftList.length;
+
+    // Start type group container
+    html += `<div class="fleet-type-group">`;
+
+    // Type header
+    html += `
+      <div class="fleet-type-header">
+        <h3>${typeKey} <span>(${count})</span></h3>
+      </div>
     `;
 
-    // Add each model group
-    for (const [model, aircraftList] of Object.entries(models)) {
-      // Add model subheader
-      tableRows += `
-        <tr style="background: var(--surface);">
-          <td colspan="6" style="padding: 0.6rem 2rem; font-weight: 600; color: var(--text-primary); border-left: 3px solid var(--accent-color); font-size: 0.85rem;">
-            ${model}
-          </td>
-        </tr>
-        <tr style="background: var(--surface); border-bottom: 1px solid var(--border-color);">
-          <th style="padding: 0.5rem 0.75rem; text-align: left; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);">REG</th>
-          <th style="padding: 0.5rem 0.75rem; text-align: center; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);">PROFIT</th>
-          <th style="padding: 0.5rem 0.75rem; text-align: center; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);">ACQN</th>
-          <th style="padding: 0.5rem 0.75rem; text-align: center; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);">COND</th>
-          <th style="padding: 0.5rem 0.75rem; text-align: center; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);">LOCATION</th>
-          <th style="padding: 0.5rem 0.75rem; text-align: center; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);">ACTION</th>
-        </tr>
+    // Column headers
+    html += `
+      <div class="fleet-header">
+        <span>REG</span>
+        <span>PROFIT</span>
+        <span>ACQN</span>
+        <span>COND</span>
+        <span>LOC</span>
+        <span></span>
+      </div>
+    `;
+
+    // Aircraft rows
+    aircraftList.forEach(userAircraft => {
+      const isOwned = userAircraft.acquisitionType === 'purchase';
+      const conditionPercent = userAircraft.conditionPercentage || 100;
+      const profit = userAircraft.profit || 0;
+      const profitDisplay = profit !== 0 ? (profit > 0 ? '+' : '') + '$' + formatCurrency(Math.abs(profit)) : '$0';
+      const profitColor = profit >= 0 ? 'var(--success-color)' : 'var(--warning-color)';
+
+      html += `
+        <div class="fleet-row" onclick="showAircraftDetails('${userAircraft.id}')">
+          <div class="fleet-cell fleet-reg">${userAircraft.registration || 'N/A'}</div>
+          <div class="fleet-cell" style="color: ${profitColor}; font-weight: 600;">${profitDisplay}</div>
+          <div class="fleet-cell">
+            <span class="status-badge ${isOwned ? 'status-owned' : 'status-leased'}">${isOwned ? 'Own' : 'Lse'}</span>
+          </div>
+          <div class="fleet-cell">
+            <span class="status-badge ${getConditionClass(conditionPercent)}">${conditionPercent}%</span>
+          </div>
+          <div class="fleet-cell" style="color: var(--text-primary);">${userAircraft.currentAirport || 'N/A'}</div>
+          <div class="fleet-cell">
+            <button class="btn btn-primary" style="padding: 0.2rem 0.4rem; font-size: 0.65rem;" onclick="event.stopPropagation(); showAircraftDetails('${userAircraft.id}')">VIEW</button>
+          </div>
+        </div>
       `;
+    });
 
-      // Add aircraft rows
-      tableRows += aircraftList.map(userAircraft => {
-        const aircraft = userAircraft.aircraft;
-        const acquisitionType = userAircraft.acquisitionType === 'purchase' ? 'Owned' : 'Leased';
-        const acquisitionColor = userAircraft.acquisitionType === 'purchase' ? 'var(--success-color)' : 'var(--accent-color)';
-        const conditionPercent = userAircraft.conditionPercentage || 100;
-        const profit = userAircraft.profit || 0;
-        const profitColor = profit >= 0 ? 'var(--success-color)' : 'var(--warning-color)';
+    // Close type group container
+    html += `</div>`;
+  });
 
-        return `
-          <tr style="border-bottom: 1px solid var(--border-color); cursor: pointer;" onclick="showAircraftDetails('${userAircraft.id}')">
-            <td style="padding: 0.5rem 0.75rem;">
-              <div style="font-weight: 600; color: var(--text-primary); font-size: 0.9rem;">${userAircraft.registration || 'N/A'}</div>
-            </td>
-            <td style="padding: 0.5rem 0.75rem; text-align: center; font-weight: 600; color: ${profitColor}; font-size: 0.85rem;">
-              ${profit !== 0 ? (profit > 0 ? '+' : '') + '$' + formatCurrency(Math.abs(profit)) : '$0'}
-            </td>
-            <td style="padding: 0.5rem 0.75rem; text-align: center;">
-              <span style="padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.7rem; background: ${acquisitionColor}; color: white;">${acquisitionType}</span>
-            </td>
-            <td style="padding: 0.5rem 0.75rem; text-align: center;">
-              <span style="padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.75rem; display: inline-block; min-width: 50px; text-align: center; ${
-                conditionPercent >= 90 ? 'background: var(--success-color); color: white;' :
-                conditionPercent >= 70 ? 'background: #10b981; color: white;' :
-                conditionPercent >= 50 ? 'background: #60a5fa; color: white;' :
-                'background: var(--warning-color); color: white;'
-              }">${conditionPercent}%</span>
-            </td>
-            <td style="padding: 0.5rem 0.75rem; text-align: center; color: var(--text-primary); font-size: 0.85rem;">${userAircraft.currentAirport || 'N/A'}</td>
-            <td style="padding: 0.5rem 0.75rem; text-align: center;">
-              <button class="btn btn-primary" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;" onclick="event.stopPropagation(); showAircraftDetails('${userAircraft.id}')">Details</button>
-            </td>
-          </tr>
-        `;
-      }).join('');
-    }
-  }
-
-  grid.innerHTML = `
-    <table style="width: 100%; border-collapse: collapse;">
-      <tbody>
-        ${tableRows}
-      </tbody>
-    </table>
-  `;
+  html += '</div>';
+  grid.innerHTML = html;
 }
 
 // Show aircraft details
@@ -229,9 +257,26 @@ function showAircraftDetails(userAircraftId) {
 
   document.body.appendChild(overlay);
 
+  // Close on button click
   document.getElementById('closeDetailBtn').addEventListener('click', () => {
     document.body.removeChild(overlay);
   });
+
+  // Close on overlay click
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      document.body.removeChild(overlay);
+    }
+  });
+
+  // Close on Escape key
+  const escHandler = (e) => {
+    if (e.key === 'Escape') {
+      document.body.removeChild(overlay);
+      document.removeEventListener('keydown', escHandler);
+    }
+  };
+  document.addEventListener('keydown', escHandler);
 }
 
 // Format currency

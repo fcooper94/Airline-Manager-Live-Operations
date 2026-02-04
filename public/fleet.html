@@ -2,6 +2,174 @@
 <!-- SUBTITLE: Fleet Overview -->
 <!-- SCRIPTS: /js/fleet.js -->
 
+<style>
+  .fleet-grid-wrapper {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    padding: 1rem;
+    align-items: start;
+  }
+
+  .fleet-type-group {
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .fleet-type-header {
+    background: var(--surface-elevated);
+    padding: 0.5rem 0.75rem;
+    border-bottom: 2px solid var(--accent-color);
+  }
+
+  .fleet-type-header h3 {
+    margin: 0;
+    color: var(--accent-color);
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+
+  .fleet-type-header span {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 400;
+  }
+
+  .fleet-header {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 0.8fr 0.8fr 1fr 50px;
+    padding: 0.4rem 0.75rem;
+    background: var(--surface-elevated);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+  }
+
+  .fleet-header span {
+    text-align: center;
+  }
+
+  .fleet-header span:first-child {
+    text-align: left;
+  }
+
+  .fleet-row {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 0.8fr 0.8fr 1fr 50px;
+    align-items: center;
+    padding: 0.3rem 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .fleet-row:last-child {
+    border-bottom: none;
+  }
+
+  .fleet-row:hover {
+    background: var(--surface-elevated);
+  }
+
+  .fleet-reg {
+    color: var(--accent-color);
+    font-weight: 600;
+    font-size: 0.8rem;
+  }
+
+  .fleet-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+  }
+
+  .fleet-cell:first-child {
+    justify-content: flex-start;
+  }
+
+  .filter-bar {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border-color);
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .filter-bar input, .filter-bar select {
+    background: var(--surface-elevated);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 0.4rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+  }
+
+  .filter-bar input:focus, .filter-bar select:focus {
+    outline: none;
+    border-color: var(--accent-color);
+  }
+
+  .filter-bar label {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    margin-right: 0.25rem;
+  }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    min-width: 50px;
+  }
+
+  .status-owned {
+    background: rgba(5, 150, 105, 0.15);
+    color: var(--success-color);
+    border: 1px solid var(--success-color);
+  }
+
+  .status-leased {
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--accent-color);
+    border: 1px solid var(--accent-color);
+  }
+
+  .cond-excellent {
+    background: rgba(5, 150, 105, 0.15);
+    color: var(--success-color);
+    border: 1px solid var(--success-color);
+  }
+
+  .cond-good {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid #10b981;
+  }
+
+  .cond-fair {
+    background: rgba(96, 165, 250, 0.15);
+    color: #60a5fa;
+    border: 1px solid #60a5fa;
+  }
+
+  .cond-poor {
+    background: rgba(217, 119, 6, 0.15);
+    color: var(--warning-color);
+    border: 1px solid var(--warning-color);
+  }
+</style>
+
 <div class="dashboard-container">
   <main class="main-content">
     <div class="page-header">
@@ -14,7 +182,32 @@
         <h2>AIRCRAFT INVENTORY</h2>
         <button class="btn btn-primary" onclick="window.location.href='/aircraft-marketplace'">ADD AIRCRAFT</button>
       </div>
-      <div class="panel-body">
+      <div class="panel-body" style="padding: 0;">
+        <!-- Filter Bar -->
+        <div class="filter-bar">
+          <div>
+            <label>Search:</label>
+            <input type="text" id="searchFilter" placeholder="Registration..." style="width: 120px;" oninput="filterFleet()">
+          </div>
+          <div>
+            <label>Type:</label>
+            <select id="typeFilter" onchange="filterFleet()">
+              <option value="">All Types</option>
+            </select>
+          </div>
+          <div>
+            <label>Status:</label>
+            <select id="statusFilter" onchange="filterFleet()">
+              <option value="">All</option>
+              <option value="owned">Owned</option>
+              <option value="leased">Leased</option>
+            </select>
+          </div>
+          <div style="margin-left: auto; color: var(--text-muted); font-size: 0.8rem;">
+            <span id="aircraftCount">0</span> aircraft
+          </div>
+        </div>
+
         <div id="fleetGrid">
           <div class="table-empty">
             <div class="empty-message">LOADING FLEET DATA...</div>

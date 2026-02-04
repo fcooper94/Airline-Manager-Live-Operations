@@ -25,6 +25,11 @@ const Aircraft = sequelize.define('Aircraft', {
     type: DataTypes.STRING,
     comment: 'Specific variant if applicable'
   },
+  icaoCode: {
+    type: DataTypes.STRING(4),
+    field: 'icao_code',
+    comment: 'ICAO aircraft type designator (e.g., B77L, A359)'
+  },
   type: {
     type: DataTypes.ENUM('Narrowbody', 'Widebody', 'Regional', 'Cargo'),
     allowNull: false,
