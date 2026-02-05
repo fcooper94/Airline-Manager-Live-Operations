@@ -653,7 +653,7 @@ async function createAutoScheduledMaintenance(aircraftId, checkTypes, worldId = 
 
   // === BUILD IN-MEMORY LOOKUP STRUCTURES ===
 
-  // Index flights by date for quick lookup
+  // Index flights by date for quick lookup (including transit days)
   const flightsByDate = {};
   for (const flight of allFlights) {
     const depDate = flight.scheduledDate;
@@ -663,6 +663,17 @@ async function createAutoScheduledMaintenance(aircraftId, checkTypes, worldId = 
     if (arrDate && arrDate !== depDate) {
       if (!flightsByDate[arrDate]) flightsByDate[arrDate] = [];
       flightsByDate[arrDate].push(flight);
+      // Also index transit days (days between departure and arrival)
+      const dep = new Date(depDate + 'T00:00:00');
+      const arr = new Date(arrDate + 'T00:00:00');
+      const transitDate = new Date(dep);
+      transitDate.setDate(transitDate.getDate() + 1);
+      while (transitDate < arr) {
+        const transitStr = transitDate.toISOString().substring(0, 10);
+        if (!flightsByDate[transitStr]) flightsByDate[transitStr] = [];
+        flightsByDate[transitStr].push(flight);
+        transitDate.setDate(transitDate.getDate() + 1);
+      }
     }
   }
 
@@ -715,6 +726,11 @@ async function createAutoScheduledMaintenance(aircraftId, checkTypes, worldId = 
       if (flight.arrivalDate === dateStr && flight.scheduledDate !== dateStr) {
         let endMinutes = arrH * 60 + arrM + postFlight;
         slots.push({ start: 0, end: Math.min(1440, endMinutes) });
+      }
+
+      // Transit day: aircraft is in-flight/downroute all day
+      if (flight.scheduledDate < dateStr && flight.arrivalDate > dateStr) {
+        slots.push({ start: 0, end: 1440 });
       }
     }
     return slots;
@@ -1176,6 +1192,16 @@ async function refreshAutoScheduledMaintenance(aircraftId, worldId = null) {
   if (aircraft.autoScheduleD) enabledChecks.push('D');
 
   if (enabledChecks.length === 0) return [];
+
+  // Delete existing auto-scheduled maintenance so it can be recreated
+  // with correct positioning based on current flight schedule
+  await RecurringMaintenance.destroy({
+    where: {
+      aircraftId,
+      checkType: { [Op.in]: enabledChecks },
+      status: 'active'
+    }
+  });
 
   return createAutoScheduledMaintenance(aircraftId, enabledChecks, worldId);
 }
@@ -1641,28 +1667,25 @@ router.post('/purchase', async (req, res) => {
       lastACheckDate: new Date(now.getTime() - ((1 + Math.floor(Math.random() * 7)) * 24 * 60 * 60 * 1000)),
       lastACheckHours: 0,
       aCheckIntervalHours: 800 + Math.floor(Math.random() * 200), // 800-1000 hrs
-      // Auto-schedule preferences (default to true for all checks)
-      autoScheduleDaily: autoScheduleDaily !== false,
-      autoScheduleWeekly: autoScheduleWeekly !== false,
-      autoScheduleA: autoScheduleA !== false,
-      autoScheduleC: autoScheduleC !== false,
-      autoScheduleD: autoScheduleD !== false
+      // Auto-schedule preferences (default to false - user enables per aircraft)
+      autoScheduleDaily: autoScheduleDaily === true,
+      autoScheduleWeekly: autoScheduleWeekly === true,
+      autoScheduleA: autoScheduleA === true,
+      autoScheduleC: autoScheduleC === true,
+      autoScheduleD: autoScheduleD === true
     });
 
-    // Create auto-scheduled maintenance for enabled check types (default all on)
+    // Create auto-scheduled maintenance for explicitly enabled check types
     const autoCheckTypes = [];
-    if (autoScheduleDaily !== false) autoCheckTypes.push('daily');
-    if (autoScheduleWeekly !== false) autoCheckTypes.push('weekly');
-    if (autoScheduleA !== false) autoCheckTypes.push('A');
-    if (autoScheduleC !== false) autoCheckTypes.push('C');
-    if (autoScheduleD !== false) autoCheckTypes.push('D');
+    if (autoScheduleDaily === true) autoCheckTypes.push('daily');
+    if (autoScheduleWeekly === true) autoCheckTypes.push('weekly');
+    if (autoScheduleA === true) autoCheckTypes.push('A');
+    if (autoScheduleC === true) autoCheckTypes.push('C');
+    if (autoScheduleD === true) autoCheckTypes.push('D');
 
     if (autoCheckTypes.length > 0) {
       await createAutoScheduledMaintenance(userAircraft.id, autoCheckTypes, activeWorldId);
     }
-
-    // Daily check is already handled by createAutoScheduledMaintenance above
-    // (lastDailyCheckDate is set to expired, so auto-scheduler creates one immediately)
 
     // Deduct from balance
     membership.balance -= price;
@@ -1879,28 +1902,25 @@ router.post('/lease', async (req, res) => {
       lastACheckDate: new Date(now.getTime() - ((1 + Math.floor(Math.random() * 7)) * 24 * 60 * 60 * 1000)),
       lastACheckHours: 0,
       aCheckIntervalHours: 800 + Math.floor(Math.random() * 200), // 800-1000 hrs
-      // Auto-schedule preferences (default to true for all checks)
-      autoScheduleDaily: autoScheduleDaily !== false,
-      autoScheduleWeekly: autoScheduleWeekly !== false,
-      autoScheduleA: autoScheduleA !== false,
-      autoScheduleC: autoScheduleC !== false,
-      autoScheduleD: autoScheduleD !== false
+      // Auto-schedule preferences (default to false - user enables per aircraft)
+      autoScheduleDaily: autoScheduleDaily === true,
+      autoScheduleWeekly: autoScheduleWeekly === true,
+      autoScheduleA: autoScheduleA === true,
+      autoScheduleC: autoScheduleC === true,
+      autoScheduleD: autoScheduleD === true
     });
 
-    // Create auto-scheduled maintenance for enabled check types (default all on)
+    // Create auto-scheduled maintenance for explicitly enabled check types
     const autoCheckTypes = [];
-    if (autoScheduleDaily !== false) autoCheckTypes.push('daily');
-    if (autoScheduleWeekly !== false) autoCheckTypes.push('weekly');
-    if (autoScheduleA !== false) autoCheckTypes.push('A');
-    if (autoScheduleC !== false) autoCheckTypes.push('C');
-    if (autoScheduleD !== false) autoCheckTypes.push('D');
+    if (autoScheduleDaily === true) autoCheckTypes.push('daily');
+    if (autoScheduleWeekly === true) autoCheckTypes.push('weekly');
+    if (autoScheduleA === true) autoCheckTypes.push('A');
+    if (autoScheduleC === true) autoCheckTypes.push('C');
+    if (autoScheduleD === true) autoCheckTypes.push('D');
 
     if (autoCheckTypes.length > 0) {
       await createAutoScheduledMaintenance(userAircraft.id, autoCheckTypes, activeWorldId);
     }
-
-    // Daily check is already handled by createAutoScheduledMaintenance above
-    // (lastDailyCheckDate is set to expired, so auto-scheduler creates one immediately)
 
     // Deduct first month's payment
     membership.balance -= monthlyPayment;

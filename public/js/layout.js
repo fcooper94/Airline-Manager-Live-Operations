@@ -447,6 +447,15 @@ function initializeSubmenuToggle() {
     link.addEventListener('click', function(e) {
       e.preventDefault();
       const parentItem = this.parentElement;
+      const isOpening = !parentItem.classList.contains('active');
+
+      // Close all other open submenus
+      if (isOpening) {
+        document.querySelectorAll('.nav-item.parent.active').forEach(item => {
+          if (item !== parentItem) item.classList.remove('active');
+        });
+      }
+
       parentItem.classList.toggle('active');
     });
   });

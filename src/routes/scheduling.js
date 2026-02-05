@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { Op } = require('sequelize');
 const { ScheduledFlight, RecurringMaintenance, Route, UserAircraft, Airport, Aircraft, WorldMembership, User, World } = require('../models');
-const { checkMaintenanceConflict, attemptMaintenanceReschedule, optimizeMaintenanceForDates, createAutoScheduledMaintenance } = require('./fleet');
+const { checkMaintenanceConflict, attemptMaintenanceReschedule, optimizeMaintenanceForDates, createAutoScheduledMaintenance, refreshAutoScheduledMaintenance } = require('./fleet');
 
 // Wind and route variation constants (must match frontend scheduling-v3.js)
 const WIND_ADJUSTMENT_FACTOR = 0.13; // 13% variation for jet stream effect
@@ -263,17 +263,38 @@ router.get('/data', async (req, res) => {
       return aircraftJson;
     });
 
-    // Background: detect and fix maintenance scheduled on transit days
-    // This catches existing conflicts that predate the transit day fix
+    // Background: clean up auto-scheduled maintenance for aircraft with no flights
+    // Aircraft with no flights shouldn't have auto-scheduled maintenance cluttering the view
     (async () => {
       try {
+        const aircraftWithFlights = new Set(flights.map(f => f.aircraftId));
+        for (const aircraft of fleet) {
+          if (!aircraftWithFlights.has(aircraft.id) && (
+            aircraft.autoScheduleDaily || aircraft.autoScheduleWeekly ||
+            aircraft.autoScheduleA || aircraft.autoScheduleC || aircraft.autoScheduleD
+          )) {
+            // Disable auto-scheduling for aircraft with no flights
+            await aircraft.update({
+              autoScheduleDaily: false,
+              autoScheduleWeekly: false,
+              autoScheduleA: false,
+              autoScheduleC: false,
+              autoScheduleD: false
+            });
+            // Remove their auto-scheduled maintenance
+            await RecurringMaintenance.destroy({
+              where: { aircraftId: aircraft.id, status: 'active' }
+            });
+          }
+        }
+
+        // Also fix transit day conflicts for remaining maintenance
         for (const maint of maintenancePatterns) {
           if (maint.status !== 'active') continue;
           const maintDate = typeof maint.scheduledDate === 'string'
             ? maint.scheduledDate.substring(0, 10) : maint.scheduledDate;
           if (!maintDate) continue;
 
-          // Check if any flight has this aircraft in transit on this date
           const transitFlight = flights.find(f => {
             if (f.aircraftId !== maint.aircraftId) return false;
             const fDep = typeof f.scheduledDate === 'string' ? f.scheduledDate.substring(0, 10) : '';
@@ -287,7 +308,7 @@ router.get('/data', async (req, res) => {
           }
         }
       } catch (err) {
-        console.error('[MAINT-FIX] Error fixing transit day conflicts:', err.message);
+        console.error('[MAINT-FIX] Error in background maintenance cleanup:', err.message);
       }
     })();
 
@@ -802,15 +823,11 @@ router.post('/flight', async (req, res) => {
     }
     const optimizedMaintenance = await optimizeMaintenanceForDates(aircraftId, datesToOptimize);
 
-    // Re-run auto-scheduler to fill any gaps from rescheduled/deleted maintenance
-    if (rescheduledMaintenance.length > 0) {
-      try {
-        const activeWorldId = req.session?.activeWorldId;
-        await createAutoScheduledMaintenance(aircraftId, ['daily'], activeWorldId);
-      } catch (e) {
-        console.log('[SCHEDULE] Auto-scheduler re-run failed:', e.message);
-      }
-    }
+    // Re-run auto-scheduler in background (don't block the response)
+    const activeWorldId2 = req.session?.activeWorldId;
+    refreshAutoScheduledMaintenance(aircraftId, activeWorldId2).catch(e =>
+      console.log('[SCHEDULE] Auto-scheduler re-run failed:', e.message)
+    );
 
     // Include rescheduled and optimized maintenance info in response
     const response = completeFlightData.toJSON();
@@ -1240,14 +1257,10 @@ router.post('/flights/batch', async (req, res) => {
     }
     await optimizeMaintenanceForDates(aircraftId, [...allDates]);
 
-    // Re-run auto-scheduler to fill any gaps from rescheduled/deleted maintenance
-    if (rescheduledMaintenance.length > 0) {
-      try {
-        await createAutoScheduledMaintenance(aircraftId, ['daily'], activeWorldId);
-      } catch (e) {
-        console.log('[BATCH] Auto-scheduler re-run failed:', e.message);
-      }
-    }
+    // Re-run auto-scheduler in background (don't block the response)
+    refreshAutoScheduledMaintenance(aircraftId, activeWorldId).catch(e =>
+      console.log('[BATCH] Auto-scheduler re-run failed:', e.message)
+    );
 
     res.status(201).json({
       created: completeFlightData,
@@ -1311,7 +1324,13 @@ router.delete('/flight/:id', async (req, res) => {
       return res.status(404).json({ error: 'Scheduled flight not found' });
     }
 
+    const aircraftId = scheduledFlight.aircraftId;
     await scheduledFlight.destroy();
+
+    // Re-optimize maintenance in background (don't block the response)
+    refreshAutoScheduledMaintenance(aircraftId, activeWorldId).catch(e =>
+      console.log('[DELETE] Auto-scheduler re-run failed:', e.message)
+    );
 
     res.json({ message: 'Scheduled flight deleted successfully' });
   } catch (error) {
@@ -1400,6 +1419,11 @@ router.put('/flight/:id', async (req, res) => {
         }
       ]
     });
+
+    // Re-optimize maintenance in background (don't block the response)
+    refreshAutoScheduledMaintenance(scheduledFlight.aircraftId, activeWorldId).catch(e =>
+      console.log('[UPDATE] Auto-scheduler re-run failed:', e.message)
+    );
 
     res.json(updatedFlight);
   } catch (error) {
