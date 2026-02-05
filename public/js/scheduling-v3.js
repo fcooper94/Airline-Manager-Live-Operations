@@ -4190,7 +4190,7 @@ async function viewMaintenanceDetails(maintenanceId) {
           background: #161b22;
           border: 1px solid #30363d;
           border-radius: 8px;
-          width: 480px;
+          width: 680px;
           max-width: 95vw;
           max-height: 90vh;
           overflow: hidden;
@@ -4469,9 +4469,9 @@ function updateMaintenanceModalContent(maintenance, aircraft) {
     }
 
     return `
-      <div style="display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.4rem 0; border-bottom: 1px solid #21262d;">
-        <span style="width: 18px; text-align: center; flex-shrink: 0; ${taskStatus === 'completed' ? 'color: #3fb950;' : taskStatus === 'in-progress' ? 'color: #ffa657;' : 'color: #484f58;'}">${taskIcon}</span>
-        <span style="${taskStyle} font-size: 0.8rem; line-height: 1.3;">${task}</span>
+      <div style="display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.4rem 0.5rem; background: #21262d; border-radius: 4px;">
+        <span style="width: 16px; text-align: center; flex-shrink: 0; ${taskStatus === 'completed' ? 'color: #3fb950;' : taskStatus === 'in-progress' ? 'color: #ffa657;' : 'color: #484f58;'}">${taskIcon}</span>
+        <span style="${taskStyle} font-size: 0.78rem; line-height: 1.3;">${task}</span>
       </div>
     `;
   }).join('');
@@ -4516,12 +4516,14 @@ function updateMaintenanceModalContent(maintenance, aircraft) {
     </div>
 
     <!-- Task List -->
-    <div style="padding: 0.75rem 1.25rem; flex: 1; overflow-y: auto; max-height: 300px;">
+    <div style="padding: 0.75rem 1.25rem;">
       <div style="color: #f0f6fc; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
         <span>Work Items</span>
         <span style="color: #8b949e; font-weight: 400; font-size: 0.75rem;">(${tasks.filter((_, i) => elapsedMinutes >= (i + 1) * minutesPerTask).length}/${taskCount} complete)</span>
       </div>
-      ${taskListHtml}
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem;">
+        ${taskListHtml}
+      </div>
     </div>
   `;
 }
