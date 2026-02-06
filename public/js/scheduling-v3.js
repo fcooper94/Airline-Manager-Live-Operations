@@ -5890,50 +5890,77 @@ function generateAircraftRowWeekly(aircraft, dayColumns) {
           const completionDate = new Date(scheduledDate);
           completionDate.setDate(completionDate.getDate() + durationDays);
           const completionDateStr = completionDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-          const heavyMaintTooltip = `${checkDescription}\nStarted: ${startTimeStr} on ${scheduledDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}\nCompletes: ~${completionDateStr}`;
+
+          // Check if maintenance has actually started (compare with current world time)
+          const worldTime = getCurrentWorldTime();
+          const todayStr = worldTime ? formatLocalDate(worldTime) : '';
+          const maintDateStr = maint.scheduledDate ? maint.scheduledDate.split('T')[0] : '';
+          const hasStarted = maintDateStr < todayStr ||
+            (maintDateStr === todayStr && currentMinutes >= startMinutes);
+
+          const heavyMaintTooltip = hasStarted
+            ? `${checkDescription}\nStarted: ${startTimeStr} on ${scheduledDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}\nCompletes: ~${completionDateStr}`
+            : `${checkDescription}\nScheduled: ${startTimeStr} on ${scheduledDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}\nCompletes: ~${completionDateStr}`;
 
           // Use the full maintenance ID for the modal
           const maintId = maint.id;
 
-          // Block 1: Days before current day (Mon through Tue if current is Wed)
-          // Only render continuation if:
-          // 1. We're not on Monday (colIndex > 0), AND
-          // 2. This is an ongoing block (maintenance started before this day in a previous week)
-          // Don't show "..." for start-day blocks since maintenance didn't exist before
-          if (colIndex > 0 && maint.isOngoing) {
-            const continuationLeft = -(colIndex * 100);
-            const continuationWidth = colIndex * 100; // covers columns 0 to colIndex-1
+          // Only show extended "in progress" blocks if maintenance has actually started
+          if (hasStarted) {
+            // Block 1: Days before current day (Mon through Tue if current is Wed)
+            // Only render continuation if:
+            // 1. We're not on Monday (colIndex > 0), AND
+            // 2. This is an ongoing block (maintenance started before this day in a previous week)
+            // Don't show "..." for start-day blocks since maintenance didn't exist before
+            if (colIndex > 0 && maint.isOngoing) {
+              const continuationLeft = -(colIndex * 100);
+              const continuationWidth = colIndex * 100; // covers columns 0 to colIndex-1
+
+              cellContent += `
+                <div
+                  onclick="event.stopPropagation(); viewMaintenanceDetails('${maintId}')"
+                  title="${heavyMaintTooltip}"
+                  style="position: absolute; left: ${continuationLeft}%; width: ${continuationWidth}%; top: 0; bottom: 0; background: ${maintBg}; border-radius: 0; display: flex; align-items: center; justify-content: flex-end; padding: 0 0.5rem; cursor: pointer; z-index: 2;"
+                >
+                  <span style="color: rgba(255,255,255,0.5); font-size: 0.9rem; letter-spacing: 2px;">...</span>
+                </div>
+              `;
+            }
+
+            // Block 2: From check start time to end of visible week (Sunday)
+            // Width = rest of current day + all remaining days to Sunday
+            const remainingDays = 6 - colIndex; // columns from current+1 to Sunday (index 6)
+            const mainBlockWidth = (100 - leftPct) + (remainingDays * 100);
+
+            const content = `
+              <span style="background: rgba(255,255,255,0.2); padding: 0.1rem 0.4rem; border-radius: 2px; color: white; font-size: 0.7rem; font-weight: 700;">${maint.checkType}</span>
+              <span style="color: rgba(255,255,255,0.8); font-size: 0.65rem; margin-left: 0.5rem;">CHECK IN PROGRESS</span>
+            `;
 
             cellContent += `
               <div
                 onclick="event.stopPropagation(); viewMaintenanceDetails('${maintId}')"
                 title="${heavyMaintTooltip}"
-                style="position: absolute; left: ${continuationLeft}%; width: ${continuationWidth}%; top: 0; bottom: 0; background: ${maintBg}; border-radius: 0; display: flex; align-items: center; justify-content: flex-end; padding: 0 0.5rem; cursor: pointer; z-index: 2;"
+                style="position: absolute; left: ${leftPct}%; width: ${mainBlockWidth}%; top: 0; bottom: 0; background: ${maintBg}; border-radius: ${colIndex === 0 ? '3px' : '0'} 0 0 ${colIndex === 0 ? '3px' : '0'}; display: flex; align-items: center; padding: 0 0.5rem; cursor: pointer; z-index: 2; white-space: nowrap;"
               >
-                <span style="color: rgba(255,255,255,0.5); font-size: 0.9rem; letter-spacing: 2px;">...</span>
+                ${content}
+              </div>
+            `;
+          } else {
+            // Maintenance not yet started - just show a simple block for the scheduled day only
+            let widthPct = 15; // Small block to indicate scheduled maintenance
+            const content = `<span style="color: white; font-size: 0.65rem; font-weight: 600;">${maint.checkType}</span>`;
+
+            cellContent += `
+              <div
+                onclick="event.stopPropagation(); viewMaintenanceDetails('${maintId}')"
+                title="${heavyMaintTooltip}"
+                style="position: absolute; left: ${leftPct}%; width: ${widthPct}%; top: 0; bottom: 0; background: ${maintBg}; border-radius: 3px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 2;"
+              >
+                ${content}
               </div>
             `;
           }
-
-          // Block 2: From check start time to end of visible week (Sunday)
-          // Width = rest of current day + all remaining days to Sunday
-          const remainingDays = 6 - colIndex; // columns from current+1 to Sunday (index 6)
-          const mainBlockWidth = (100 - leftPct) + (remainingDays * 100);
-
-          const content = `
-            <span style="background: rgba(255,255,255,0.2); padding: 0.1rem 0.4rem; border-radius: 2px; color: white; font-size: 0.7rem; font-weight: 700;">${maint.checkType}</span>
-            <span style="color: rgba(255,255,255,0.8); font-size: 0.65rem; margin-left: 0.5rem;">CHECK IN PROGRESS</span>
-          `;
-
-          cellContent += `
-            <div
-              onclick="event.stopPropagation(); viewMaintenanceDetails('${maintId}')"
-              title="${heavyMaintTooltip}"
-              style="position: absolute; left: ${leftPct}%; width: ${mainBlockWidth}%; top: 0; bottom: 0; background: ${maintBg}; border-radius: ${colIndex === 0 ? '3px' : '0'} 0 0 ${colIndex === 0 ? '3px' : '0'}; display: flex; align-items: center; padding: 0 0.5rem; cursor: pointer; z-index: 2; white-space: nowrap;"
-            >
-              ${content}
-            </div>
-          `;
         } else {
           // Normal maintenance block (daily, weekly, A)
 
@@ -7648,6 +7675,18 @@ async function scheduleMaintenance(aircraftId) {
     // Only show Perform button for the HEAVIEST expired check (and not if already in progress)
     const isHeaviestExpired = heaviestExpiredCheck === check.type && !isCheckInProgress;
 
+    // Check if this check is already scheduled (don't show Perform if scheduled)
+    const worldTimeMs = worldTime.getTime();
+    const getScheduledTimeEarly = (m) => {
+      let time = m.startTime || '00:00';
+      if (time.length === 5) time += ':00';
+      return new Date(`${m.scheduledDate}T${time}Z`).getTime();
+    };
+    const hasScheduledCheck = scheduledMaintenance.some(m => {
+      if (m.aircraftId != aircraftId || m.checkType !== check.type) return false;
+      return getScheduledTimeEarly(m) > worldTimeMs;
+    });
+
     // Auto toggle for all schedulable checks
     // DISABLED when check is expired or never performed - must perform check first
     let autoToggle;
@@ -7734,8 +7773,8 @@ async function scheduleMaintenance(aircraftId) {
       } else if (isCheckInProgress) {
         // Check is currently in progress (and not covered by heavier) - show progress indicator
         scheduleBtn = `<span style="color: #ffa657; font-size: 0.65rem; font-weight: 600;">⟳ In Progress</span>`;
-      } else if (isHeaviestExpired) {
-        // This is the heaviest expired check - show "Perform" button
+      } else if (isHeaviestExpired && !hasScheduledCheck) {
+        // This is the heaviest expired check and not scheduled - show "Perform" button
         scheduleBtn = `
         <button
           class="perform-now-btn"
@@ -7751,6 +7790,9 @@ async function scheduleMaintenance(aircraftId) {
             50% { opacity: 0.7; }
           }
         </style>`;
+      } else if (isHeaviestExpired && hasScheduledCheck) {
+        // This is the heaviest expired check but already scheduled - show "Scheduled" text
+        scheduleBtn = `<span style="color: #58a6ff; font-size: 0.65rem; font-weight: 500;">Scheduled</span>`;
       } else if (isExpired && heaviestExpiredCheck) {
         // Expired but a heavier check will cover this one
         const heavierCheckName = { 'D': 'D Check', 'C': 'C Check', 'A': 'A Check', 'weekly': 'Weekly' }[heaviestExpiredCheck] || heaviestExpiredCheck;
@@ -7775,15 +7817,6 @@ async function scheduleMaintenance(aircraftId) {
       scheduleBtn = `<span style="color: #6b7280; font-size: 0.7rem;">-</span>`;
     }
 
-    // Find next scheduled or in-progress maintenance of this type for this aircraft
-    const worldTimeMs = worldTime.getTime();
-    const getScheduledTime = (m) => {
-      // Handle startTime formats: "HH:MM", "HH:MM:SS", or null
-      let time = m.startTime || '00:00';
-      if (time.length === 5) time += ':00'; // Add seconds if just HH:MM
-      return new Date(`${m.scheduledDate}T${time}Z`).getTime();
-    };
-
     // Check if this check is currently in progress - show that first
     const currentInProgress = inProgressMaint.find(m => m.checkType === check.type);
     let nextScheduledText, nextScheduledColor;
@@ -7797,9 +7830,9 @@ async function scheduleMaintenance(aircraftId) {
       const nextScheduled = scheduledMaintenance
         .filter(m => {
           if (m.aircraftId != aircraftId || m.checkType !== check.type) return false; // Use != for type-coercive comparison
-          return getScheduledTime(m) > worldTimeMs;
+          return getScheduledTimeEarly(m) > worldTimeMs;
         })
-        .sort((a, b) => getScheduledTime(a) - getScheduledTime(b))[0];
+        .sort((a, b) => getScheduledTimeEarly(a) - getScheduledTimeEarly(b))[0];
       nextScheduledText = nextScheduled
         ? formatCheckDate(`${nextScheduled.scheduledDate}T${(nextScheduled.startTime || '00:00').substring(0, 5)}:00Z`)
         : 'Not yet planned';
@@ -7838,6 +7871,15 @@ async function scheduleMaintenance(aircraftId) {
   const heaviestCheckName = heaviestExpiredCheck ? (checkNameMap[heaviestExpiredCheck] || heaviestExpiredCheck) : null;
   const heaviestInProgressCheckName = heaviestInProgressCheck ? (checkNameMap[heaviestInProgressCheck] || heaviestInProgressCheck) : null;
 
+  // Check if the heaviest expired check is already scheduled
+  const worldTimeMsBanner = worldTime.getTime();
+  const heaviestExpiredIsScheduled = heaviestExpiredCheck && scheduledMaintenance.some(m => {
+    if (m.aircraftId != aircraftId || m.checkType !== heaviestExpiredCheck) return false;
+    let time = m.startTime || '00:00';
+    if (time.length === 5) time += ':00';
+    return new Date(`${m.scheduledDate}T${time}Z`).getTime() > worldTimeMsBanner;
+  });
+
   let expiredBannerHtml = '';
   if (heaviestExpiredCheck && heaviestExpiredCheckInProgress) {
     // Heaviest expired check is currently in progress - show positive message
@@ -7856,6 +7898,16 @@ async function scheduleMaintenance(aircraftId) {
       <div style="font-weight: 600; margin-bottom: 0.25rem;">⟳ Maintenance in progress</div>
       <div style="font-size: 0.85rem; color: var(--text-secondary);">
         <strong style="color: #ffa657;">${heaviestInProgressCheckName}</strong> is currently being performed. All expired checks will be validated once complete.
+      </div>
+    </div>
+  `;
+  } else if (heaviestExpiredCheck && heaviestExpiredIsScheduled) {
+    // Heaviest expired check is scheduled - show info message
+    expiredBannerHtml = `
+    <div style="background: rgba(88, 166, 255, 0.15); border: 1px solid #58a6ff; border-radius: 6px; padding: 1rem; margin-bottom: 1rem; color: #58a6ff;">
+      <div style="font-weight: 600; margin-bottom: 0.25rem;">📅 Maintenance scheduled</div>
+      <div style="font-size: 0.85rem; color: var(--text-secondary);">
+        <strong style="color: #58a6ff;">${heaviestCheckName}</strong> is scheduled and will begin soon. Auto-scheduling will be available once complete.
       </div>
     </div>
   `;
