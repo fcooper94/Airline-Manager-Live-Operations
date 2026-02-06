@@ -2722,12 +2722,13 @@ function renderMaintenanceBlocks(maintenance, cellFlights = [], aircraft = null)
             align-items: center;
             gap: 0.5rem;
             white-space: nowrap;
+            overflow: hidden;
           "
           onclick="viewMaintenanceDetails('${check.id}')"
           title="${checkLabel} CHECK: ${checkDescription} | ${isOngoing ? dayLabel + ' - ' : 'Started ' + startTime + ' - '}ongoing for weeks"
         >
           <span style="background: rgba(255,255,255,0.2); padding: 0.1rem 0.3rem; border-radius: 2px;">${checkLabel}</span>
-          <span style="opacity: 0.7; font-size: 0.7rem;">${dayLabel || 'CHECK IN PROGRESS'}</span>
+          <span style="opacity: 0.7; font-size: 0.7rem;">${dayLabel || 'IN PROGRESS'}</span>
           <span style="margin-left: auto; opacity: 0.6;">▸▸▸</span>
         </div>
       `;
@@ -5932,16 +5933,16 @@ function generateAircraftRowWeekly(aircraft, dayColumns) {
             const remainingDays = 6 - colIndex; // columns from current+1 to Sunday (index 6)
             const mainBlockWidth = (100 - leftPct) + (remainingDays * 100);
 
+            // Content fits within single cell since cells now clip
             const content = `
               <span style="background: rgba(255,255,255,0.2); padding: 0.1rem 0.4rem; border-radius: 2px; color: white; font-size: 0.7rem; font-weight: 700;">${maint.checkType}</span>
-              <span style="color: rgba(255,255,255,0.8); font-size: 0.65rem; margin-left: 0.5rem;">CHECK IN PROGRESS</span>
             `;
 
             cellContent += `
               <div
                 onclick="event.stopPropagation(); viewMaintenanceDetails('${maintId}')"
                 title="${heavyMaintTooltip}"
-                style="position: absolute; left: ${leftPct}%; width: ${mainBlockWidth}%; top: 0; bottom: 0; background: ${maintBg}; border-radius: ${colIndex === 0 ? '3px' : '0'} 0 0 ${colIndex === 0 ? '3px' : '0'}; display: flex; align-items: center; padding: 0 0.5rem; cursor: pointer; z-index: 2; white-space: nowrap;"
+                style="position: absolute; left: 0; width: 100%; top: 0; bottom: 0; background: ${maintBg}; border-radius: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 2;"
               >
                 ${content}
               </div>
@@ -6074,7 +6075,7 @@ function generateAircraftRowWeekly(aircraft, dayColumns) {
         class="schedule-cell weekly-cell"
         data-day="${col.dayOfWeek}"
         data-aircraft-id="${aircraft.id}"
-        style="position: relative; height: 36px; ${hasMultiDayOverflow ? '' : 'border-left: 1px solid var(--border-color);'} background: ${bgColor}; ${hasExpiredChecks ? 'overflow: visible;' : ''}"
+        style="position: relative; height: 36px; ${hasMultiDayOverflow ? '' : 'border-left: 1px solid var(--border-color);'} background: ${bgColor}; overflow: ${hasExpiredChecks ? 'visible' : 'hidden'};"
         ondragover="${hasExpiredChecks ? '' : `handleWeeklyDragOver(event, ${col.dayOfWeek})`}"
         ondragleave="${hasExpiredChecks ? '' : 'handleWeeklyDragLeave(event)'}"
         ondrop="${hasExpiredChecks ? '' : `handleWeeklyDrop(event, '${aircraft.id}', ${col.dayOfWeek})`}"
