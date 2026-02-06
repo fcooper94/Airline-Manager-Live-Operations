@@ -1594,7 +1594,7 @@ async function openAddAircraftToFleetModal() {
     aircraft.filter(ac => ac.isActive).forEach(ac => {
       const option = document.createElement('option');
       option.value = ac.id;
-      option.textContent = `${ac.manufacturer} ${ac.model}${ac.variant ? '-' + ac.variant : ''}`;
+      option.textContent = `${ac.manufacturer} ${ac.model}${ac.variant ? (ac.model.endsWith('-') || ac.variant.startsWith('-') ? ac.variant : '-' + ac.variant) : ''}`;
       select.appendChild(option);
     });
   } catch (error) {

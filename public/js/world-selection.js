@@ -323,7 +323,13 @@ function createWorldCard(world, isMember) {
       </div>
     </div>
 
-    <div class="world-actions" style="display: flex; gap: 0.5rem; margin-left: auto;">
+    <div class="world-actions">
+      ${!isMember ? `
+        <div style="display: flex; gap: 0.5rem; font-size: 0.7rem;">
+          <span style="background: rgba(217, 119, 6, 0.15); color: var(--warning-color); padding: 0.25rem 0.5rem; border-radius: 3px; font-weight: 600;">10 credits to join</span>
+          <span style="background: rgba(217, 119, 6, 0.15); color: var(--warning-color); padding: 0.25rem 0.5rem; border-radius: 3px; font-weight: 600;">1 credit/week</span>
+        </div>
+      ` : '<div></div>'}
       ${isMember ? `
         <button class="btn btn-primary continue-game-btn" style="padding: 0.5rem 1.5rem;">CONTINUE GAME</button>
       ` : `
@@ -571,7 +577,7 @@ function clearSelectedAirport() {
 }
 
 // Open join modal
-function openJoinModal(worldId, worldName) {
+async function openJoinModal(worldId, worldName) {
   selectedWorldId = worldId;
   selectedAirportId = null;
   document.getElementById('selectedWorldName').textContent = worldName;
@@ -585,10 +591,35 @@ function openJoinModal(worldId, worldName) {
   document.getElementById('airportResults').style.display = 'none';
   document.getElementById('joinError').style.display = 'none';
   document.getElementById('startingCapital').textContent = 'Starting Capital: Loading...';
+  document.getElementById('userCredits').textContent = '(Loading...)';
   document.getElementById('joinModal').style.display = 'flex';
 
   // Fetch and display starting capital for this world
   updateStartingInfo();
+
+  // Fetch and display user's current credits
+  try {
+    const response = await fetch('/auth/status');
+    const data = await response.json();
+    const creditsEl = document.getElementById('userCredits');
+
+    if (data.authenticated && data.user) {
+      const credits = data.user.credits !== undefined ? data.user.credits : 0;
+      if (credits >= 10) {
+        creditsEl.textContent = `(You have ${credits} credits)`;
+        creditsEl.style.color = 'var(--success-color)';
+      } else {
+        creditsEl.textContent = `(You only have ${credits} credits - need 10)`;
+        creditsEl.style.color = 'var(--danger-color)';
+      }
+    } else {
+      creditsEl.textContent = '(Not logged in)';
+      creditsEl.style.color = 'var(--danger-color)';
+    }
+  } catch (error) {
+    console.error('Error fetching user credits:', error);
+    document.getElementById('userCredits').textContent = '(Error loading credits)';
+  }
 }
 
 // Close join modal
@@ -651,8 +682,18 @@ async function confirmJoin() {
       // Successfully joined, reload worlds
       closeJoinModal();
       loadWorlds();
+
+      // Show credits deducted message
+      if (data.creditsDeducted) {
+        console.log(`Joined world! ${data.creditsDeducted} credits deducted. Remaining: ${data.creditsRemaining}`);
+      }
     } else {
-      errorDiv.textContent = data.error || 'Failed to join world';
+      // Check if it's a credits error and show helpful message
+      if (data.creditsRequired !== undefined) {
+        errorDiv.innerHTML = `<strong>Not enough credits!</strong><br>You need ${data.creditsRequired} credits but only have ${data.creditsAvailable}.<br><small style="color: var(--text-secondary);">Credits are earned by playing and completing flights.</small>`;
+      } else {
+        errorDiv.textContent = data.error || 'Failed to join world';
+      }
       errorDiv.style.display = 'block';
     }
   } catch (error) {

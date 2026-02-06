@@ -286,10 +286,22 @@ class WorldTimeService {
 
   /**
    * Process credit deductions for all active memberships in a world
+   * Credits are deducted every Monday at 00:01 game time (1 credit per week)
    */
   async processCredits(worldId, currentGameTime) {
     const worldState = this.worlds.get(worldId);
     if (!worldState) return;
+
+    const gameTime = new Date(currentGameTime);
+    const dayOfWeek = gameTime.getDay(); // 0 = Sunday, 1 = Monday
+    const hour = gameTime.getHours();
+    const minute = gameTime.getMinutes();
+
+    // Only process on Monday between 00:01 and 00:10 game time
+    // (10 minute window to ensure we catch it with the tick interval)
+    if (dayOfWeek !== 1 || hour !== 0 || minute < 1 || minute > 10) {
+      return;
+    }
 
     try {
       // Get all active memberships for this world
@@ -305,38 +317,42 @@ class WorldTimeService {
         }]
       });
 
-      const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+      // Get the Monday at 00:01 timestamp for this week (for comparison)
+      const thisMondayMorning = new Date(gameTime);
+      thisMondayMorning.setHours(0, 1, 0, 0);
 
       for (const membership of memberships) {
-        // Check if a week has passed since last credit deduction
-        const lastDeduction = membership.lastCreditDeduction ? new Date(membership.lastCreditDeduction) : new Date(membership.joinedAt);
-        const timeSinceLastDeduction = new Date(currentGameTime).getTime() - lastDeduction.getTime();
+        // Check if we already processed this Monday
+        const lastDeduction = membership.lastCreditDeduction ? new Date(membership.lastCreditDeduction) : null;
 
-        if (timeSinceLastDeduction >= ONE_WEEK_MS) {
-          // Calculate how many weeks have passed
-          const weeksPassed = Math.floor(timeSinceLastDeduction / ONE_WEEK_MS);
+        // Skip if we already deducted this Monday (compare dates, not exact times)
+        if (lastDeduction) {
+          const lastDeductionDate = lastDeduction.toISOString().split('T')[0];
+          const todayDate = thisMondayMorning.toISOString().split('T')[0];
+          if (lastDeductionDate === todayDate) {
+            continue; // Already processed this Monday
+          }
+        }
 
-          // Deduct credits (1 per week)
-          if (membership.user) {
-            membership.user.credits -= weeksPassed;
-            await membership.user.save();
+        // Deduct 1 credit for this week
+        if (membership.user) {
+          membership.user.credits -= 1;
+          await membership.user.save();
 
-            // Update last deduction time
-            const newDeductionTime = new Date(lastDeduction.getTime() + (weeksPassed * ONE_WEEK_MS));
-            membership.lastCreditDeduction = newDeductionTime;
-            await membership.save();
+          // Update last deduction time to this Monday
+          membership.lastCreditDeduction = thisMondayMorning;
+          await membership.save();
 
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`[Monday 00:01] Deducted 1 credit from user ${membership.user.id} for world ${worldState.world.name}. New balance: ${membership.user.credits}`);
+          }
+
+          // Check if user has fallen below -4 (enter administration)
+          if (membership.user.credits < -4) {
             if (process.env.NODE_ENV === 'development') {
-              console.log(`Deducted ${weeksPassed} credits from user ${membership.user.id} for world ${worldState.world.name}. New balance: ${membership.user.credits}`);
+              console.log(`User ${membership.user.id} has entered administration (credits: ${membership.user.credits})`);
             }
-
-            // Check if user has fallen below -4 (enter administration)
-            if (membership.user.credits < -4) {
-              if (process.env.NODE_ENV === 'development') {
-                console.log(`User ${membership.user.id} has entered administration (credits: ${membership.user.credits})`);
-              }
-              // TODO: Implement administration logic (sell assets, etc.)
-            }
+            // TODO: Implement administration logic (sell assets, etc.)
           }
         }
       }

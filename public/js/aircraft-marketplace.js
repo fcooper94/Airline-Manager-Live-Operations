@@ -4,6 +4,221 @@ let selectedAircraft = null;
 let registrationPrefix = 'N-'; // Default prefix, will be updated from world info
 let baseCountry = null;
 
+// Contract signing animation
+function showContractSigningAnimation(type, aircraftName, registration, price) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.id = 'contractOverlay';
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(10, 15, 26, 0.95);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    `;
+
+    const formattedPrice = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 0
+    }).format(price);
+
+    const today = new Date().toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+
+    const contractType = type === 'lease' ? 'AIRCRAFT LEASE AGREEMENT' : 'AIRCRAFT PURCHASE AGREEMENT';
+    const actionText = type === 'lease' ? 'lease' : 'purchase';
+
+    overlay.innerHTML = `
+      <div class="contract-container" style="
+        background: #f5f0e6;
+        background-image: linear-gradient(to bottom, #f5f0e6, #e8e0d0);
+        width: 500px;
+        max-width: 90%;
+        padding: 2.5rem;
+        border-radius: 4px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.5), inset 0 0 100px rgba(0,0,0,0.05);
+        font-family: 'Times New Roman', serif;
+        color: #2c2c2c;
+        position: relative;
+        transform: scale(0.9);
+        opacity: 0;
+        transition: all 0.4s ease;
+      ">
+        <!-- Decorative border -->
+        <div style="
+          position: absolute;
+          top: 12px;
+          left: 12px;
+          right: 12px;
+          bottom: 12px;
+          border: 2px solid #8b7355;
+          pointer-events: none;
+        "></div>
+
+        <!-- Header -->
+        <div style="text-align: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #8b7355;">
+          <div style="font-size: 0.7rem; letter-spacing: 3px; color: #666; margin-bottom: 0.3rem;">OFFICIAL DOCUMENT</div>
+          <h2 style="font-size: 1.3rem; font-weight: bold; margin: 0; letter-spacing: 1px;">${contractType}</h2>
+        </div>
+
+        <!-- Contract body -->
+        <div style="font-size: 0.9rem; line-height: 1.8; text-align: justify;">
+          <p style="margin-bottom: 1rem;">
+            This agreement, executed on <strong>${today}</strong>, hereby confirms the ${actionText} of the following aircraft:
+          </p>
+
+          <div style="background: rgba(139, 115, 85, 0.1); padding: 1rem; margin: 1rem 0; border-left: 3px solid #8b7355;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span>Aircraft:</span>
+              <strong>${aircraftName}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span>Registration:</span>
+              <strong>${registration}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span>${type === 'lease' ? 'Monthly Rate:' : 'Purchase Price:'}</span>
+              <strong>${formattedPrice}</strong>
+            </div>
+          </div>
+
+          <p style="font-size: 0.8rem; color: #666; margin-top: 1rem;">
+            The undersigned agrees to all terms and conditions as set forth in the standard aviation ${actionText} agreement.
+          </p>
+        </div>
+
+        <!-- Signature area -->
+        <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #8b7355;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+            <div style="flex: 1;">
+              <div style="font-size: 0.75rem; color: #666; margin-bottom: 0.5rem;">AUTHORIZED SIGNATURE</div>
+              <div style="position: relative; height: 50px; border-bottom: 1px solid #2c2c2c; margin-right: 2rem;">
+                <!-- SVG Signature that will be animated -->
+                <svg id="signatureSvg" viewBox="0 0 200 50" style="position: absolute; bottom: 5px; left: 10px; width: 150px; height: 40px;">
+                  <path id="signaturePath"
+                    d="M5,35 Q15,10 30,30 T60,25 Q70,20 80,30 T110,20 Q130,35 150,25 Q160,20 175,30 L185,25"
+                    fill="none"
+                    stroke="#1a3a6e"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-dasharray="300"
+                    stroke-dashoffset="300"
+                  />
+                </svg>
+                <!-- Pen cursor -->
+                <div id="penCursor" style="
+                  position: absolute;
+                  bottom: 10px;
+                  left: 5px;
+                  font-size: 1.5rem;
+                  opacity: 0;
+                  transform: rotate(-30deg);
+                  transition: opacity 0.3s;
+                ">🖊️</div>
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 0.75rem; color: #666;">DATE</div>
+              <div style="font-size: 0.9rem; font-weight: bold;">${today}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stamp that appears after signing -->
+        <div id="approvedStamp" style="
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%) rotate(-15deg) scale(0);
+          width: 150px;
+          height: 150px;
+          border: 4px solid #22c55e;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.2rem;
+          font-weight: bold;
+          color: #22c55e;
+          text-transform: uppercase;
+          letter-spacing: 2px;
+          opacity: 0;
+          transition: all 0.3s ease;
+        ">
+          <div style="text-align: center;">
+            <div>✓</div>
+            <div>APPROVED</div>
+          </div>
+        </div>
+      </div>
+
+      <style>
+        @keyframes signatureWrite {
+          to {
+            stroke-dashoffset: 0;
+          }
+        }
+        @keyframes penMove {
+          0% { left: 5px; bottom: 10px; opacity: 1; }
+          100% { left: 175px; bottom: 15px; opacity: 1; }
+        }
+        @keyframes stampAppear {
+          0% { transform: translate(-50%, -50%) rotate(-15deg) scale(0); opacity: 0; }
+          50% { transform: translate(-50%, -50%) rotate(-15deg) scale(1.2); opacity: 0.8; }
+          100% { transform: translate(-50%, -50%) rotate(-15deg) scale(1); opacity: 0.9; }
+        }
+      </style>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // Trigger animations
+    requestAnimationFrame(() => {
+      overlay.style.opacity = '1';
+      const container = overlay.querySelector('.contract-container');
+      container.style.transform = 'scale(1)';
+      container.style.opacity = '1';
+
+      // Start pen and signature animation after contract appears
+      setTimeout(() => {
+        const pen = document.getElementById('penCursor');
+        const signature = document.getElementById('signaturePath');
+
+        pen.style.opacity = '1';
+        pen.style.animation = 'penMove 1.5s ease-in-out forwards';
+        signature.style.animation = 'signatureWrite 1.5s ease-in-out forwards';
+
+        // Show approved stamp after signature
+        setTimeout(() => {
+          const stamp = document.getElementById('approvedStamp');
+          stamp.style.animation = 'stampAppear 0.4s ease-out forwards';
+
+          // Fade out and resolve (display stamp for 4.5 seconds)
+          setTimeout(() => {
+            overlay.style.opacity = '0';
+            setTimeout(() => {
+              overlay.remove();
+              resolve();
+            }, 300);
+          }, 4500);
+        }, 1600);
+      }, 500);
+    });
+  });
+}
+
 // Fetch world info to get registration prefix
 async function fetchRegistrationPrefix() {
   try {
@@ -603,6 +818,12 @@ function hideProcessingOverlay() {
 async function confirmPurchase(registration, autoSchedulePrefs = {}) {
   if (!selectedAircraft) return;
 
+  // Show contract signing animation
+  const aircraftName = selectedAircraft.variant
+    ? `${selectedAircraft.manufacturer} ${selectedAircraft.model}${selectedAircraft.model.endsWith('-') || selectedAircraft.variant.startsWith('-') ? selectedAircraft.variant : '-' + selectedAircraft.variant}`
+    : `${selectedAircraft.manufacturer} ${selectedAircraft.model}`;
+  await showContractSigningAnimation('purchase', aircraftName, registration, selectedAircraft.purchasePrice);
+
   // Show processing overlay
   showProcessingOverlay('purchase');
 
@@ -631,10 +852,12 @@ async function confirmPurchase(registration, autoSchedulePrefs = {}) {
         // Check validity for used aircraft
         cCheckRemainingDays: selectedAircraft.cCheckRemainingDays || null,
         dCheckRemainingDays: selectedAircraft.dCheckRemainingDays || null,
-        // Auto-schedule preferences (light checks only - C/D scheduled manually)
+        // Auto-schedule preferences for all check types
         autoScheduleDaily: autoSchedulePrefs.autoScheduleDaily || false,
         autoScheduleWeekly: autoSchedulePrefs.autoScheduleWeekly || false,
-        autoScheduleA: autoSchedulePrefs.autoScheduleA || false
+        autoScheduleA: autoSchedulePrefs.autoScheduleA || false,
+        autoScheduleC: autoSchedulePrefs.autoScheduleC || false,
+        autoScheduleD: autoSchedulePrefs.autoScheduleD || false
       })
     });
 
@@ -727,32 +950,41 @@ function showConfirmationDialog(title, aircraftName, condition, price, actionTyp
         <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">
           Auto-schedule recurring maintenance checks to keep them valid.
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem;">
+        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem;">
           <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--surface); border-radius: 4px;">
-            <span style="font-size: 0.85rem; color: #FFA500;">Daily</span>
-            <label class="toggle-switch" style="position: relative; display: inline-block; width: 36px; height: 20px;">
+            <span style="font-size: 0.8rem; color: #FFA500;">Daily</span>
+            <label class="toggle-switch" style="position: relative; display: inline-block; width: 32px; height: 18px;">
               <input type="checkbox" id="autoScheduleDaily" checked style="opacity: 0; width: 0; height: 0;">
-              <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #4b5563; transition: 0.3s; border-radius: 20px;"></span>
+              <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #4b5563; transition: 0.3s; border-radius: 18px;"></span>
             </label>
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--surface); border-radius: 4px;">
-            <span style="font-size: 0.85rem; color: #8B5CF6;">Weekly</span>
-            <label class="toggle-switch" style="position: relative; display: inline-block; width: 36px; height: 20px;">
+            <span style="font-size: 0.8rem; color: #8B5CF6;">Weekly</span>
+            <label class="toggle-switch" style="position: relative; display: inline-block; width: 32px; height: 18px;">
               <input type="checkbox" id="autoScheduleWeekly" checked style="opacity: 0; width: 0; height: 0;">
-              <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #4b5563; transition: 0.3s; border-radius: 20px;"></span>
+              <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #4b5563; transition: 0.3s; border-radius: 18px;"></span>
             </label>
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--surface); border-radius: 4px;">
-            <span style="font-size: 0.85rem; color: #3B82F6;">A Check</span>
-            <label class="toggle-switch" style="position: relative; display: inline-block; width: 36px; height: 20px;">
+            <span style="font-size: 0.8rem; color: #3B82F6;">A Check</span>
+            <label class="toggle-switch" style="position: relative; display: inline-block; width: 32px; height: 18px;">
               <input type="checkbox" id="autoScheduleA" checked style="opacity: 0; width: 0; height: 0;">
-              <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #4b5563; transition: 0.3s; border-radius: 20px;"></span>
+              <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #4b5563; transition: 0.3s; border-radius: 18px;"></span>
             </label>
           </div>
-        </div>
-        <div style="margin-top: 0.75rem; padding: 0.5rem; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 4px;">
-          <div style="font-size: 0.75rem; color: #f59e0b;">
-            <strong>C &amp; D Checks</strong> are heavy maintenance (14-60 days). Schedule manually when due.
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--surface); border-radius: 4px;">
+            <span style="font-size: 0.8rem; color: #10B981;">C Check</span>
+            <label class="toggle-switch" style="position: relative; display: inline-block; width: 32px; height: 18px;">
+              <input type="checkbox" id="autoScheduleC" checked style="opacity: 0; width: 0; height: 0;">
+              <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #4b5563; transition: 0.3s; border-radius: 18px;"></span>
+            </label>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--surface); border-radius: 4px;">
+            <span style="font-size: 0.8rem; color: #EF4444;">D Check</span>
+            <label class="toggle-switch" style="position: relative; display: inline-block; width: 32px; height: 18px;">
+              <input type="checkbox" id="autoScheduleD" checked style="opacity: 0; width: 0; height: 0;">
+              <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #4b5563; transition: 0.3s; border-radius: 18px;"></span>
+            </label>
           </div>
         </div>
       </div>
@@ -790,14 +1022,15 @@ function showConfirmationDialog(title, aircraftName, condition, price, actionTyp
   const confirmBtn = document.getElementById('confirmActionBtn');
   const inputContainer = registrationSuffix.parentElement;
 
-  // Auto-schedule toggle handlers (only for light checks: Daily, Weekly, A)
-  // C and D checks are heavy maintenance and scheduled manually when due
+  // Auto-schedule toggle handlers for all check types
   const autoScheduleAll = document.getElementById('autoScheduleAll');
   const autoScheduleDaily = document.getElementById('autoScheduleDaily');
   const autoScheduleWeekly = document.getElementById('autoScheduleWeekly');
   const autoScheduleA = document.getElementById('autoScheduleA');
+  const autoScheduleC = document.getElementById('autoScheduleC');
+  const autoScheduleD = document.getElementById('autoScheduleD');
 
-  const individualToggles = [autoScheduleDaily, autoScheduleWeekly, autoScheduleA];
+  const individualToggles = [autoScheduleDaily, autoScheduleWeekly, autoScheduleA, autoScheduleC, autoScheduleD];
 
   // Auto All toggle
   autoScheduleAll.addEventListener('change', () => {
@@ -863,11 +1096,13 @@ function showConfirmationDialog(title, aircraftName, condition, price, actionTyp
       return;
     }
 
-    // Collect auto-schedule preferences (only light checks - C/D are heavy maintenance)
+    // Collect auto-schedule preferences for all check types
     const autoSchedulePrefs = {
       autoScheduleDaily: autoScheduleDaily.checked,
       autoScheduleWeekly: autoScheduleWeekly.checked,
-      autoScheduleA: autoScheduleA.checked
+      autoScheduleA: autoScheduleA.checked,
+      autoScheduleC: autoScheduleC.checked,
+      autoScheduleD: autoScheduleD.checked
     };
 
     // Remove overlay and call confirm callback with registration and auto-schedule prefs
@@ -1070,32 +1305,41 @@ function showLeaseConfirmationDialog() {
             <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.75rem;">
               Auto-schedule recurring maintenance checks.
             </div>
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem;">
+            <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.4rem;">
               <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.4rem; background: var(--surface); border-radius: 4px;">
-                <span style="font-size: 0.8rem; color: #FFA500;">Daily</span>
-                <label class="toggle-switch" style="position: relative; display: inline-block; width: 32px; height: 18px;">
+                <span style="font-size: 0.75rem; color: #FFA500;">Daily</span>
+                <label class="toggle-switch" style="position: relative; display: inline-block; width: 28px; height: 16px;">
                   <input type="checkbox" id="leaseAutoScheduleDaily" checked style="opacity: 0; width: 0; height: 0;">
-                  <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #4b5563; transition: 0.3s; border-radius: 18px;"></span>
+                  <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #4b5563; transition: 0.3s; border-radius: 16px;"></span>
                 </label>
               </div>
               <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.4rem; background: var(--surface); border-radius: 4px;">
-                <span style="font-size: 0.8rem; color: #8B5CF6;">Weekly</span>
-                <label class="toggle-switch" style="position: relative; display: inline-block; width: 32px; height: 18px;">
+                <span style="font-size: 0.75rem; color: #8B5CF6;">Weekly</span>
+                <label class="toggle-switch" style="position: relative; display: inline-block; width: 28px; height: 16px;">
                   <input type="checkbox" id="leaseAutoScheduleWeekly" checked style="opacity: 0; width: 0; height: 0;">
-                  <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #4b5563; transition: 0.3s; border-radius: 18px;"></span>
+                  <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #4b5563; transition: 0.3s; border-radius: 16px;"></span>
                 </label>
               </div>
               <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.4rem; background: var(--surface); border-radius: 4px;">
-                <span style="font-size: 0.8rem; color: #3B82F6;">A Check</span>
-                <label class="toggle-switch" style="position: relative; display: inline-block; width: 32px; height: 18px;">
+                <span style="font-size: 0.75rem; color: #3B82F6;">A</span>
+                <label class="toggle-switch" style="position: relative; display: inline-block; width: 28px; height: 16px;">
                   <input type="checkbox" id="leaseAutoScheduleA" checked style="opacity: 0; width: 0; height: 0;">
-                  <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #4b5563; transition: 0.3s; border-radius: 18px;"></span>
+                  <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #4b5563; transition: 0.3s; border-radius: 16px;"></span>
                 </label>
               </div>
-            </div>
-            <div style="margin-top: 0.5rem; padding: 0.4rem; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 4px;">
-              <div style="font-size: 0.7rem; color: #f59e0b;">
-                <strong>C & D Checks</strong> are heavy maintenance. Schedule manually when due.
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.4rem; background: var(--surface); border-radius: 4px;">
+                <span style="font-size: 0.75rem; color: #10B981;">C</span>
+                <label class="toggle-switch" style="position: relative; display: inline-block; width: 28px; height: 16px;">
+                  <input type="checkbox" id="leaseAutoScheduleC" checked style="opacity: 0; width: 0; height: 0;">
+                  <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #4b5563; transition: 0.3s; border-radius: 16px;"></span>
+                </label>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.4rem; background: var(--surface); border-radius: 4px;">
+                <span style="font-size: 0.75rem; color: #EF4444;">D</span>
+                <label class="toggle-switch" style="position: relative; display: inline-block; width: 28px; height: 16px;">
+                  <input type="checkbox" id="leaseAutoScheduleD" checked style="opacity: 0; width: 0; height: 0;">
+                  <span class="toggle-slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #4b5563; transition: 0.3s; border-radius: 16px;"></span>
+                </label>
               </div>
             </div>
           </div>
@@ -1218,12 +1462,14 @@ function showLeaseConfirmationDialog() {
   // Initialize display
   updateDurationDisplay();
 
-  // Auto-schedule toggle handlers
+  // Auto-schedule toggle handlers for all check types
   const autoScheduleAll = document.getElementById('leaseAutoScheduleAll');
   const autoScheduleDaily = document.getElementById('leaseAutoScheduleDaily');
   const autoScheduleWeekly = document.getElementById('leaseAutoScheduleWeekly');
   const autoScheduleA = document.getElementById('leaseAutoScheduleA');
-  const individualToggles = [autoScheduleDaily, autoScheduleWeekly, autoScheduleA];
+  const autoScheduleC = document.getElementById('leaseAutoScheduleC');
+  const autoScheduleD = document.getElementById('leaseAutoScheduleD');
+  const individualToggles = [autoScheduleDaily, autoScheduleWeekly, autoScheduleA, autoScheduleC, autoScheduleD];
 
   autoScheduleAll.addEventListener('change', () => {
     const checked = autoScheduleAll.checked;
@@ -1270,11 +1516,13 @@ function showLeaseConfirmationDialog() {
       return;
     }
 
-    // Collect auto-schedule preferences
+    // Collect auto-schedule preferences for all check types
     const autoSchedulePrefs = {
       autoScheduleDaily: autoScheduleDaily.checked,
       autoScheduleWeekly: autoScheduleWeekly.checked,
-      autoScheduleA: autoScheduleA.checked
+      autoScheduleA: autoScheduleA.checked,
+      autoScheduleC: autoScheduleC.checked,
+      autoScheduleD: autoScheduleD.checked
     };
 
     document.body.removeChild(overlay);
@@ -1298,6 +1546,12 @@ function showLeaseConfirmationDialog() {
 // Actually process the lease after confirmation
 async function confirmLease(registration, autoSchedulePrefs = {}, leaseDurationMonths = 12) {
   if (!selectedAircraft) return;
+
+  // Show contract signing animation
+  const aircraftName = selectedAircraft.variant
+    ? `${selectedAircraft.manufacturer} ${selectedAircraft.model}${selectedAircraft.model.endsWith('-') || selectedAircraft.variant.startsWith('-') ? selectedAircraft.variant : '-' + selectedAircraft.variant}`
+    : `${selectedAircraft.manufacturer} ${selectedAircraft.model}`;
+  await showContractSigningAnimation('lease', aircraftName, registration, selectedAircraft.leasePrice || selectedAircraft.monthlyLease);
 
   // Show processing overlay
   showProcessingOverlay('lease');
@@ -1335,10 +1589,12 @@ async function confirmLease(registration, autoSchedulePrefs = {}, leaseDurationM
         // Check validity for used aircraft
         cCheckRemainingDays: selectedAircraft.cCheckRemainingDays || null,
         dCheckRemainingDays: selectedAircraft.dCheckRemainingDays || null,
-        // Auto-schedule preferences (light checks only - C/D scheduled manually)
+        // Auto-schedule preferences for all check types
         autoScheduleDaily: autoSchedulePrefs.autoScheduleDaily || false,
         autoScheduleWeekly: autoSchedulePrefs.autoScheduleWeekly || false,
-        autoScheduleA: autoSchedulePrefs.autoScheduleA || false
+        autoScheduleA: autoSchedulePrefs.autoScheduleA || false,
+        autoScheduleC: autoSchedulePrefs.autoScheduleC || false,
+        autoScheduleD: autoSchedulePrefs.autoScheduleD || false
       })
     });
 

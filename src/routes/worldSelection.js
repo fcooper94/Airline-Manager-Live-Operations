@@ -115,6 +115,9 @@ router.post('/join', async (req, res) => {
       console.log(`Starting capital for ${worldYear}: $${startingBalance.toLocaleString()}`);
     }
 
+    // Cost to join a world
+    const JOIN_COST_CREDITS = 10;
+
     // Find or create user
     const [user] = await User.findOrCreate({
       where: { vatsimId: req.user.vatsimId },
@@ -130,6 +133,15 @@ router.post('/join', async (req, res) => {
         lastLogin: new Date()
       }
     });
+
+    // Check if user has enough credits to join
+    if (user.credits < JOIN_COST_CREDITS) {
+      return res.status(400).json({
+        error: `Not enough credits to join a world. You need ${JOIN_COST_CREDITS} credits but only have ${user.credits}.`,
+        creditsRequired: JOIN_COST_CREDITS,
+        creditsAvailable: user.credits
+      });
+    }
 
     // Check if already a member
     const existing = await WorldMembership.findOne({
@@ -168,8 +180,17 @@ router.post('/join', async (req, res) => {
       region,
       baseAirportId,
       balance: startingBalance,
-      reputation: 50
+      reputation: 50,
+      lastCreditDeduction: world.currentTime // Start credit tracking from world's current time
     });
+
+    // Deduct credits for joining
+    user.credits -= JOIN_COST_CREDITS;
+    await user.save();
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Deducted ${JOIN_COST_CREDITS} credits from user ${user.id} for joining world. New balance: ${user.credits}`);
+    }
 
     res.json({
       message: 'Successfully joined world',
@@ -179,7 +200,9 @@ router.post('/join', async (req, res) => {
         airlineCode: membership.airlineCode,
         iataCode: membership.iataCode,
         balance: membership.balance
-      }
+      },
+      creditsDeducted: JOIN_COST_CREDITS,
+      creditsRemaining: user.credits
     });
   } catch (error) {
     if (process.env.NODE_ENV === 'development') {
