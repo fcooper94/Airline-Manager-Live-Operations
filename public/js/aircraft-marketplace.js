@@ -533,7 +533,7 @@ function processPurchase() {
   if (!selectedAircraft) return;
 
   const fullName = selectedAircraft.variant
-    ? `${selectedAircraft.manufacturer} ${selectedAircraft.model}-${selectedAircraft.variant}`
+    ? `${selectedAircraft.manufacturer} ${selectedAircraft.model}${selectedAircraft.variant.startsWith('-') ? selectedAircraft.variant : '-' + selectedAircraft.variant}`
     : `${selectedAircraft.manufacturer} ${selectedAircraft.model}`;
 
   const condition = selectedAircraft.condition || 'New';
@@ -908,7 +908,7 @@ function showLeaseConfirmationDialog() {
   if (!selectedAircraft) return;
 
   const fullName = selectedAircraft.variant
-    ? `${selectedAircraft.manufacturer} ${selectedAircraft.model}-${selectedAircraft.variant}`
+    ? `${selectedAircraft.manufacturer} ${selectedAircraft.model}${selectedAircraft.variant.startsWith('-') ? selectedAircraft.variant : '-' + selectedAircraft.variant}`
     : `${selectedAircraft.manufacturer} ${selectedAircraft.model}`;
 
   const conditionPercent = selectedAircraft.conditionPercentage || (selectedAircraft.condition === 'New' ? 100 : 70);

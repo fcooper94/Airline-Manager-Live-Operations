@@ -347,7 +347,7 @@ function renderAircraftTable(aircraft) {
   }
 
   tbody.innerHTML = aircraft.map(ac => {
-    const fullName = ac.variant ? `${ac.manufacturer} ${ac.model}-${ac.variant}` : `${ac.manufacturer} ${ac.model}`;
+    const fullName = ac.variant ? `${ac.manufacturer} ${ac.model}${ac.variant.startsWith('-') ? ac.variant : '-' + ac.variant}` : `${ac.manufacturer} ${ac.model}`;
     const statusColor = ac.isActive ? 'var(--success-color)' : 'var(--text-secondary)';
     const statusText = ac.isActive ? 'ACTIVE' : 'INACTIVE';
     const operationalYears = (ac.availableFrom || 'Start') + ' - ' + (ac.availableUntil || 'Present');

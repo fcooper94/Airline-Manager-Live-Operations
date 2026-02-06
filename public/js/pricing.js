@@ -141,12 +141,12 @@ async function fetchAircraftTypes() {
     const aircraftTypes = {};
     userFleet.forEach(aircraft => {
       const typeKey = `${aircraft.aircraft.manufacturer}_${aircraft.aircraft.model}_${aircraft.aircraft.variant || 'default'}`;
-      // Build display name, avoiding double-dash if model already ends with dash
+      // Build display name, avoiding double-dash
       const model = aircraft.aircraft.model;
       const variant = aircraft.aircraft.variant;
       let displayName;
       if (variant) {
-        displayName = model.endsWith('-') ? `${aircraft.aircraft.manufacturer} ${model}${variant}` : `${aircraft.aircraft.manufacturer} ${model}-${variant}`;
+        displayName = `${aircraft.aircraft.manufacturer} ${model}${variant.startsWith('-') ? variant : '-' + variant}`;
       } else {
         displayName = `${aircraft.aircraft.manufacturer} ${model}`;
       }

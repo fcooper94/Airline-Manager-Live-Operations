@@ -3398,7 +3398,7 @@ async function viewFlightDetailsLegacy(flightId) {
             font-weight: 500;
           ">Financial Stats</button>
           <div style="display: flex; gap: 0.75rem;">
-            ${isAirborne ? `<button onclick="showAircraftOnMap('${aircraft.registration}')" style="
+            <span id="showOnMapBtnContainer" data-registration="${aircraft.registration}" data-scheduled-date="${scheduledDate}" data-out-dep-min="${outboundDepartureMin}" data-out-arr-min="${outboundArrivalMin}" data-ret-dep-min="${returnDepartureMin}" data-ret-arr-min="${returnArrivalMin}">${isAirborne ? `<button onclick="showAircraftOnMap('${aircraft.registration}')" style="
               padding: 0.5rem 1rem;
               background: #1f6feb;
               border: 1px solid #388bfd;
@@ -3407,7 +3407,7 @@ async function viewFlightDetailsLegacy(flightId) {
               cursor: pointer;
               font-size: 0.9rem;
               font-weight: 500;
-            ">Show on Map</button>` : ''}
+            ">Show on Map</button>` : ''}</span>
             <button onclick="closeFlightDetailsModal()" style="
               padding: 0.5rem 1rem;
               background: #21262d;
@@ -3439,6 +3439,16 @@ async function viewFlightDetailsLegacy(flightId) {
 
   // Add modal to page
   document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+  // Clear any existing interval
+  if (flightDetailsUpdateInterval) {
+    clearInterval(flightDetailsUpdateInterval);
+  }
+
+  // Set up interval to update Show on Map button dynamically
+  flightDetailsUpdateInterval = setInterval(() => {
+    updateShowOnMapButton();
+  }, 1000);
 }
 
 function closeFlightDetailsModal() {
@@ -3454,6 +3464,75 @@ function closeFlightDetailsModal() {
 // Navigate to world map and focus on aircraft
 function showAircraftOnMap(registration) {
   window.location.href = `/world-map?aircraft=${encodeURIComponent(registration)}`;
+}
+
+// Dynamically update Show on Map button based on current flight status
+function updateShowOnMapButton() {
+  const container = document.getElementById('showOnMapBtnContainer');
+  if (!container) return;
+
+  const registration = container.dataset.registration;
+  const now = typeof window.getGlobalWorldTime === 'function' ? window.getGlobalWorldTime() : new Date();
+  const nowMs = now.getTime();
+
+  let isAirborne = false;
+
+  // Check if we have timestamp data (weekly modal format)
+  if (container.dataset.outboundDep) {
+    const outDep = parseInt(container.dataset.outboundDep);
+    const outArr = parseInt(container.dataset.outboundArr);
+    const retDep = parseInt(container.dataset.returnDep);
+    const retArr = parseInt(container.dataset.returnArr);
+    isAirborne = (nowMs >= outDep && nowMs < outArr) || (nowMs >= retDep && nowMs < retArr);
+  }
+  // Check if we have minute-based data (simple modal format)
+  else if (container.dataset.scheduledDate) {
+    const scheduledDate = container.dataset.scheduledDate;
+    const outDepMin = parseInt(container.dataset.outDepMin);
+    const outArrMin = parseInt(container.dataset.outArrMin);
+    const retDepMin = parseInt(container.dataset.retDepMin);
+    const retArrMin = parseInt(container.dataset.retArrMin);
+
+    const nowStr = now.toISOString().split('T')[0];
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const isToday = nowStr === scheduledDate;
+
+    // Outbound check
+    const isOnOutbound = isToday && currentMinutes >= outDepMin && currentMinutes < outArrMin;
+
+    // Return check with day overflow handling
+    const returnSpansNextDay = retArrMin >= 1440;
+    let isOnReturn = false;
+    if (!returnSpansNextDay) {
+      isOnReturn = isToday && currentMinutes >= retDepMin && currentMinutes < retArrMin;
+    } else {
+      const flightDate = new Date(scheduledDate + 'T00:00:00');
+      const nextDay = new Date(flightDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+      const nextDayStr = nextDay.toISOString().split('T')[0];
+      isOnReturn = (isToday && currentMinutes >= retDepMin) ||
+                   (nowStr === nextDayStr && currentMinutes < (retArrMin - 1440));
+    }
+
+    isAirborne = isOnOutbound || isOnReturn;
+  }
+
+  // Update button visibility
+  const hasButton = container.querySelector('button') !== null;
+  if (isAirborne && !hasButton) {
+    container.innerHTML = `<button onclick="showAircraftOnMap('${registration}')" style="
+      padding: 0.5rem 1rem;
+      background: #1f6feb;
+      border: 1px solid #388bfd;
+      border-radius: 6px;
+      color: white;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 500;
+    ">Show on Map</button>`;
+  } else if (!isAirborne && hasButton) {
+    container.innerHTML = '';
+  }
 }
 
 // Create next flight - navigate to route creation page with pre-filled time
@@ -3960,7 +4039,7 @@ async function viewFlightDetailsWeekly(flightId) {
             font-weight: 500;
           ">Financial Stats</button>
           <div style="display: flex; gap: 0.75rem;">
-            ${isAirborne ? `<button onclick="showAircraftOnMap('${aircraft.registration}')" style="
+            <span id="showOnMapBtnContainer" data-registration="${aircraft.registration}" data-outbound-dep="${outboundDepartureTime.getTime()}" data-outbound-arr="${outboundArrivalTime.getTime()}" data-return-dep="${returnDepartureTime.getTime()}" data-return-arr="${returnArrivalTime.getTime()}">${isAirborne ? `<button onclick="showAircraftOnMap('${aircraft.registration}')" style="
               padding: 0.5rem 1rem;
               background: #1f6feb;
               border: 1px solid #388bfd;
@@ -3969,7 +4048,7 @@ async function viewFlightDetailsWeekly(flightId) {
               cursor: pointer;
               font-size: 0.9rem;
               font-weight: 500;
-            ">Show on Map</button>` : ''}
+            ">Show on Map</button>` : ''}</span>
             <button onclick="closeFlightDetailsModal()" style="
               padding: 0.5rem 1rem;
               background: #21262d;
@@ -4047,6 +4126,9 @@ async function viewFlightDetailsWeekly(flightId) {
       flightDetailsUpdateInterval = null;
       return;
     }
+
+    // Update Show on Map button visibility dynamically
+    updateShowOnMapButton();
 
     // Get current world time
     const now = typeof window.getGlobalWorldTime === 'function' ? window.getGlobalWorldTime() : new Date();
@@ -4998,7 +5080,7 @@ function generateAircraftRowWeekly(aircraft, dayColumns) {
   html += `
     <td class="aircraft-info-cell" style="padding: 0.75rem 1rem; position: sticky; left: 0; background: var(--surface); border-right: 2px solid var(--border-color); z-index: 5; vertical-align: middle;">
       <div style="display: flex; align-items: center; gap: 0.5rem;">
-        <span class="aircraft-registration" style="color: ${hasExpiredChecks ? '#8b949e' : 'var(--accent-color)'}; font-weight: 600; font-size: 0.95rem; ${hasExpiredChecks ? '' : 'text-decoration: underline; cursor: pointer;'}" onclick="event.stopPropagation();">
+        <span class="aircraft-registration" style="color: ${actuallyExpired.length > 0 ? '#8b949e' : 'var(--accent-color)'}; font-weight: 600; font-size: 0.95rem; ${actuallyExpired.length > 0 ? '' : 'text-decoration: underline; cursor: pointer;'}" onclick="event.stopPropagation();">
           ${aircraft.registration}
         </span>
         ${groundedBadge}
@@ -5212,8 +5294,8 @@ function generateAircraftRowWeekly(aircraft, dayColumns) {
         }
 
         // Main flight block - covers the full flight time (no separate pre/post-flight slivers in weekly view)
-        // Apply blur if aircraft has expired checks (grounded)
-        const flightBlockBlur = hasExpiredChecks ? 'filter: blur(2px); opacity: 0.4;' : '';
+        // Apply blur only if aircraft is actually grounded (not just in maintenance)
+        const flightBlockBlur = actuallyExpired.length > 0 ? 'filter: blur(2px); opacity: 0.4;' : '';
         cellContent += `
           <div
             onclick="event.stopPropagation(); viewFlightDetailsWeekly('${flight.id}')"
@@ -5753,7 +5835,7 @@ function generateAircraftRow(aircraft, timeColumns) {
   html += `
     <td class="aircraft-info-cell" style="padding: 1rem; position: sticky; left: 0; background: var(--surface); border-right: 2px solid var(--border-color); z-index: 5;">
       <div style="display: flex; align-items: center; gap: 0.5rem;">
-        <span class="aircraft-registration" style="color: ${hasExpiredChecks ? '#8b949e' : 'var(--accent-color)'}; font-weight: 600; font-size: 1rem;">
+        <span class="aircraft-registration" style="color: ${actuallyExpired.length > 0 ? '#8b949e' : 'var(--accent-color)'}; font-weight: 600; font-size: 1rem;">
           ${aircraft.registration}
         </span>
         ${groundedBadge}
@@ -5837,7 +5919,7 @@ function generateAircraftRow(aircraft, timeColumns) {
         style="padding: 0.3rem 0.2rem 0.3rem 0.2rem; text-align: center; background: var(--surface-elevated); ${borderStyle} height: 65px; min-width: ${cellWidth}; position: relative; vertical-align: top; overflow: visible;"
         title="${hasExpiredChecks ? groundedTooltip : ''}"
       >
-        ${renderFlightBlocks(cellFlights, dateStr, hasExpiredChecks)}${renderMaintenanceBlocks(cellMaintenance, cellFlights, aircraft)}
+        ${renderFlightBlocks(cellFlights, dateStr, actuallyExpired.length > 0)}${renderMaintenanceBlocks(cellMaintenance, cellFlights, aircraft)}
         ${expiredOverlay}
       </td>
     `;
@@ -6455,21 +6537,30 @@ async function showConflictModal(conflict) {
   } else if (conflict.type === 'maintenance') {
     const checkColors = { 'daily': '#3fb950', 'weekly': '#a371f7', 'A': '#58a6ff', 'C': '#f97316', 'D': '#f85149' };
     const checkColor = checkColors[conflict.checkType] || '#8b949e';
+    const checkDescriptions = {
+      'daily': 'Required every 24 hours of operation',
+      'weekly': 'Required every 7 days',
+      'A': 'Light maintenance check (every ~500 flight hours)',
+      'C': 'Heavy maintenance check (every ~20 months)',
+      'D': 'Major overhaul check (every ~6 years)'
+    };
+    const checkDesc = checkDescriptions[conflict.checkType] || '';
 
     conflictDetails = `
       <div style="background: #21262d; border-radius: 6px; padding: 1rem; margin-bottom: 1rem;">
         <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
           <span style="color: ${checkColor}; font-size: 1.2rem;">🔧</span>
-          <span style="color: #f0f6fc; font-weight: 600; font-size: 1rem;">Conflicting Maintenance</span>
+          <span style="color: #f0f6fc; font-weight: 600; font-size: 1rem;">Maintenance Check Required</span>
         </div>
         <div style="display: grid; grid-template-columns: auto 1fr; gap: 0.4rem 1rem; font-size: 0.9rem;">
           <span style="color: #8b949e;">Check Type:</span>
           <span style="color: ${checkColor}; font-weight: 600;">${conflict.checkName}</span>
-          <span style="color: #8b949e;">Start Time:</span>
+          <span style="color: #8b949e;">Scheduled:</span>
           <span style="color: #f0f6fc;">${conflict.startTime}</span>
           <span style="color: #8b949e;">Duration:</span>
           <span style="color: #f0f6fc;">${conflict.duration} minutes</span>
         </div>
+        ${checkDesc ? `<div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #30363d; color: #8b949e; font-size: 0.8rem; font-style: italic;">${checkDesc}</div>` : ''}
       </div>
     `;
   }
@@ -6503,12 +6594,11 @@ async function showConflictModal(conflict) {
         </div>
         <div style="padding: 1.5rem;">
           <p style="color: #f0f6fc; margin: 0 0 1rem 0; font-size: 0.95rem;">
-            This aircraft already has a scheduled duty that overlaps with the requested time slot.
+            ${conflict.type === 'maintenance'
+              ? 'This flight cannot be scheduled because a mandatory maintenance check would expire before it can be performed.'
+              : 'This aircraft already has a scheduled duty that overlaps with the requested time slot.'}
           </p>
           ${conflictDetails}
-          <p style="color: #8b949e; margin: 0; font-size: 0.85rem;">
-            Please choose a different time slot or remove the conflicting schedule first.
-          </p>
         </div>
         <div style="padding: 1rem 1.5rem; border-top: 1px solid #30363d; display: flex; justify-content: flex-end;">
           <button onclick="closeConflictModal()" style="
@@ -7183,7 +7273,7 @@ async function scheduleMaintenance(aircraftId) {
         </div>
         <div>
           <div style="color: var(--accent-color); font-weight: 700; font-size: 1.1rem;">${aircraft.registration}</div>
-          <div style="color: #8b949e; font-size: 0.85rem;">${aircraft.aircraft?.manufacturer || ''} ${aircraft.aircraft?.model || ''}</div>
+          <div style="color: #8b949e; font-size: 0.85rem;">${aircraft.aircraft?.manufacturer || ''} ${aircraft.aircraft?.model || ''}${aircraft.aircraft?.variant ? (aircraft.aircraft.variant.startsWith('-') ? aircraft.aircraft.variant : '-' + aircraft.aircraft.variant) : ''}</div>
         </div>
       </div>
       <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0.75rem; background: var(--surface); border: 1px solid var(--border-color); border-radius: 6px; ${heaviestExpiredCheck ? 'opacity: 0.5;' : ''}" ${heaviestExpiredCheck ? 'title="Perform expired checks first"' : ''}>
@@ -8206,8 +8296,13 @@ async function handleWeeklyDrop(event, aircraftId, dayOfWeek) {
       closeAddRouteModal();
     } else {
       closeLoadingModal();
-      const error = await response.json();
-      await showAlertModal('Scheduling Error', `Error: ${error.error || 'Unknown error'}`);
+      const errorData = await response.json();
+      // Check if this is a conflict error with details
+      if (response.status === 409 && errorData.conflict) {
+        await showConflictModal(errorData.conflict);
+      } else {
+        await showAlertModal('Scheduling Error', `Error: ${errorData.error || 'Unknown error'}`);
+      }
     }
   } catch (error) {
     closeLoadingModal();

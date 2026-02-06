@@ -10,8 +10,149 @@ let activeFlights = []; // Store flight data for selection
 let airlineFilterMode = 'mine'; // 'mine' or 'all'
 let pendingAircraftSelect = null; // Aircraft registration to auto-select after loading
 
+// Smooth animation for aircraft markers
+const flightAnimations = new Map(); // Map of flight ID to animation state
+const flightInitialized = new Set(); // Track which flights have had their initial position set
+const ANIMATION_DURATION = 1000; // 1 second to match tick interval
+
+// Animate a marker smoothly from current position to target position
+// On first update, sets position instantly (no animation from spawn point)
+function animateMarkerToPosition(flightId, markers, targetLat, targetLng, bearing) {
+  const markersArray = Array.isArray(markers) ? markers : [markers];
+  const worldOffsets = [0, 360, -360];
+
+  // First position update - set instantly, don't animate from spawn location
+  if (!flightInitialized.has(flightId)) {
+    flightInitialized.add(flightId);
+    markersArray.forEach((marker, idx) => {
+      const offset = worldOffsets[idx] || 0;
+      marker.setLatLng([targetLat, targetLng + offset]);
+      // Update rotation
+      const iconEl = marker.getElement();
+      if (iconEl) {
+        const inner = iconEl.querySelector('.aircraft-marker-inner');
+        if (inner) {
+          inner.style.transform = `rotate(${bearing}deg)`;
+        }
+      }
+    });
+    return;
+  }
+  // Cancel any existing animation for this flight
+  if (flightAnimations.has(flightId)) {
+    cancelAnimationFrame(flightAnimations.get(flightId).frameId);
+  }
+
+  // Get current position from first marker
+  const currentLatLng = markersArray[0].getLatLng();
+  const startLat = currentLatLng.lat;
+  const startLng = currentLatLng.lng; // This includes the world offset, need base lng
+
+  // Calculate the base longitude (remove any world offset)
+  let baseLng = startLng;
+  if (baseLng > 180) baseLng -= 360;
+  if (baseLng < -180) baseLng += 360;
+
+  const startTime = performance.now();
+
+  // Handle longitude wrap-around for smooth animation across date line
+  let lngDiff = targetLng - baseLng;
+  if (lngDiff > 180) lngDiff -= 360;
+  if (lngDiff < -180) lngDiff += 360;
+  const effectiveTargetLng = baseLng + lngDiff;
+
+  function animate(currentTime) {
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / ANIMATION_DURATION, 1);
+
+    // Linear interpolation for constant speed
+    const lat = startLat + (targetLat - startLat) * progress;
+    const lng = baseLng + (effectiveTargetLng - baseLng) * progress;
+
+    // Update all marker copies (for world wrap)
+    markersArray.forEach((marker, idx) => {
+      const offset = worldOffsets[idx] || 0;
+      marker.setLatLng([lat, lng + offset]);
+    });
+
+    // Continue animation if not complete
+    if (progress < 1) {
+      const frameId = requestAnimationFrame(animate);
+      flightAnimations.set(flightId, { frameId, targetLat, targetLng, bearing });
+    } else {
+      flightAnimations.delete(flightId);
+    }
+  }
+
+  // Update rotation immediately (bearing doesn't need interpolation)
+  markersArray.forEach(marker => {
+    const iconEl = marker.getElement();
+    if (iconEl) {
+      const inner = iconEl.querySelector('.aircraft-marker-inner');
+      if (inner) {
+        inner.style.transform = `rotate(${bearing}deg)`;
+      }
+    }
+  });
+
+  const frameId = requestAnimationFrame(animate);
+  flightAnimations.set(flightId, { frameId, targetLat, targetLng, bearing });
+}
+
 // Aircraft icon SVG
 const aircraftSvg = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>`;
+
+// Loading overlay for map
+function showMapLoadingOverlay() {
+  const mapContainer = document.getElementById('map');
+  if (!mapContainer) return;
+
+  // Remove existing overlay if any
+  hideMapLoadingOverlay();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'mapLoadingOverlay';
+  overlay.innerHTML = `
+    <div style="
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(13, 17, 23, 0.9);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      gap: 1rem;
+    ">
+      <div style="
+        width: 40px;
+        height: 40px;
+        border: 3px solid rgba(88, 166, 255, 0.3);
+        border-top-color: #58a6ff;
+        border-radius: 50%;
+        animation: mapSpin 1s linear infinite;
+      "></div>
+      <div style="color: #8b949e; font-size: 0.9rem;">Populating flights...</div>
+    </div>
+    <style>
+      @keyframes mapSpin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
+  `;
+  mapContainer.style.position = 'relative';
+  mapContainer.appendChild(overlay);
+}
+
+function hideMapLoadingOverlay() {
+  const overlay = document.getElementById('mapLoadingOverlay');
+  if (overlay) {
+    overlay.remove();
+  }
+}
 
 // Wind adjustment for realistic flight times
 // Jet stream flows west to east at mid-latitudes, making eastbound flights faster
@@ -103,6 +244,9 @@ function loadLeaflet() {
 // Initialize the map
 function initMap() {
   console.log('[WorldMap] Initializing map...');
+
+  // Show loading overlay while flights load
+  showMapLoadingOverlay();
 
   // Check URL parameters for aircraft to auto-select
   const urlParams = new URLSearchParams(window.location.search);
@@ -196,6 +340,15 @@ async function loadActiveFlights() {
     if (data.flights && Array.isArray(data.flights)) {
       activeFlights = data.flights;
       updateFlightsOnMap(data.flights);
+      // Hide loading overlay after flights are rendered at correct positions
+      // Wait for markers to be fully rendered and world time to stabilize (250ms buffer)
+      setTimeout(() => {
+        // Update positions one more time to ensure correct placement
+        updateFlightsOnMap(activeFlights);
+        setTimeout(() => {
+          hideMapLoadingOverlay();
+        }, 50);
+      }, 200);
       // Update selected flight info if one is selected
       if (selectedFlightId) {
         const selectedFlight = activeFlights.find(f => f.id === selectedFlightId);
@@ -221,9 +374,11 @@ async function loadActiveFlights() {
       activeFlights = [];
       clearMap();
       hideFlightInfo();
+      hideMapLoadingOverlay();
     }
   } catch (error) {
     console.error('[WorldMap] Error loading active flights:', error);
+    hideMapLoadingOverlay();
   }
 }
 
@@ -259,6 +414,12 @@ function updateFlightsOnMap(flights) {
     // Hide aircraft during turnaround or tech stop (on the ground)
     if (position.phase === 'turnaround' || position.phase === 'techstop') {
       if (flightMarkers.has(flight.id)) {
+        // Cancel any ongoing animation and clear initialized state
+        if (flightAnimations.has(flight.id)) {
+          cancelAnimationFrame(flightAnimations.get(flight.id).frameId);
+          flightAnimations.delete(flight.id);
+        }
+        flightInitialized.delete(flight.id);
         // Remove all markers during ground time
         const markers = flightMarkers.get(flight.id);
         if (Array.isArray(markers)) {
@@ -272,25 +433,12 @@ function updateFlightsOnMap(flights) {
     }
 
     if (flightMarkers.has(flight.id)) {
-      // Update existing marker positions (on all world copies)
+      // Update existing marker positions with smooth animation
       const markers = flightMarkers.get(flight.id);
-      const worldOffsets = [0, 360, -360];
       const bearing = calculateBearing(position.lat, position.lng, position.destLat, position.destLng);
 
-      const markersArray = Array.isArray(markers) ? markers : [markers];
-      markersArray.forEach((marker, idx) => {
-        const offset = worldOffsets[idx] || 0;
-        marker.setLatLng([position.lat, position.lng + offset]);
-
-        // Update rotation
-        const iconEl = marker.getElement();
-        if (iconEl) {
-          const inner = iconEl.querySelector('.aircraft-marker-inner');
-          if (inner) {
-            inner.style.transform = `rotate(${bearing}deg)`;
-          }
-        }
-      });
+      // Use smooth animation instead of instant position update
+      animateMarkerToPosition(flight.id, markers, position.lat, position.lng, bearing);
 
       // Update route line if this is the selected flight
       if (flight.id === selectedFlightId && routeLines.has(flight.id)) {
@@ -618,7 +766,7 @@ function createFlightMarker(flight, position) {
   // Combine model and variant (e.g., "777" + "300ER" = "777-300ER")
   const model = flight.aircraft?.aircraftType?.model || '';
   const variant = flight.aircraft?.aircraftType?.variant || '';
-  const aircraftModel = variant ? `${model}-${variant}` : model;
+  const aircraftModel = variant ? `${model}${variant.startsWith('-') ? variant : '-' + variant}` : model;
 
   // Check if this is another airline's flight
   const isOtherAirline = flight.isOwnFlight === false;
@@ -660,6 +808,9 @@ function createFlightMarker(flight, position) {
 
   // Store array of markers for this flight
   flightMarkers.set(flight.id, markers);
+
+  // Mark as initialized since we created it at the correct position
+  flightInitialized.add(flight.id);
 }
 
 // Create route line for selected flight
@@ -821,7 +972,7 @@ function showFlightInfo(flight) {
   const registration = flight.aircraft?.registration || 'N/A';
   const model = flight.aircraft?.aircraftType?.model || '';
   const variant = flight.aircraft?.aircraftType?.variant || '';
-  const aircraftModel = variant ? `${model}-${variant}` : (model || 'Unknown');
+  const aircraftModel = variant ? `${model}${variant.startsWith('-') ? variant : '-' + variant}` : (model || 'Unknown');
   const manufacturer = flight.aircraft?.aircraftType?.manufacturer || '';
   const fullAircraftName = manufacturer ? `${manufacturer} ${aircraftModel}` : aircraftModel;
   const passengerCapacity = flight.aircraft?.passengerCapacity || flight.aircraft?.aircraftType?.passengerCapacity || 0;
@@ -1217,6 +1368,12 @@ function updateFlightPositions() {
     // Hide aircraft during turnaround or tech stop (on the ground)
     if (position.phase === 'turnaround' || position.phase === 'techstop') {
       if (markers) {
+        // Cancel any ongoing animation and clear initialized state
+        if (flightAnimations.has(flight.id)) {
+          cancelAnimationFrame(flightAnimations.get(flight.id).frameId);
+          flightAnimations.delete(flight.id);
+        }
+        flightInitialized.delete(flight.id);
         if (Array.isArray(markers)) {
           markers.forEach(m => map.removeLayer(m));
         } else {
@@ -1233,24 +1390,9 @@ function updateFlightPositions() {
       return;
     }
 
-    // Update existing marker positions (on all world copies)
-    const worldOffsets = [0, 360, -360];
+    // Update existing marker positions with smooth animation
     const bearing = calculateBearing(position.lat, position.lng, position.destLat, position.destLng);
-    const markersArray = Array.isArray(markers) ? markers : [markers];
-
-    markersArray.forEach((marker, idx) => {
-      const offset = worldOffsets[idx] || 0;
-      marker.setLatLng([position.lat, position.lng + offset]);
-
-      // Update rotation
-      const iconEl = marker.getElement();
-      if (iconEl) {
-        const inner = iconEl.querySelector('.aircraft-marker-inner');
-        if (inner) {
-          inner.style.transform = `rotate(${bearing}deg)`;
-        }
-      }
-    });
+    animateMarkerToPosition(flight.id, markers, position.lat, position.lng, bearing);
   });
 
   // Update info panel if a flight is selected
@@ -1264,6 +1406,13 @@ function updateFlightPositions() {
 
 // Clear all map elements
 function clearMap() {
+  // Cancel all ongoing animations and clear initialized tracking
+  flightAnimations.forEach(anim => {
+    if (anim.frameId) cancelAnimationFrame(anim.frameId);
+  });
+  flightAnimations.clear();
+  flightInitialized.clear();
+
   flightMarkers.forEach((markers) => {
     if (Array.isArray(markers)) {
       markers.forEach(m => map.removeLayer(m));
