@@ -115,6 +115,7 @@ const routesRoutes = require('./routes/routes');
 const schedulingRoutes = require('./routes/scheduling');
 const pricingRoutes = require('./routes/pricing');
 const contactRoutes = require('./routes/contact');
+const dashboardRoutes = require('./routes/dashboard');
 
 // Import services
 const worldTimeService = require('./services/worldTimeService');
@@ -264,6 +265,7 @@ app.use('/api/schedule', requireWorld, schedulingRoutes);
 app.use('/api/pricing', requireWorld, pricingRoutes);
 app.use('/api/admin', requireAuth, adminRoutes);
 app.use('/api/contact', contactRoutes);
+app.use('/api/dashboard', requireWorld, dashboardRoutes);
 
 // Page routes
 app.get('/', redirectIfAuth, (req, res) => {

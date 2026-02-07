@@ -188,7 +188,7 @@ async function loadUserInfo() {
         sidebarAdminLink.style.justifyContent = 'space-between';
       }
 
-      // Show low credits warning banner (only on in-world pages)
+      // Prepare low credits warning banner (deferred - shown with other banners in loadWorldInfo)
       const lowCreditsBanner = document.getElementById('lowCreditsBanner');
       const lowCreditsMessage = document.getElementById('lowCreditsMessage');
       const nonWorldPages = ['/world-selection', '/admin', '/contact', '/faqs', '/credits'];
@@ -200,8 +200,9 @@ async function loadUserInfo() {
           } else {
             lowCreditsMessage.textContent = `Low credits: You have ${data.user.credits} credit${data.user.credits !== 1 ? 's' : ''} remaining. At current usage, you may enter administration in ~${weeksLeft} game weeks without more credits.`;
           }
-          lowCreditsBanner.style.display = 'flex';
+          lowCreditsBanner.dataset.shouldShow = 'true';
         } else {
+          lowCreditsBanner.dataset.shouldShow = '';
           lowCreditsBanner.style.display = 'none';
         }
       }
@@ -381,6 +382,12 @@ async function loadWorldInfo() {
         }
       } else if (freeBanner) {
         freeBanner.style.display = 'none';
+      }
+
+      // Show deferred low credits banner (so all banners appear together)
+      const lowCreditsBannerDeferred = document.getElementById('lowCreditsBanner');
+      if (lowCreditsBannerDeferred) {
+        lowCreditsBannerDeferred.style.display = lowCreditsBannerDeferred.dataset.shouldShow ? 'flex' : 'none';
       }
 
       // Show navigation menu when world is active

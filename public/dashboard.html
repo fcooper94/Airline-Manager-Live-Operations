@@ -4,114 +4,130 @@
 
 <div class="dashboard-container">
   <main class="main-content">
-    <!-- Low Credit Warning Banner -->
-    <div id="creditWarningBanner" class="credit-warning-banner" style="display: none;">
-      <div class="warning-content">
-        <span class="warning-icon">⚠</span>
-        <div class="warning-text">
-          <strong id="warningTitle">LOW CREDITS WARNING</strong>
-          <p id="warningMessage">Your credit balance is running low. Your company will enter administration if credits fall below -4.</p>
-        </div>
-        <button class="btn btn-primary" onclick="window.location.href='/admin'" id="buyCreditsBtn" style="display: none;">Manage Credits</button>
-      </div>
-    </div>
-
     <div class="page-header">
       <h1>OPERATIONAL OVERVIEW</h1>
-      <p class="subtitle">REAL-TIME OPERATIONS DASHBOARD</p>
+      <p class="subtitle">YOUR AIRLINE AT A GLANCE</p>
     </div>
 
-    <div class="metrics-grid">
-      <div class="metric-card">
-        <div class="metric-header">
-          <span class="metric-title">ACTIVE FLIGHTS</span>
-          <span class="metric-status status-ok">OPERATIONAL</span>
-        </div>
-        <div class="metric-value">0</div>
-        <div class="metric-footer">
-          <span class="metric-change">—</span>
-          <span class="metric-label">vs. yesterday</span>
-        </div>
+    <!-- Stats Row -->
+    <div class="dashboard-stats-row">
+      <div class="dashboard-stat-card">
+        <div class="stat-label">BALANCE</div>
+        <div class="stat-value" id="statBalance">$--</div>
       </div>
-      <div class="metric-card">
-        <div class="metric-header">
-          <span class="metric-title">FLEET SIZE</span>
-          <span class="metric-status status-ok">READY</span>
-        </div>
-        <div class="metric-value">0</div>
-        <div class="metric-footer">
-          <span class="metric-change">—</span>
-          <span class="metric-label">available aircraft</span>
-        </div>
+      <div class="dashboard-stat-card">
+        <div class="stat-label">FLEET</div>
+        <div class="stat-value" id="statFleet">--</div>
       </div>
-      <div class="metric-card">
-        <div class="metric-header">
-          <span class="metric-title">REVENUE (24H)</span>
-          <span class="metric-status status-ok">TRACKING</span>
-        </div>
-        <div class="metric-value">$0</div>
-        <div class="metric-footer">
-          <span class="metric-change">—</span>
-          <span class="metric-label">vs. projection</span>
-        </div>
+      <div class="dashboard-stat-card">
+        <div class="stat-label">ROUTES</div>
+        <div class="stat-value" id="statRoutes">--</div>
       </div>
-      <div class="metric-card">
-        <div class="metric-header">
-          <span class="metric-title">PERFORMANCE</span>
-          <span class="metric-status status-ok">NOMINAL</span>
-        </div>
-        <div class="metric-value">100</div>
-        <div class="metric-footer">
-          <span class="metric-change">—</span>
-          <span class="metric-label">operations score</span>
-        </div>
+      <div class="dashboard-stat-card">
+        <div class="stat-label">REPUTATION</div>
+        <div class="stat-value" id="statReputation">--</div>
       </div>
     </div>
 
-    <div class="operations-grid">
-      <div class="ops-panel">
-        <div class="panel-header">
-          <h2>FLIGHT OPERATIONS</h2>
-          <span class="panel-badge">ACTIVE</span>
+    <!-- Performance Stats Row -->
+    <div class="dashboard-stats-row">
+      <div class="dashboard-stat-card">
+        <div class="stat-label">WEEKLY PROFIT</div>
+        <div class="stat-value" id="statWeeklyProfit">$--</div>
+      </div>
+      <div class="dashboard-stat-card">
+        <div class="stat-label">LAST WEEK'S PROFIT</div>
+        <div class="stat-value" id="statLastWeekProfit">$--</div>
+      </div>
+      <div class="dashboard-stat-card">
+        <div class="stat-label">MOST PROFITABLE ROUTE</div>
+        <div class="stat-value stat-value-sm" id="statBestRoute">--</div>
+      </div>
+      <div class="dashboard-stat-card">
+        <div class="stat-label">LEAST PROFITABLE ROUTE</div>
+        <div class="stat-value stat-value-sm" id="statWorstRoute">--</div>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="dashboard-quick-actions">
+      <a href="/scheduling" class="quick-action-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="16" y1="2" x2="16" y2="6"></line>
+          <line x1="8" y1="2" x2="8" y2="6"></line>
+          <line x1="3" y1="10" x2="21" y2="10"></line>
+        </svg>
+        Flying Schedule
+      </a>
+      <a href="/aircraft-marketplace" class="quick-action-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17.8 19.2L16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"></path>
+        </svg>
+        Buy/Lease Aircraft
+      </a>
+      <a href="/routes/create" class="quick-action-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="16"></line>
+          <line x1="8" y1="12" x2="16" y2="12"></line>
+        </svg>
+        Create Route
+      </a>
+      <a href="/world-map" class="quick-action-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="2" y1="12" x2="22" y2="12"></line>
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+        </svg>
+        World Map
+      </a>
+    </div>
+
+    <!-- Two Column Panels -->
+    <div class="dashboard-panels">
+      <!-- Notifications Panel -->
+      <div class="dashboard-panel">
+        <div class="panel-header-bar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+          <span>NOTIFICATIONS</span>
+          <span class="notification-count" id="notificationCount" style="display: none;">0</span>
         </div>
-        <div class="panel-body">
-          <div class="data-table">
-            <div class="table-empty">
-              <div class="empty-message">NO SCHEDULED FLIGHTS</div>
-              <div class="empty-action">
-                <button class="btn btn-action">SCHEDULE OPERATION</button>
-              </div>
-            </div>
+        <div class="panel-body-scroll" id="notificationsBody">
+          <div class="panel-loading">Loading notifications...</div>
+        </div>
+      </div>
+
+      <!-- News Panel -->
+      <div class="dashboard-panel">
+        <div class="panel-header-bar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"></path>
+            <line x1="10" y1="6" x2="18" y2="6"></line>
+            <line x1="10" y1="10" x2="18" y2="10"></line>
+            <line x1="10" y1="14" x2="14" y2="14"></line>
+          </svg>
+          <span>NEWS</span>
+        </div>
+        <div class="panel-body-scroll" id="newsBody">
+          <div class="news-item">
+            <div class="news-date">07 Feb 2026</div>
+            <div class="news-title">Welcome to AMS</div>
+            <div class="news-text">Welcome to Airline Management Sim! Build your airline empire by purchasing aircraft, creating routes, and managing your operations efficiently.</div>
           </div>
-        </div>
-      </div>
-
-      <div class="ops-panel">
-        <div class="panel-header">
-          <h2>FLEET STATUS</h2>
-          <span class="panel-badge">STANDBY</span>
-        </div>
-        <div class="panel-body">
-          <div class="data-table">
-            <div class="table-empty">
-              <div class="empty-message">NO AIRCRAFT REGISTERED</div>
-              <div class="empty-action">
-                <button class="btn btn-action">ADD TO FLEET</button>
-              </div>
-            </div>
+          <div class="news-item">
+            <div class="news-date">07 Feb 2026</div>
+            <div class="news-title">Getting Started</div>
+            <div class="news-text">Start by buying or leasing an aircraft from the marketplace, then create a route from your base airport. Schedule flights and watch your airline grow!</div>
           </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="ops-panel full-width">
-      <div class="panel-header">
-        <h2>VATSIM NETWORK STATUS</h2>
-        <span class="panel-badge" id="vatsimBadge">CONNECTING</span>
-      </div>
-      <div class="panel-body">
-        <div id="vatsimStatus" class="network-status">
-          Establishing connection to VATSIM data feed...
+          <div class="news-item">
+            <div class="news-date">07 Feb 2026</div>
+            <div class="news-title">Maintenance Matters</div>
+            <div class="news-text">Keep your aircraft maintained with regular checks. Missed maintenance can ground your fleet and cost you revenue. Enable auto-scheduling in the maintenance page.</div>
+          </div>
         </div>
       </div>
     </div>
