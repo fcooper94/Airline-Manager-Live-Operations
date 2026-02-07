@@ -75,6 +75,24 @@ const World = sequelize.define('World', {
   status: {
     type: DataTypes.ENUM('setup', 'active', 'paused', 'completed'),
     defaultValue: 'setup'
+  },
+  joinCost: {
+    type: DataTypes.INTEGER,
+    defaultValue: 10,
+    field: 'join_cost',
+    comment: 'Credits required to join this world'
+  },
+  weeklyCost: {
+    type: DataTypes.INTEGER,
+    defaultValue: 1,
+    field: 'weekly_cost',
+    comment: 'Credits deducted per game week'
+  },
+  endDate: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'end_date',
+    comment: 'In-game date when this world ends (e.g., 2030-12-31)'
   }
 }, {
   tableName: 'worlds',

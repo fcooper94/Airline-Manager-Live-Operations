@@ -115,6 +115,7 @@ router.get('/info', async (req, res) => {
       iataCode: membership?.iataCode,
       balance: membership?.balance || 0,
       reputation: membership?.reputation || 0,
+      endDate: world.endDate || null,
       // Include base airport info for registration prefix and route planning
       baseAirport: baseAirport ? {
         id: baseAirport.id,

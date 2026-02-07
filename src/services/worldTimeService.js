@@ -286,7 +286,7 @@ class WorldTimeService {
 
   /**
    * Process credit deductions for all active memberships in a world
-   * Credits are deducted every Monday at 00:01 game time (1 credit per week)
+   * Credits are deducted every Monday at 00:01 game time (per-world weeklyCost)
    */
   async processCredits(worldId, currentGameTime) {
     const worldState = this.worlds.get(worldId);
@@ -302,6 +302,11 @@ class WorldTimeService {
     if (dayOfWeek !== 1 || hour !== 0 || minute < 1 || minute > 10) {
       return;
     }
+
+    // Get the weekly cost from the world settings (default 1)
+    const weeklyCost = worldState.world.weeklyCost !== undefined ? worldState.world.weeklyCost : 1;
+
+    if (weeklyCost <= 0) return; // No cost for this world
 
     try {
       // Get all active memberships for this world
@@ -334,9 +339,9 @@ class WorldTimeService {
           }
         }
 
-        // Deduct 1 credit for this week
+        // Deduct weekly cost credits
         if (membership.user) {
-          membership.user.credits -= 1;
+          membership.user.credits -= weeklyCost;
           await membership.user.save();
 
           // Update last deduction time to this Monday
@@ -344,7 +349,7 @@ class WorldTimeService {
           await membership.save();
 
           if (process.env.NODE_ENV === 'development') {
-            console.log(`[Monday 00:01] Deducted 1 credit from user ${membership.user.id} for world ${worldState.world.name}. New balance: ${membership.user.credits}`);
+            console.log(`[Monday 00:01] Deducted ${weeklyCost} credit(s) from user ${membership.user.id} for world ${worldState.world.name}. New balance: ${membership.user.credits}`);
           }
 
           // Check if user has fallen below -4 (enter administration)

@@ -305,6 +305,33 @@ async function loadWorldInfo() {
         startRealTimeClock();
       }
 
+      // Check if world is ending within 6 game months - show banner
+      const endBanner = document.getElementById('worldEndingBanner');
+      const endMessage = document.getElementById('worldEndingMessage');
+      if (endBanner && endMessage && worldInfo.endDate) {
+        const endDate = new Date(worldInfo.endDate);
+        const gameTime = new Date(worldInfo.currentTime);
+        const sixMonthsMs = 6 * 30 * 24 * 60 * 60 * 1000;
+        const timeRemaining = endDate.getTime() - gameTime.getTime();
+
+        if (timeRemaining <= sixMonthsMs && timeRemaining > 0) {
+          const endFormatted = endDate.toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+          });
+          endMessage.textContent = `This world will end at 23:59 on ${endFormatted}`;
+          endBanner.style.display = 'flex';
+        } else if (timeRemaining <= 0) {
+          endMessage.textContent = 'This world has ended';
+          endBanner.style.display = 'flex';
+        } else {
+          endBanner.style.display = 'none';
+        }
+      } else if (endBanner) {
+        endBanner.style.display = 'none';
+      }
+
       // Show navigation menu when world is active
       const navMenu = document.querySelector('.nav-menu');
       if (navMenu) {
@@ -820,6 +847,7 @@ function initSidebarToggle() {
     if (dashboardContainer) {
       dashboardContainer.classList.add('sidebar-collapsed');
     }
+    document.body.classList.add('sidebar-collapsed');
     return;
   }
 
@@ -835,6 +863,7 @@ function initSidebarToggle() {
       const sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
       if (sidebarCollapsed && dashboardContainer) {
         dashboardContainer.classList.add('sidebar-collapsed');
+        document.body.classList.add('sidebar-collapsed');
       }
 
       // Add click handler for toggle
@@ -842,6 +871,7 @@ function initSidebarToggle() {
         if (dashboardContainer) {
           dashboardContainer.classList.toggle('sidebar-collapsed');
           const isCollapsed = dashboardContainer.classList.contains('sidebar-collapsed');
+          document.body.classList.toggle('sidebar-collapsed', isCollapsed);
           localStorage.setItem('sidebarCollapsed', isCollapsed);
         }
       });

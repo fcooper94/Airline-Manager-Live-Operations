@@ -280,107 +280,108 @@ async function loadWorlds() {
 // Create world card element (returns DOM element)
 function createWorldCard(world, isMember) {
   const timeDate = new Date(world.currentTime);
-  const formattedDate = timeDate.toLocaleDateString('en-GB');
+  const formattedDate = timeDate.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
   const formattedTime = timeDate.toLocaleTimeString('en-GB', {
     hour: '2-digit',
     minute: '2-digit'
   });
 
+  const weeklyCost = world.weeklyCost !== undefined ? world.weeklyCost : 1;
+  const joinCost = world.joinCost !== undefined ? world.joinCost : 10;
+
+  // Check if world is ending within 6 game months
+  let endingBannerHtml = '';
+  if (world.endDate) {
+    const endDate = new Date(world.endDate);
+    const currentGameTime = new Date(world.currentTime);
+    const sixMonthsMs = 6 * 30 * 24 * 60 * 60 * 1000; // ~6 months in ms
+    const timeRemaining = endDate.getTime() - currentGameTime.getTime();
+
+    if (timeRemaining <= sixMonthsMs && timeRemaining > 0) {
+      const endDateFormatted = endDate.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      });
+      endingBannerHtml = `
+        <div class="world-card-ending-banner">
+          This world will end at 23:59 on ${endDateFormatted}
+        </div>
+      `;
+    }
+  }
+
   const card = document.createElement('div');
   card.className = `world-card ${isMember ? 'member' : ''}`;
-  card.style.position = 'relative';
   card.setAttribute('data-world-id', world.id);
+
   card.innerHTML = `
-    <div class="world-badge ${isMember ? 'joined' : ''}">
-      ${isMember ? 'JOINED' : 'AVAILABLE'}
+    <div class="world-card-header">
+      <span class="world-card-status">${isMember ? 'Joined' : 'Available'}</span>
+      <span class="world-card-era">ERA ${world.era || 2010}</span>
     </div>
 
-    <div class="world-header" style="cursor: pointer;">
-      <div>
-        <div class="world-name">${world.name || 'Unnamed World'}</div>
-        <div class="world-era">ERA ${world.era || 2010}${isMember && world.airlineName ? ` • ${world.airlineName} (${world.airlineCode})` : ''}</div>
-      </div>
-    </div>
+    ${endingBannerHtml}
 
-    <div class="world-description" style="cursor: pointer;">${world.description || ''}</div>
-
-    <div class="world-info" style="cursor: pointer;">
-      <div class="info-row">
-        <span class="info-label">Date</span>
-        <span class="info-value">${formattedDate}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Time</span>
-        <span class="info-value world-current-time">${formattedTime}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Speed</span>
-        <span class="info-value">${world.timeAcceleration || 60}x</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Members</span>
-        <span class="info-value">${world.memberCount || 0}/${world.maxPlayers || 100}</span>
-      </div>
-    </div>
-
-    <div class="world-actions">
-      ${!isMember ? `
-        <div style="display: flex; gap: 0.5rem; font-size: 0.7rem;">
-          <span style="background: rgba(217, 119, 6, 0.15); color: var(--warning-color); padding: 0.25rem 0.5rem; border-radius: 3px; font-weight: 600;">10 credits to join</span>
-          <span style="background: rgba(217, 119, 6, 0.15); color: var(--warning-color); padding: 0.25rem 0.5rem; border-radius: 3px; font-weight: 600;">1 credit/week</span>
+    <div class="world-card-body">
+      <div class="world-card-name">${world.name || 'Unnamed World'}</div>
+      ${isMember && world.airlineName ? `
+        <div class="world-card-airline">${world.airlineName} (${world.airlineCode})</div>
+      ` : ''}
+      ${world.description ? `
+        <div class="world-card-description">${world.description}</div>
+      ` : ''}
+      <div class="world-card-stats">
+        <div class="world-card-stat">
+          <div class="world-card-stat-label">Date</div>
+          <div class="world-card-stat-value">${formattedDate}</div>
         </div>
-      ` : '<div></div>'}
+        <div class="world-card-stat">
+          <div class="world-card-stat-label">Time</div>
+          <div class="world-card-stat-value world-current-time">${formattedTime}</div>
+        </div>
+        <div class="world-card-stat">
+          <div class="world-card-stat-label">Speed</div>
+          <div class="world-card-stat-value">${world.timeAcceleration || 60}x</div>
+        </div>
+        <div class="world-card-stat">
+          <div class="world-card-stat-label">Members</div>
+          <div class="world-card-stat-value">${world.memberCount || 0}/${world.maxPlayers || 100}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="world-card-footer">
+      <div class="world-card-costs">
+        <span class="cost-badge weekly">${weeklyCost} Credit/wk</span>
+        ${!isMember ? `<span class="cost-badge join">${joinCost} to join</span>` : ''}
+      </div>
       ${isMember ? `
-        <button class="btn btn-primary continue-game-btn" style="padding: 0.5rem 1.5rem;">CONTINUE GAME</button>
+        <button class="btn btn-primary continue-game-btn">CONTINUE</button>
       ` : `
-        <button class="btn btn-primary join-game-btn" style="padding: 0.5rem 1.5rem;">JOIN GAME</button>
+        <button class="btn btn-primary join-game-btn">JOIN</button>
       `}
     </div>
   `;
 
-  // Add event listeners programmatically to avoid injection issues
-  const header = card.querySelector('.world-header');
-  const description = card.querySelector('.world-description');
-  const worldInfo = card.querySelector('.world-info');
-  const airlineInfo = card.querySelector('.airline-info');
+  // Click on entire card body navigates
+  const cardBody = card.querySelector('.world-card-body');
+  if (cardBody) {
+    cardBody.addEventListener('click', () => {
+      if (isMember) {
+        enterWorld(world.id);
+      } else {
+        openJoinModal(world.id, world.name, world.joinCost, world.weeklyCost);
+      }
+    });
+  }
+
   const continueGameBtn = card.querySelector('.continue-game-btn');
   const joinGameBtn = card.querySelector('.join-game-btn');
-
-  if (header) {
-    header.addEventListener('click', () => {
-      if (isMember) {
-        enterWorld(world.id);
-      } else {
-        openJoinModal(world.id, world.name);
-      }
-    });
-  }
-
-  if (description) {
-    description.addEventListener('click', () => {
-      if (isMember) {
-        enterWorld(world.id);
-      } else {
-        openJoinModal(world.id, world.name);
-      }
-    });
-  }
-
-  if (worldInfo) {
-    worldInfo.addEventListener('click', () => {
-      if (isMember) {
-        enterWorld(world.id);
-      } else {
-        openJoinModal(world.id, world.name);
-      }
-    });
-  }
-
-  if (airlineInfo) {
-    airlineInfo.addEventListener('click', () => {
-      enterWorld(world.id);
-    });
-  }
 
   if (continueGameBtn) {
     continueGameBtn.addEventListener('click', (event) => {
@@ -392,7 +393,7 @@ function createWorldCard(world, isMember) {
   if (joinGameBtn) {
     joinGameBtn.addEventListener('click', (event) => {
       event.stopPropagation();
-      openJoinModal(world.id, world.name);
+      openJoinModal(world.id, world.name, world.joinCost, world.weeklyCost);
     });
   }
 
@@ -577,9 +578,12 @@ function clearSelectedAirport() {
 }
 
 // Open join modal
-async function openJoinModal(worldId, worldName) {
+async function openJoinModal(worldId, worldName, joinCost, weeklyCost) {
   selectedWorldId = worldId;
   selectedAirportId = null;
+  const worldJoinCost = joinCost !== undefined ? joinCost : 10;
+  const worldWeeklyCost = weeklyCost !== undefined ? weeklyCost : 1;
+
   document.getElementById('selectedWorldName').textContent = worldName;
   document.getElementById('airlineName').value = '';
   document.getElementById('airlineCode').value = '';
@@ -592,6 +596,20 @@ async function openJoinModal(worldId, worldName) {
   document.getElementById('joinError').style.display = 'none';
   document.getElementById('startingCapital').textContent = 'Starting Capital: Loading...';
   document.getElementById('userCredits').textContent = '(Loading...)';
+
+  // Update join cost display dynamically
+  const creditCostEl = document.getElementById('creditCost');
+  if (creditCostEl) {
+    creditCostEl.innerHTML = `
+      <span style="color: var(--warning-color); font-weight: 600;">Join Cost: ${worldJoinCost} Credits</span>
+      <span id="userCredits" style="margin-left: 0.5rem; color: var(--text-secondary);">(Loading...)</span>
+    `;
+  }
+  const weeklyInfoEl = document.getElementById('weeklyMembershipCost');
+  if (weeklyInfoEl) {
+    weeklyInfoEl.textContent = `+ ${worldWeeklyCost} credit${worldWeeklyCost !== 1 ? 's' : ''} per game week to maintain membership`;
+  }
+
   document.getElementById('joinModal').style.display = 'flex';
 
   // Fetch and display starting capital for this world
@@ -605,11 +623,11 @@ async function openJoinModal(worldId, worldName) {
 
     if (data.authenticated && data.user) {
       const credits = data.user.credits !== undefined ? data.user.credits : 0;
-      if (credits >= 10) {
+      if (credits >= worldJoinCost) {
         creditsEl.textContent = `(You have ${credits} credits)`;
         creditsEl.style.color = 'var(--success-color)';
       } else {
-        creditsEl.textContent = `(You only have ${credits} credits - need 10)`;
+        creditsEl.textContent = `(You only have ${credits} credits - need ${worldJoinCost})`;
         creditsEl.style.color = 'var(--danger-color)';
       }
     } else {

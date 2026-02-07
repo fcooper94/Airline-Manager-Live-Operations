@@ -704,6 +704,9 @@ function openEditWorldModal(world) {
   document.getElementById('worldStartDate').value = world.startDate ? new Date(world.startDate).toISOString().split('T')[0] : '';
   document.getElementById('worldTimeAcceleration').value = world.timeAcceleration || 60;
   document.getElementById('worldMaxPlayers').value = world.maxPlayers || 100;
+  document.getElementById('worldJoinCost').value = world.joinCost !== undefined ? world.joinCost : 10;
+  document.getElementById('worldWeeklyCost').value = world.weeklyCost !== undefined ? world.weeklyCost : 1;
+  document.getElementById('worldEndDate').value = world.endDate ? new Date(world.endDate).toISOString().split('T')[0] : '';
   document.getElementById('worldStatus').value = world.status || 'setup';
   document.getElementById('worldDescription').value = world.description || '';
 
@@ -724,6 +727,9 @@ function clearWorldForm() {
   document.getElementById('worldStartDate').value = new Date().toISOString().split('T')[0]; // Set to today
   document.getElementById('worldTimeAcceleration').value = '60';
   document.getElementById('worldMaxPlayers').value = '100';
+  document.getElementById('worldJoinCost').value = '10';
+  document.getElementById('worldWeeklyCost').value = '1';
+  document.getElementById('worldEndDate').value = '';
   document.getElementById('worldStatus').value = 'setup';
   document.getElementById('worldDescription').value = '';
   document.getElementById('worldError').style.display = 'none';
@@ -758,6 +764,9 @@ async function saveWorld() {
     startDate: startDate,
     timeAcceleration: timeAccelElement ? parseFloat(timeAccelElement.value) : NaN,
     maxPlayers: parseInt(document.getElementById('worldMaxPlayers').value),
+    joinCost: parseInt(document.getElementById('worldJoinCost').value) || 10,
+    weeklyCost: parseInt(document.getElementById('worldWeeklyCost').value) || 1,
+    endDate: document.getElementById('worldEndDate').value || null,
     status: statusElement ? statusElement.value : '',
     description: document.getElementById('worldDescription').value.trim() || null
   };

@@ -383,7 +383,10 @@ router.post('/worlds', async (req, res) => {
       timeAcceleration,
       maxPlayers,
       status,
-      description
+      description,
+      joinCost,
+      weeklyCost,
+      endDate
     } = req.body;
 
     // Debug: Log received data
@@ -414,7 +417,10 @@ router.post('/worlds', async (req, res) => {
       timeAcceleration: timeAcceleration || 60,
       maxPlayers: maxPlayers || 100,
       status: status || 'setup',
-      description
+      description,
+      joinCost: joinCost !== undefined ? joinCost : 10,
+      weeklyCost: weeklyCost !== undefined ? weeklyCost : 1,
+      endDate: endDate ? new Date(endDate) : null
     });
 
     console.log('Created world:', {

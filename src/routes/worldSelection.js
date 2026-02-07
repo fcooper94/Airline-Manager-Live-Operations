@@ -18,7 +18,7 @@ router.get('/available', async (req, res) => {
     // Get all active worlds
     const worlds = await World.findAll({
       where: { status: 'active' },
-      attributes: ['id', 'name', 'description', 'era', 'currentTime', 'timeAcceleration', 'maxPlayers'],
+      attributes: ['id', 'name', 'description', 'era', 'currentTime', 'timeAcceleration', 'maxPlayers', 'joinCost', 'weeklyCost', 'endDate'],
       order: [['createdAt', 'DESC']]
     });
 
@@ -115,8 +115,8 @@ router.post('/join', async (req, res) => {
       console.log(`Starting capital for ${worldYear}: $${startingBalance.toLocaleString()}`);
     }
 
-    // Cost to join a world
-    const JOIN_COST_CREDITS = 10;
+    // Cost to join this world (from world settings, default 10)
+    const JOIN_COST_CREDITS = world.joinCost !== undefined ? world.joinCost : 10;
 
     // Find or create user
     const [user] = await User.findOrCreate({
