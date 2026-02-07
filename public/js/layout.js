@@ -332,6 +332,30 @@ async function loadWorldInfo() {
         endBanner.style.display = 'none';
       }
 
+      // Check if airline is in free period - show banner
+      const freeBanner = document.getElementById('freePeriodBanner');
+      const freeMessage = document.getElementById('freePeriodMessage');
+      if (freeBanner && freeMessage && worldInfo.freeWeeks > 0 && worldInfo.lastCreditDeduction) {
+        const gameTime = new Date(worldInfo.currentTime);
+        const creditDeductionStart = new Date(worldInfo.lastCreditDeduction);
+
+        if (gameTime < creditDeductionStart) {
+          // Still in free period
+          const deductionFormatted = creditDeductionStart.toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+          });
+          const cost = worldInfo.weeklyCost !== undefined ? worldInfo.weeklyCost : 1;
+          freeMessage.textContent = `You are in your free period. From ${deductionFormatted} you will be deducted ${cost} credit${cost !== 1 ? 's' : ''} per week. If you don't have enough credits, your airline will enter administration after 4 weeks without payment.`;
+          freeBanner.style.display = 'flex';
+        } else {
+          freeBanner.style.display = 'none';
+        }
+      } else if (freeBanner) {
+        freeBanner.style.display = 'none';
+      }
+
       // Show navigation menu when world is active
       const navMenu = document.querySelector('.nav-menu');
       if (navMenu) {

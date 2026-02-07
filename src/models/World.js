@@ -93,6 +93,12 @@ const World = sequelize.define('World', {
     allowNull: true,
     field: 'end_date',
     comment: 'In-game date when this world ends (e.g., 2030-12-31)'
+  },
+  freeWeeks: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+    field: 'free_weeks',
+    comment: 'Number of free game weeks for new airlines before weekly credit deductions start'
   }
 }, {
   tableName: 'worlds',

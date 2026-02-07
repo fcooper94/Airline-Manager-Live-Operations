@@ -706,6 +706,7 @@ function openEditWorldModal(world) {
   document.getElementById('worldMaxPlayers').value = world.maxPlayers || 100;
   document.getElementById('worldJoinCost').value = world.joinCost !== undefined ? world.joinCost : 10;
   document.getElementById('worldWeeklyCost').value = world.weeklyCost !== undefined ? world.weeklyCost : 1;
+  document.getElementById('worldFreeWeeks').value = world.freeWeeks !== undefined ? world.freeWeeks : 0;
   document.getElementById('worldEndDate').value = world.endDate ? new Date(world.endDate).toISOString().split('T')[0] : '';
   document.getElementById('worldStatus').value = world.status || 'setup';
   document.getElementById('worldDescription').value = world.description || '';
@@ -729,6 +730,7 @@ function clearWorldForm() {
   document.getElementById('worldMaxPlayers').value = '100';
   document.getElementById('worldJoinCost').value = '10';
   document.getElementById('worldWeeklyCost').value = '1';
+  document.getElementById('worldFreeWeeks').value = '0';
   document.getElementById('worldEndDate').value = '';
   document.getElementById('worldStatus').value = 'setup';
   document.getElementById('worldDescription').value = '';
@@ -766,6 +768,7 @@ async function saveWorld() {
     maxPlayers: parseInt(document.getElementById('worldMaxPlayers').value),
     joinCost: parseInt(document.getElementById('worldJoinCost').value) || 10,
     weeklyCost: parseInt(document.getElementById('worldWeeklyCost').value) || 1,
+    freeWeeks: parseInt(document.getElementById('worldFreeWeeks').value) || 0,
     endDate: document.getElementById('worldEndDate').value || null,
     status: statusElement ? statusElement.value : '',
     description: document.getElementById('worldDescription').value.trim() || null

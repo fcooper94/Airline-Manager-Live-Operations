@@ -386,6 +386,7 @@ router.post('/worlds', async (req, res) => {
       description,
       joinCost,
       weeklyCost,
+      freeWeeks,
       endDate
     } = req.body;
 
@@ -420,6 +421,7 @@ router.post('/worlds', async (req, res) => {
       description,
       joinCost: joinCost !== undefined ? joinCost : 10,
       weeklyCost: weeklyCost !== undefined ? weeklyCost : 1,
+      freeWeeks: freeWeeks !== undefined ? freeWeeks : 0,
       endDate: endDate ? new Date(endDate) : null
     });
 

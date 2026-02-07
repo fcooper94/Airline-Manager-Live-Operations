@@ -116,6 +116,9 @@ router.get('/info', async (req, res) => {
       balance: membership?.balance || 0,
       reputation: membership?.reputation || 0,
       endDate: world.endDate || null,
+      freeWeeks: world.freeWeeks || 0,
+      weeklyCost: world.weeklyCost !== undefined ? world.weeklyCost : 1,
+      lastCreditDeduction: membership?.lastCreditDeduction || null,
       // Include base airport info for registration prefix and route planning
       baseAirport: baseAirport ? {
         id: baseAirport.id,

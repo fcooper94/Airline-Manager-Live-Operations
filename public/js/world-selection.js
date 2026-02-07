@@ -211,6 +211,18 @@ async function loadWorlds() {
 
     const worlds = await response.json();
 
+    // Fetch user credits to determine if join buttons should be enabled
+    let userCredits = 0;
+    try {
+      const authResponse = await fetch('/auth/status');
+      const authData = await authResponse.json();
+      if (authData.authenticated && authData.user) {
+        userCredits = authData.user.credits !== undefined ? authData.user.credits : 0;
+      }
+    } catch (e) {
+      console.error('Error fetching user credits for world cards:', e);
+    }
+
     const worldsList = document.getElementById('worldsList');
     const myWorldsList = document.getElementById('myWorldsList');
     const myWorldsSection = document.getElementById('myWorlds');
@@ -245,7 +257,7 @@ async function loadWorlds() {
       myWorldsSection.style.display = 'block';
       myWorldsList.innerHTML = '';
       myWorlds.forEach(world => {
-        const cardElement = createWorldCard(world, true);
+        const cardElement = createWorldCard(world, true, userCredits);
         myWorldsList.appendChild(cardElement);
       });
     } else {
@@ -256,7 +268,7 @@ async function loadWorlds() {
     worldsList.innerHTML = '';
     if (availableWorlds.length > 0) {
       availableWorlds.forEach(world => {
-        const cardElement = createWorldCard(world, false);
+        const cardElement = createWorldCard(world, false, userCredits);
         worldsList.appendChild(cardElement);
       });
     } else if (myWorlds.length === 0) {
@@ -278,7 +290,7 @@ async function loadWorlds() {
 }
 
 // Create world card element (returns DOM element)
-function createWorldCard(world, isMember) {
+function createWorldCard(world, isMember, userCredits) {
   const timeDate = new Date(world.currentTime);
   const formattedDate = timeDate.toLocaleDateString('en-GB', {
     day: '2-digit',
@@ -292,6 +304,8 @@ function createWorldCard(world, isMember) {
 
   const weeklyCost = world.weeklyCost !== undefined ? world.weeklyCost : 1;
   const joinCost = world.joinCost !== undefined ? world.joinCost : 10;
+  const freeWeeks = world.freeWeeks || 0;
+  const canAffordJoin = !isMember && (userCredits || 0) >= joinCost;
 
   // Check if world is ending within 6 game months
   let endingBannerHtml = '';
@@ -359,12 +373,20 @@ function createWorldCard(world, isMember) {
       <div class="world-card-costs">
         <span class="cost-badge weekly">${weeklyCost} Credit/wk</span>
         ${!isMember ? `<span class="cost-badge join">${joinCost} to join</span>` : ''}
+        ${!isMember && freeWeeks > 0 ? `<span class="cost-badge free">First ${freeWeeks} wks free!</span>` : ''}
       </div>
       ${isMember ? `
         <button class="btn btn-primary continue-game-btn">CONTINUE</button>
-      ` : `
+      ` : (canAffordJoin ? `
         <button class="btn btn-primary join-game-btn">JOIN</button>
-      `}
+      ` : `
+        <button class="btn btn-primary join-game-btn disabled" disabled title="Not enough credits">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align: -2px; margin-right: 4px;">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+          </svg>JOIN
+        </button>
+      `)}
     </div>
   `;
 
@@ -375,7 +397,7 @@ function createWorldCard(world, isMember) {
       if (isMember) {
         enterWorld(world.id);
       } else {
-        openJoinModal(world.id, world.name, world.joinCost, world.weeklyCost);
+        openJoinModal(world.id, world.name, world.joinCost, world.weeklyCost, world.freeWeeks);
       }
     });
   }
@@ -393,7 +415,7 @@ function createWorldCard(world, isMember) {
   if (joinGameBtn) {
     joinGameBtn.addEventListener('click', (event) => {
       event.stopPropagation();
-      openJoinModal(world.id, world.name, world.joinCost, world.weeklyCost);
+      openJoinModal(world.id, world.name, world.joinCost, world.weeklyCost, world.freeWeeks);
     });
   }
 
@@ -578,11 +600,12 @@ function clearSelectedAirport() {
 }
 
 // Open join modal
-async function openJoinModal(worldId, worldName, joinCost, weeklyCost) {
+async function openJoinModal(worldId, worldName, joinCost, weeklyCost, freeWeeks) {
   selectedWorldId = worldId;
   selectedAirportId = null;
   const worldJoinCost = joinCost !== undefined ? joinCost : 10;
   const worldWeeklyCost = weeklyCost !== undefined ? weeklyCost : 1;
+  const worldFreeWeeks = freeWeeks || 0;
 
   document.getElementById('selectedWorldName').textContent = worldName;
   document.getElementById('airlineName').value = '';
@@ -595,19 +618,22 @@ async function openJoinModal(worldId, worldName, joinCost, weeklyCost) {
   document.getElementById('airportResults').style.display = 'none';
   document.getElementById('joinError').style.display = 'none';
   document.getElementById('startingCapital').textContent = 'Starting Capital: Loading...';
-  document.getElementById('userCredits').textContent = '(Loading...)';
 
   // Update join cost display dynamically
   const creditCostEl = document.getElementById('creditCost');
   if (creditCostEl) {
     creditCostEl.innerHTML = `
       <span style="color: var(--warning-color); font-weight: 600;">Join Cost: ${worldJoinCost} Credits</span>
-      <span id="userCredits" style="margin-left: 0.5rem; color: var(--text-secondary);">(Loading...)</span>
+      <span id="modalUserCredits" style="margin-left: 0.5rem; color: var(--text-secondary);">(Loading...)</span>
     `;
   }
   const weeklyInfoEl = document.getElementById('weeklyMembershipCost');
   if (weeklyInfoEl) {
-    weeklyInfoEl.textContent = `+ ${worldWeeklyCost} credit${worldWeeklyCost !== 1 ? 's' : ''} per game week to maintain membership`;
+    let weeklyText = `+ ${worldWeeklyCost} credit${worldWeeklyCost !== 1 ? 's' : ''} per game week to maintain membership`;
+    if (worldFreeWeeks > 0) {
+      weeklyText += ` (first ${worldFreeWeeks} week${worldFreeWeeks !== 1 ? 's' : ''} free!)`;
+    }
+    weeklyInfoEl.textContent = weeklyText;
   }
 
   document.getElementById('joinModal').style.display = 'flex';
@@ -619,7 +645,7 @@ async function openJoinModal(worldId, worldName, joinCost, weeklyCost) {
   try {
     const response = await fetch('/auth/status');
     const data = await response.json();
-    const creditsEl = document.getElementById('userCredits');
+    const creditsEl = document.getElementById('modalUserCredits');
 
     if (data.authenticated && data.user) {
       const credits = data.user.credits !== undefined ? data.user.credits : 0;

@@ -18,7 +18,7 @@ router.get('/available', async (req, res) => {
     // Get all active worlds
     const worlds = await World.findAll({
       where: { status: 'active' },
-      attributes: ['id', 'name', 'description', 'era', 'currentTime', 'timeAcceleration', 'maxPlayers', 'joinCost', 'weeklyCost', 'endDate'],
+      attributes: ['id', 'name', 'description', 'era', 'currentTime', 'timeAcceleration', 'maxPlayers', 'joinCost', 'weeklyCost', 'freeWeeks', 'endDate'],
       order: [['createdAt', 'DESC']]
     });
 
@@ -170,6 +170,13 @@ router.post('/join', async (req, res) => {
       return res.status(400).json({ error: 'IATA code already taken in this world' });
     }
 
+    // Calculate credit deduction start time (offset by free weeks if applicable)
+    const freeWeeks = world.freeWeeks || 0;
+    let creditDeductionStart = new Date(world.currentTime);
+    if (freeWeeks > 0) {
+      creditDeductionStart = new Date(creditDeductionStart.getTime() + (freeWeeks * 7 * 24 * 60 * 60 * 1000));
+    }
+
     // Create membership
     const membership = await WorldMembership.create({
       userId: user.id,
@@ -181,7 +188,7 @@ router.post('/join', async (req, res) => {
       baseAirportId,
       balance: startingBalance,
       reputation: 50,
-      lastCreditDeduction: world.currentTime // Start credit tracking from world's current time
+      lastCreditDeduction: creditDeductionStart // Offset by free weeks so deductions start later
     });
 
     // Deduct credits for joining

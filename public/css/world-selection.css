@@ -200,12 +200,22 @@
   color: var(--accent-color);
 }
 
+.cost-badge.free {
+  background: rgba(5, 150, 105, 0.12);
+  color: var(--success-color);
+}
+
 .world-card-footer .btn {
   padding: 0.5rem 1.25rem;
   font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.5px;
   white-space: nowrap;
+}
+
+.world-card-footer .btn.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* ===== Modal ===== */
@@ -368,6 +378,25 @@
   color: var(--text-primary);
 }
 
+/* ===== Join Modal (Wide Two-Column) ===== */
+
+.join-modal-content {
+  max-width: 820px;
+  max-height: none;
+}
+
+.join-modal-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.join-modal-codes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
 /* ===== Responsive ===== */
 
 @media (max-width: 768px) {
@@ -391,5 +420,22 @@
 
   .modal-content {
     width: 95%;
+  }
+
+  .join-modal-content {
+    max-height: 90vh;
+  }
+
+  .join-modal-content .modal-body {
+    overflow-y: auto;
+  }
+
+  .join-modal-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .join-modal-codes {
+    grid-template-columns: 1fr 1fr;
   }
 }
