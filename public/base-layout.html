@@ -28,19 +28,22 @@
         </a>
       </div>
       <div class="nav-world-info" id="worldInfoContainer">
-        <div class="world-info-item">
-          <span class="info-label">WORLD</span>
-          <span class="info-value" id="worldName">--</span>
+        <div class="wi-world">
+          <svg class="wi-globe" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+          </svg>
+          <span id="worldName">--</span>
         </div>
-        <div class="world-info-item time-highlight">
-          <span class="world-date" id="worldDate">--/--/----</span>
-          <span class="world-time" id="worldTime">--:--</span>
-          <span class="world-day" id="worldDay">--</span>
+        <div class="wi-sep"></div>
+        <div class="wi-date-group">
+          <span class="wi-date" id="worldDate">--/--/----</span>
+          <span class="wi-time" id="worldTime">--:--</span>
+          <span class="wi-day" id="worldDay">--</span>
         </div>
-        <div class="world-info-item">
-          <span class="info-label">BALANCE</span>
-          <span class="info-value" id="worldBalance">$--</span>
-        </div>
+        <div class="wi-sep"></div>
+        <div class="wi-balance" id="worldBalance">$--</div>
       </div>
       <div class="nav-user">
         <div class="nav-user-credits-wrapper">
