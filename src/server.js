@@ -126,7 +126,7 @@ async function renderPage(pagePath, requestPath) {
   try {
     // Determine which sidebar to use based on the request path
     // Use simplified sidebar for admin, world selection, and public pages
-    const simplifiedSidebarPages = ['/admin', '/world-selection', '/contact', '/faqs'];
+    const simplifiedSidebarPages = ['/admin', '/world-selection', '/contact', '/faqs', '/credits'];
     const sidebarPath = simplifiedSidebarPages.includes(requestPath)
       ? path.join(__dirname, '../public/partials/sidebar-admin.html')
       : path.join(__dirname, '../public/partials/sidebar.html');
@@ -292,6 +292,15 @@ app.get('/dashboard', requireWorld, async (req, res) => {
 app.get('/admin', requireAuth, async (req, res) => {
   try {
     const html = await renderPage(path.join(__dirname, '../public/admin.html'), '/admin');
+    res.send(html);
+  } catch (error) {
+    res.status(500).send('Error loading page');
+  }
+});
+
+app.get('/credits', requireAuth, async (req, res) => {
+  try {
+    const html = await renderPage(path.join(__dirname, '../public/credits.html'), '/credits');
     res.send(html);
   } catch (error) {
     res.status(500).send('Error loading page');

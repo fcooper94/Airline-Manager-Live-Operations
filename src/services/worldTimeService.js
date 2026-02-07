@@ -318,7 +318,7 @@ class WorldTimeService {
         include: [{
           model: User,
           as: 'user',
-          attributes: ['id', 'credits']
+          attributes: ['id', 'credits', 'unlimitedCredits']
         }]
       });
 
@@ -330,6 +330,11 @@ class WorldTimeService {
         // Check if we already processed this Monday
         const lastDeduction = membership.lastCreditDeduction ? new Date(membership.lastCreditDeduction) : null;
 
+        // Skip if still in free period (lastCreditDeduction set to future game date on join)
+        if (lastDeduction && lastDeduction > thisMondayMorning) {
+          continue;
+        }
+
         // Skip if we already deducted this Monday (compare dates, not exact times)
         if (lastDeduction) {
           const lastDeductionDate = lastDeduction.toISOString().split('T')[0];
@@ -339,8 +344,14 @@ class WorldTimeService {
           }
         }
 
-        // Deduct weekly cost credits
+        // Deduct weekly cost credits (skip unlimited users)
         if (membership.user) {
+          if (membership.user.unlimitedCredits) {
+            // Update last deduction time but don't deduct credits
+            membership.lastCreditDeduction = thisMondayMorning;
+            await membership.save();
+            continue;
+          }
           membership.user.credits -= weeklyCost;
           await membership.user.save();
 

@@ -286,7 +286,7 @@ router.get('/my-worlds', async (req, res) => {
       include: [{
         model: World,
         as: 'world',
-        attributes: ['id', 'name', 'description', 'era', 'currentTime', 'timeAcceleration', 'status']
+        attributes: ['id', 'name', 'description', 'era', 'currentTime', 'timeAcceleration', 'status', 'weeklyCost', 'freeWeeks']
       }],
       order: [['joinedAt', 'DESC']]
     });
@@ -300,7 +300,11 @@ router.get('/my-worlds', async (req, res) => {
       airlineCode: m.airlineCode,
       balance: m.balance,
       reputation: m.reputation,
-      joinedAt: m.joinedAt
+      joinedAt: m.joinedAt,
+      weeklyCost: m.world.weeklyCost !== undefined ? m.world.weeklyCost : 1,
+      freeWeeks: m.world.freeWeeks || 0,
+      lastCreditDeduction: m.lastCreditDeduction || null,
+      currentTime: m.world.currentTime
     }));
 
     res.json(myWorlds);

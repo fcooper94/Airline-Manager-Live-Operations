@@ -71,6 +71,13 @@ const User = sequelize.define('User', {
     allowNull: false,
     field: 'is_contributor',
     comment: 'Whether user has contributor (elevated) access'
+  },
+  unlimitedCredits: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    allowNull: false,
+    field: 'unlimited_credits',
+    comment: 'Whether user has unlimited credits (no deductions)'
   }
 }, {
   tableName: 'users',

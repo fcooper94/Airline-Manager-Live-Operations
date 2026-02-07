@@ -14,7 +14,7 @@ router.get('/users', async (req, res) => {
     }
 
     const users = await User.findAll({
-      attributes: ['id', 'vatsimId', 'firstName', 'lastName', 'email', 'credits', 'isAdmin', 'isContributor', 'lastLogin'],
+      attributes: ['id', 'vatsimId', 'firstName', 'lastName', 'email', 'credits', 'isAdmin', 'isContributor', 'unlimitedCredits', 'lastLogin'],
       order: [['lastName', 'ASC'], ['firstName', 'ASC']]
     });
 
@@ -49,7 +49,7 @@ router.post('/users/:userId/credits', async (req, res) => {
     }
 
     const { userId } = req.params;
-    const { credits } = req.body;
+    const { credits, unlimitedCredits } = req.body;
 
     if (typeof credits !== 'number') {
       return res.status(400).json({ error: 'Credits must be a number' });
@@ -62,6 +62,9 @@ router.post('/users/:userId/credits', async (req, res) => {
     }
 
     user.credits = credits;
+    if (unlimitedCredits !== undefined) {
+      user.unlimitedCredits = !!unlimitedCredits;
+    }
     await user.save();
 
     res.json({
@@ -69,7 +72,8 @@ router.post('/users/:userId/credits', async (req, res) => {
       user: {
         id: user.id,
         name: `${user.firstName} ${user.lastName}`,
-        credits: user.credits
+        credits: user.credits,
+        unlimitedCredits: user.unlimitedCredits
       }
     });
   } catch (error) {

@@ -1,0 +1,148 @@
+<!-- TITLE: Credits - Airline Manager -->
+<!-- SUBTITLE: Credits & Billing -->
+
+<div class="dashboard-container">
+  <main class="main-content">
+    <div class="page-header">
+      <h1>CREDITS</h1>
+      <p class="subtitle">MANAGE YOUR CREDITS & SUBSCRIPTIONS</p>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+      <!-- Current Balance -->
+      <div style="background: var(--surface); border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden;">
+        <div style="padding: 0.5rem 1rem; background: var(--surface-elevated); border-bottom: 1px solid var(--border-color);">
+          <span style="font-size: 0.65rem; font-weight: 700; letter-spacing: 1px; color: var(--text-muted); text-transform: uppercase;">Current Balance</span>
+        </div>
+        <div style="padding: 0.75rem 1rem; display: flex; align-items: baseline; gap: 0.5rem;">
+          <div id="creditsPageBalance" style="font-size: 1.8rem; font-weight: 700; color: var(--success-color); font-family: 'Courier New', monospace;">--</div>
+          <div id="creditsPageBalanceLabel" style="font-size: 0.75rem; color: var(--text-secondary);">credits available</div>
+        </div>
+      </div>
+
+      <!-- Weekly Outgoings -->
+      <div style="background: var(--surface); border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden;">
+        <div style="padding: 0.5rem 1rem; background: var(--surface-elevated); border-bottom: 1px solid var(--border-color);">
+          <span style="font-size: 0.65rem; font-weight: 700; letter-spacing: 1px; color: var(--text-muted); text-transform: uppercase;">Weekly Outgoings</span>
+        </div>
+        <div style="padding: 0.75rem 1rem; display: flex; align-items: baseline; gap: 0.5rem;">
+          <div id="creditsPageWeekly" style="font-size: 1.8rem; font-weight: 700; color: var(--warning-color); font-family: 'Courier New', monospace;">--</div>
+          <div id="creditsPageWeeklyLabel" style="font-size: 0.75rem; color: var(--text-secondary);">credits per game week</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- World Commitments -->
+    <div style="background: var(--surface); border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; margin-bottom: 1rem;">
+      <div style="padding: 0.5rem 1rem; background: var(--surface-elevated); border-bottom: 1px solid var(--border-color);">
+        <span style="font-size: 0.65rem; font-weight: 700; letter-spacing: 1px; color: var(--text-muted); text-transform: uppercase;">World Commitments</span>
+      </div>
+      <div id="creditsPageWorlds" style="padding: 0;">
+        <div style="padding: 1.25rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Add Credits Section -->
+    <div style="background: var(--surface); border: 1px solid rgba(37, 99, 235, 0.3); border-radius: 6px; overflow: hidden;">
+      <div style="padding: 0.5rem 1rem; background: rgba(37, 99, 235, 0.08); border-bottom: 1px solid rgba(37, 99, 235, 0.2);">
+        <span style="font-size: 0.65rem; font-weight: 700; letter-spacing: 1px; color: var(--accent-color); text-transform: uppercase;">Add Credits</span>
+      </div>
+      <div id="addCreditsBody" style="padding: 1rem 1.25rem; text-align: center;">
+        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.25rem;">Credit purchasing coming soon.</p>
+        <p style="color: var(--text-muted); font-size: 0.75rem;">Credits are used to maintain your airline memberships across worlds.</p>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const [statusRes, worldsRes] = await Promise.all([
+      fetch('/auth/status'),
+      fetch('/api/worlds/my-worlds')
+    ]);
+
+    const statusData = await statusRes.json();
+    const worlds = await worldsRes.json();
+
+    // Update balance
+    const balanceEl = document.getElementById('creditsPageBalance');
+    if (balanceEl && statusData.authenticated) {
+      if (statusData.user.unlimitedCredits) {
+        balanceEl.textContent = 'Unlimited';
+        balanceEl.style.color = 'var(--accent-color)';
+        balanceEl.style.fontSize = '1.4rem';
+        const balanceLabel = document.getElementById('creditsPageBalanceLabel');
+        if (balanceLabel) balanceLabel.style.display = 'none';
+      } else {
+        balanceEl.textContent = statusData.user.credits;
+        if (statusData.user.credits < 0) {
+          balanceEl.style.color = 'var(--warning-color)';
+        } else if (statusData.user.credits < 4) {
+          balanceEl.style.color = 'var(--text-secondary)';
+        }
+      }
+    }
+
+    // Update add credits section for unlimited users
+    const addCreditsBody = document.getElementById('addCreditsBody');
+    if (addCreditsBody && statusData.authenticated && statusData.user.unlimitedCredits) {
+      addCreditsBody.innerHTML = '<p style="color: var(--text-secondary); font-size: 0.85rem;">You can not purchase credits as you have unlimited credits assigned by an admin.</p>';
+    }
+
+    // Build world commitments
+    const worldsEl = document.getElementById('creditsPageWorlds');
+    const weeklyEl = document.getElementById('creditsPageWeekly');
+    if (!worldsEl) return;
+
+    if (!worlds || worlds.length === 0) {
+      worldsEl.innerHTML = '<div style="padding: 1.25rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">No world memberships</div>';
+      if (weeklyEl) weeklyEl.textContent = '0';
+      return;
+    }
+
+    let totalWeekly = 0;
+    let html = '';
+
+    worlds.forEach(world => {
+      const gameDate = new Date(world.currentTime);
+      const deductDate = new Date(world.lastCreditDeduction);
+      const yearGap = Math.abs(deductDate.getFullYear() - gameDate.getFullYear());
+      const isInFreePeriod = world.freeWeeks > 0 && world.lastCreditDeduction && world.currentTime &&
+        yearGap < 20 && gameDate < deductDate;
+      const cost = world.weeklyCost || 1;
+
+      if (!isInFreePeriod) {
+        totalWeekly += cost;
+      }
+
+      html += `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 1rem; border-bottom: 1px solid var(--border-color);">
+          <div style="display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; flex: 1;">
+            <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary);">${world.worldName}</div>
+            <div style="font-size: 0.75rem; color: var(--text-secondary);">${world.airlineName} (${world.airlineCode})</div>
+          </div>
+          <div style="font-size: 0.8rem; font-weight: 700; color: ${isInFreePeriod ? 'var(--success-color)' : 'var(--warning-color)'}; white-space: nowrap; margin-left: 1rem;">
+            ${isInFreePeriod ? 'FREE PERIOD' : cost + ' credit' + (cost !== 1 ? 's' : '') + '/wk'}
+          </div>
+        </div>`;
+    });
+
+    worldsEl.innerHTML = html;
+    if (weeklyEl) {
+      if (statusData.user.unlimitedCredits) {
+        weeklyEl.textContent = 'None';
+        weeklyEl.style.color = 'var(--accent-color)';
+        weeklyEl.style.fontSize = '1.4rem';
+        const weeklyLabel = document.getElementById('creditsPageWeeklyLabel');
+        if (weeklyLabel) weeklyLabel.style.display = 'none';
+      } else {
+        weeklyEl.textContent = totalWeekly;
+      }
+    }
+  } catch (error) {
+    console.error('Error loading credits page:', error);
+  }
+});
+</script>

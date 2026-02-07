@@ -164,14 +164,19 @@ async function loadUserInfo() {
 
       const creditsEl = document.getElementById('userCredits');
       if (creditsEl) {
-        creditsEl.textContent = data.user.credits;
-        // Color code credits based on value
-        if (data.user.credits < 0) {
-          creditsEl.style.color = 'var(--warning-color)';
-        } else if (data.user.credits < 4) {
-          creditsEl.style.color = 'var(--text-secondary)';
+        if (data.user.unlimitedCredits) {
+          creditsEl.textContent = '∞';
+          creditsEl.style.color = 'var(--accent-color)';
         } else {
-          creditsEl.style.color = 'var(--success-color)';
+          creditsEl.textContent = data.user.credits;
+          // Color code credits based on value
+          if (data.user.credits < 0) {
+            creditsEl.style.color = 'var(--warning-color)';
+          } else if (data.user.credits < 4) {
+            creditsEl.style.color = 'var(--text-secondary)';
+          } else {
+            creditsEl.style.color = 'var(--success-color)';
+          }
         }
       }
 
@@ -181,6 +186,24 @@ async function loadUserInfo() {
         sidebarAdminLink.style.display = 'flex';
         sidebarAdminLink.style.alignItems = 'center';
         sidebarAdminLink.style.justifyContent = 'space-between';
+      }
+
+      // Show low credits warning banner (only on in-world pages)
+      const lowCreditsBanner = document.getElementById('lowCreditsBanner');
+      const lowCreditsMessage = document.getElementById('lowCreditsMessage');
+      const nonWorldPages = ['/world-selection', '/admin', '/contact', '/faqs', '/credits'];
+      if (lowCreditsBanner && lowCreditsMessage) {
+        if (!nonWorldPages.includes(window.location.pathname) && !data.user.unlimitedCredits && data.user.credits <= 4) {
+          const weeksLeft = data.user.credits + 4; // administration triggers at -4
+          if (data.user.credits <= 0) {
+            lowCreditsMessage.textContent = `Warning: You have ${data.user.credits} credits. You will enter administration if your balance reaches -4. Add credits or reduce your world memberships.`;
+          } else {
+            lowCreditsMessage.textContent = `Low credits: You have ${data.user.credits} credit${data.user.credits !== 1 ? 's' : ''} remaining. At current usage, you may enter administration in ~${weeksLeft} game weeks without more credits.`;
+          }
+          lowCreditsBanner.style.display = 'flex';
+        } else {
+          lowCreditsBanner.style.display = 'none';
+        }
       }
 
       // Load world information if user is in an active world
@@ -208,7 +231,7 @@ async function loadWorldInfo() {
   try {
     // Don't show world info on world selection or admin pages
     // Pages that don't need world info displayed
-    const noWorldInfoPages = ['/world-selection', '/admin', '/contact', '/faqs'];
+    const noWorldInfoPages = ['/world-selection', '/admin', '/contact', '/faqs', '/credits'];
     if (noWorldInfoPages.includes(window.location.pathname)) {
       const worldInfoContainer = document.getElementById('worldInfoContainer');
       if (worldInfoContainer) {
@@ -339,7 +362,11 @@ async function loadWorldInfo() {
         const gameTime = new Date(worldInfo.currentTime);
         const creditDeductionStart = new Date(worldInfo.lastCreditDeduction);
 
-        if (gameTime < creditDeductionStart) {
+        // Validate that lastCreditDeduction is a game-era date, not a real-world timestamp
+        // If the year gap is more than 20 years, the data is stale/invalid
+        const yearGap = Math.abs(creditDeductionStart.getFullYear() - gameTime.getFullYear());
+
+        if (yearGap < 20 && gameTime < creditDeductionStart) {
           // Still in free period
           const deductionFormatted = creditDeductionStart.toLocaleDateString('en-GB', {
             day: '2-digit',
@@ -347,7 +374,7 @@ async function loadWorldInfo() {
             year: 'numeric'
           });
           const cost = worldInfo.weeklyCost !== undefined ? worldInfo.weeklyCost : 1;
-          freeMessage.textContent = `You are in your free period. From ${deductionFormatted} you will be deducted ${cost} credit${cost !== 1 ? 's' : ''} per week. If you don't have enough credits, your airline will enter administration after 4 weeks without payment.`;
+          freeMessage.textContent = `You are in your free period. From ${deductionFormatted} you will be deducted ${cost} credit${cost !== 1 ? 's' : ''} per week.`;
           freeBanner.style.display = 'flex';
         } else {
           freeBanner.style.display = 'none';
@@ -474,6 +501,9 @@ function initializeLayout() {
 
   // Add common functionality that should be available on all pages
   initializeCommonComponents();
+
+  // Initialize credits dropdown
+  initCreditsDropdown();
 
   console.log('[Layout] ✓ Layout initialization complete');
 }
@@ -845,6 +875,109 @@ async function executeBankruptcy() {
 
 // Make bankruptcy modal available globally
 window.showBankruptcyModal = showBankruptcyModal;
+
+// Credits dropdown functionality
+function initCreditsDropdown() {
+  const toggle = document.getElementById('creditsToggle');
+  const dropdown = document.getElementById('creditsDropdown');
+  if (!toggle || !dropdown) return;
+
+  toggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = dropdown.style.display !== 'none';
+    if (isOpen) {
+      dropdown.style.display = 'none';
+    } else {
+      dropdown.style.display = 'block';
+      loadCreditsOutgoings();
+    }
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!dropdown.contains(e.target) && e.target !== toggle && !toggle.contains(e.target)) {
+      dropdown.style.display = 'none';
+    }
+  });
+}
+
+async function loadCreditsOutgoings() {
+  const body = document.getElementById('creditsDropdownBody');
+  const balanceEl = document.getElementById('dropdownCreditsBalance');
+  if (!body) return;
+
+  body.innerHTML = '<div class="credits-dropdown-loading">Loading...</div>';
+
+  try {
+    // Fetch credits and worlds in parallel
+    const [statusRes, worldsRes] = await Promise.all([
+      fetch('/auth/status'),
+      fetch('/api/worlds/my-worlds')
+    ]);
+
+    const statusData = await statusRes.json();
+    const worlds = await worldsRes.json();
+
+    // Update balance display
+    if (balanceEl && statusData.authenticated) {
+      if (statusData.user.unlimitedCredits) {
+        balanceEl.textContent = '∞ Unlimited';
+        balanceEl.style.color = 'var(--accent-color)';
+      } else {
+        balanceEl.textContent = `${statusData.user.credits} credits`;
+        if (statusData.user.credits < 0) {
+          balanceEl.style.color = 'var(--warning-color)';
+        } else if (statusData.user.credits < 4) {
+          balanceEl.style.color = 'var(--text-secondary)';
+        } else {
+          balanceEl.style.color = 'var(--success-color)';
+        }
+      }
+    }
+
+    if (!worlds || worlds.length === 0) {
+      body.innerHTML = '<div class="credits-dropdown-empty">No world memberships</div>';
+      return;
+    }
+
+    let totalWeekly = 0;
+    let html = '';
+
+    worlds.forEach(world => {
+      const gameDate = new Date(world.currentTime);
+      const deductDate = new Date(world.lastCreditDeduction);
+      const yearGap = Math.abs(deductDate.getFullYear() - gameDate.getFullYear());
+      const isInFreePeriod = world.freeWeeks > 0 && world.lastCreditDeduction && world.currentTime &&
+        yearGap < 20 && gameDate < deductDate;
+      const cost = world.weeklyCost || 1;
+
+      if (!isInFreePeriod) {
+        totalWeekly += cost;
+      }
+
+      html += `
+        <div class="credits-world-item">
+          <div class="credits-world-info">
+            <div class="credits-world-name">${world.worldName}</div>
+            <div class="credits-world-airline">${world.airlineName} (${world.airlineCode})</div>
+          </div>
+          <div class="credits-world-cost${isInFreePeriod ? ' free' : ''}">${isInFreePeriod ? 'FREE' : cost + '/wk'}</div>
+        </div>`;
+    });
+
+    // Add total row
+    html += `
+      <div class="credits-dropdown-total">
+        <span class="credits-dropdown-total-label">Total per week</span>
+        <span class="credits-dropdown-total-value">${totalWeekly} credit${totalWeekly !== 1 ? 's' : ''}/wk</span>
+      </div>`;
+
+    body.innerHTML = html;
+  } catch (error) {
+    console.error('Error loading credits outgoings:', error);
+    body.innerHTML = '<div class="credits-dropdown-empty">Failed to load</div>';
+  }
+}
 
 // Sidebar toggle functionality
 function initSidebarToggle() {

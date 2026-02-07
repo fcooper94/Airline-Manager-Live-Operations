@@ -103,7 +103,7 @@ router.get('/status', async (req, res) => {
       // Fetch full user data from database to get current credits and roles
       const dbUser = await User.findOne({
         where: { vatsimId: req.user.vatsimId },
-        attributes: ['credits', 'isAdmin', 'isContributor']
+        attributes: ['credits', 'isAdmin', 'isContributor', 'unlimitedCredits']
       });
 
       res.json({
@@ -114,7 +114,8 @@ router.get('/status', async (req, res) => {
           rating: req.user.rating,
           credits: dbUser ? dbUser.credits : 0,
           isAdmin: dbUser ? dbUser.isAdmin : false,
-          isContributor: dbUser ? dbUser.isContributor : false
+          isContributor: dbUser ? dbUser.isContributor : false,
+          unlimitedCredits: dbUser ? dbUser.unlimitedCredits : false
         }
       });
     } catch (error) {

@@ -24,9 +24,11 @@ async function loadUsers() {
     }
 
     tbody.innerHTML = users.map(user => {
-      const creditColor = user.credits < 0 ? 'var(--warning-color)' :
+      const creditColor = user.unlimitedCredits ? 'var(--accent-color)' :
+                         user.credits < 0 ? 'var(--warning-color)' :
                          user.credits < 4 ? 'var(--text-secondary)' :
                          'var(--success-color)';
+      const creditDisplay = user.unlimitedCredits ? '∞' : user.credits;
 
       // Format permissions display
       let permissionStatus = '';
@@ -46,7 +48,7 @@ async function loadUsers() {
           <td style="padding: 0.5rem;">${user.firstName} ${user.lastName}</td>
           <td style="padding: 0.5rem; color: var(--text-secondary);">${user.email || 'N/A'}</td>
           <td style="padding: 0.5rem; text-align: center; font-family: 'Courier New', monospace;">${user.membershipCount}</td>
-          <td style="padding: 0.5rem; text-align: center; font-family: 'Courier New', monospace; color: ${creditColor}; font-weight: 600;">${user.credits}</td>
+          <td style="padding: 0.5rem; text-align: center; font-family: 'Courier New', monospace; color: ${creditColor}; font-weight: 600;">${creditDisplay}</td>
           <td style="padding: 0.5rem; text-align: center;">${permissionStatus}</td>
           <td style="padding: 0.5rem; text-align: center;">
             <div style="display: flex; flex-direction: column; gap: 0.25rem;">
@@ -95,9 +97,11 @@ function searchUsers() {
   }
 
   tbody.innerHTML = filteredUsers.map(user => {
-    const creditColor = user.credits < 0 ? 'var(--warning-color)' :
+    const creditColor = user.unlimitedCredits ? 'var(--accent-color)' :
+                       user.credits < 0 ? 'var(--warning-color)' :
                        user.credits < 4 ? 'var(--text-secondary)' :
                        'var(--success-color)';
+    const creditDisplay = user.unlimitedCredits ? '∞' : user.credits;
 
     // Format permissions display
     let permissionStatus = '';
@@ -117,7 +121,7 @@ function searchUsers() {
         <td style="padding: 0.5rem;">${user.firstName} ${user.lastName}</td>
         <td style="padding: 0.5rem; color: var(--text-secondary);">${user.email || 'N/A'}</td>
         <td style="padding: 0.5rem; text-align: center; font-family: 'Courier New', monospace;">${user.membershipCount}</td>
-        <td style="padding: 0.5rem; text-align: center; font-family: 'Courier New', monospace; color: ${creditColor}; font-weight: 600;">${user.credits}</td>
+        <td style="padding: 0.5rem; text-align: center; font-family: 'Courier New', monospace; color: ${creditColor}; font-weight: 600;">${creditDisplay}</td>
         <td style="padding: 0.5rem; text-align: center;">${permissionStatus}</td>
         <td style="padding: 0.5rem; text-align: center;">
           <div style="display: flex; flex-direction: column; gap: 0.25rem;">
@@ -136,8 +140,9 @@ function openEditModal(user) {
   selectedUserId = user.id;
   selectedUserData = user;
   document.getElementById('editUserName').textContent = `${user.firstName} ${user.lastName} (${user.vatsimId})`;
-  document.getElementById('editCurrentCredits').textContent = user.credits;
+  document.getElementById('editCurrentCredits').textContent = user.unlimitedCredits ? '∞ (Unlimited)' : user.credits;
   document.getElementById('newCredits').value = user.credits;
+  document.getElementById('unlimitedCredits').checked = !!user.unlimitedCredits;
   document.getElementById('editError').style.display = 'none';
   document.getElementById('editCreditsModal').style.display = 'flex';
 }
@@ -170,6 +175,7 @@ function closePermissionModal() {
 // Confirm edit
 async function confirmEdit() {
   const newCredits = parseInt(document.getElementById('newCredits').value);
+  const unlimited = document.getElementById('unlimitedCredits').checked;
   const errorDiv = document.getElementById('editError');
 
   if (isNaN(newCredits)) {
@@ -184,7 +190,7 @@ async function confirmEdit() {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ credits: newCredits })
+      body: JSON.stringify({ credits: newCredits, unlimitedCredits: unlimited })
     });
 
     const data = await response.json();

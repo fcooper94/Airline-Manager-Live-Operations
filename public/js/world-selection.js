@@ -213,11 +213,13 @@ async function loadWorlds() {
 
     // Fetch user credits to determine if join buttons should be enabled
     let userCredits = 0;
+    let userUnlimited = false;
     try {
       const authResponse = await fetch('/auth/status');
       const authData = await authResponse.json();
       if (authData.authenticated && authData.user) {
         userCredits = authData.user.credits !== undefined ? authData.user.credits : 0;
+        userUnlimited = !!authData.user.unlimitedCredits;
       }
     } catch (e) {
       console.error('Error fetching user credits for world cards:', e);
@@ -257,7 +259,7 @@ async function loadWorlds() {
       myWorldsSection.style.display = 'block';
       myWorldsList.innerHTML = '';
       myWorlds.forEach(world => {
-        const cardElement = createWorldCard(world, true, userCredits);
+        const cardElement = createWorldCard(world, true, userCredits, userUnlimited);
         myWorldsList.appendChild(cardElement);
       });
     } else {
@@ -268,7 +270,7 @@ async function loadWorlds() {
     worldsList.innerHTML = '';
     if (availableWorlds.length > 0) {
       availableWorlds.forEach(world => {
-        const cardElement = createWorldCard(world, false, userCredits);
+        const cardElement = createWorldCard(world, false, userCredits, userUnlimited);
         worldsList.appendChild(cardElement);
       });
     } else if (myWorlds.length === 0) {
@@ -290,7 +292,7 @@ async function loadWorlds() {
 }
 
 // Create world card element (returns DOM element)
-function createWorldCard(world, isMember, userCredits) {
+function createWorldCard(world, isMember, userCredits, userUnlimited) {
   const timeDate = new Date(world.currentTime);
   const formattedDate = timeDate.toLocaleDateString('en-GB', {
     day: '2-digit',
@@ -305,7 +307,7 @@ function createWorldCard(world, isMember, userCredits) {
   const weeklyCost = world.weeklyCost !== undefined ? world.weeklyCost : 1;
   const joinCost = world.joinCost !== undefined ? world.joinCost : 10;
   const freeWeeks = world.freeWeeks || 0;
-  const canAffordJoin = !isMember && (userCredits || 0) >= joinCost;
+  const canAffordJoin = !isMember && (userUnlimited || (userCredits || 0) >= joinCost);
 
   // Check if world is ending within 6 game months
   let endingBannerHtml = '';
