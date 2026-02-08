@@ -1525,6 +1525,27 @@
   opacity: 1;
 }
 
+.notification-dismiss {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0 0.25rem;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+  line-height: 1;
+}
+
+.notification-item:hover .notification-dismiss {
+  opacity: 1;
+}
+
+.notification-dismiss:hover {
+  color: var(--danger-color);
+}
+
 /* News Items */
 .news-item {
   padding: 0.5rem 1rem;

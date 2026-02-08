@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { Aircraft, World, WorldMembership, User, UsedAircraftForSale } = require('../models');
+const { Aircraft, World, WorldMembership, User, UsedAircraftForSale, UserAircraft } = require('../models');
 const { Op } = require('sequelize');
 const { getRandomLessor, getUsedAircraftSeller, getManufacturer } = require('../data/aircraftSellers');
 
@@ -30,13 +30,14 @@ router.get('/', async (req, res) => {
   try {
     const { category } = req.query;
 
-    // Get current world year to filter available aircraft
+    // Get current world year and game time to filter available aircraft
     let currentYear = null;
+    let gameTime = null;
     if (req.session?.activeWorldId) {
       const world = await World.findByPk(req.session.activeWorldId);
       if (world && world.currentTime) {
-        // Use the year from currentTime, not the static era field
-        currentYear = new Date(world.currentTime).getFullYear();
+        gameTime = new Date(world.currentTime);
+        currentYear = gameTime.getFullYear();
         console.log(`Filtering aircraft for world "${world.name}" - Current year: ${currentYear} (from currentTime: ${world.currentTime})`);
       }
     }
@@ -148,7 +149,119 @@ router.get('/', async (req, res) => {
 
           usedAircraft.push(usedAc);
         }
+
+        // Fetch player-listed aircraft (for sale or for lease) in this world
+        const currentUserId = req.session?.passport?.user?.id || null;
+
+        const playerListings = await UserAircraft.findAll({
+          where: {
+            status: { [Op.in]: ['listed_sale', 'listed_lease'] }
+          },
+          include: [
+            { model: Aircraft, as: 'aircraft' },
+            {
+              model: WorldMembership, as: 'membership',
+              where: { worldId: req.session.activeWorldId },
+              include: [{ model: User, as: 'user' }]
+            }
+          ]
+        });
+
+        console.log(`Found ${playerListings.length} player-listed aircraft`);
+
+        for (const pListing of playerListings) {
+          const variant = pListing.aircraft;
+          const ownerMembership = pListing.membership;
+          if (!variant || !ownerMembership) continue;
+
+          // Don't show the current user's own listings to themselves
+          if (currentUserId && ownerMembership.userId === currentUserId) continue;
+
+          const airlineName = ownerMembership.airlineName || 'Private Airline';
+          const listingPrice = parseFloat(pListing.listingPrice) || 0;
+          const condPct = pListing.conditionPercentage || 100;
+          const age = pListing.ageYears || 0;
+
+          // Estimate check remaining days from last check dates (use game time, not real time)
+          const now = gameTime || new Date();
+          let cRemaining = null, dRemaining = null;
+          if (pListing.lastCCheckDate && pListing.cCheckIntervalDays) {
+            const cExpiry = new Date(new Date(pListing.lastCCheckDate).getTime() + pListing.cCheckIntervalDays * 86400000);
+            cRemaining = Math.max(0, Math.round((cExpiry - now) / 86400000));
+          }
+          if (pListing.lastDCheckDate && pListing.dCheckIntervalDays) {
+            const dExpiry = new Date(new Date(pListing.lastDCheckDate).getTime() + pListing.dCheckIntervalDays * 86400000);
+            dRemaining = Math.max(0, Math.round((dExpiry - now) / 86400000));
+          }
+
+          const playerAc = {
+            id: `player-${pListing.id}`,
+            playerListingId: pListing.id,
+            variantId: variant.id,
+            manufacturer: variant.manufacturer,
+            model: variant.model,
+            variant: variant.variant,
+            icaoCode: variant.icaoCode,
+            type: variant.type,
+            rangeCategory: variant.rangeCategory,
+            rangeNm: variant.rangeNm,
+            cruiseSpeed: variant.cruiseSpeed,
+            passengerCapacity: variant.passengerCapacity,
+            cargoCapacityKg: variant.cargoCapacityKg,
+            fuelCapacityLiters: variant.fuelCapacityLiters,
+            maintenanceCostPerHour: parseFloat(pListing.maintenanceCostPerHour || variant.maintenanceCostPerHour),
+            maintenanceCostPerMonth: variant.maintenanceCostPerMonth ? parseFloat(variant.maintenanceCostPerMonth) : null,
+            fuelBurnPerHour: parseFloat(pListing.fuelBurnPerHour || variant.fuelBurnPerHour),
+            firstIntroduced: variant.firstIntroduced,
+            availableFrom: variant.availableFrom,
+            availableUntil: variant.availableUntil,
+            requiredPilots: variant.requiredPilots,
+            requiredCabinCrew: variant.requiredCabinCrew,
+            isActive: variant.isActive,
+            description: `${variant.manufacturer} ${variant.model} - Listed by ${airlineName}`,
+
+            age,
+            condition: pListing.condition || 'Good',
+            conditionPercentage: condPct,
+            category: 'used',
+            isPlayerListing: true,
+            playerListingType: pListing.status === 'listed_sale' ? 'sale' : 'lease',
+
+            // Pricing: sale listings have purchase price, lease listings have lease price
+            purchasePrice: pListing.status === 'listed_sale' ? listingPrice : null,
+            leasePrice: pListing.status === 'listed_lease' ? listingPrice : null,
+
+            cCheckRemainingDays: cRemaining,
+            dCheckRemainingDays: dRemaining,
+            cCheckRemaining: cRemaining !== null ? formatDaysRemaining(cRemaining) : 'Unknown',
+            dCheckRemaining: dRemaining !== null ? formatDaysRemaining(dRemaining) : 'Unknown',
+
+            // Seller/lessor is the player airline
+            seller: {
+              type: 'airline',
+              name: airlineName,
+              shortName: airlineName,
+              country: '',
+              reason: pListing.status === 'listed_sale' ? 'Fleet restructuring' : 'Available for lease'
+            },
+            lessor: {
+              name: airlineName,
+              shortName: airlineName,
+              country: '',
+              isPlayer: true
+            }
+          };
+
+          usedAircraft.push(playerAc);
+        }
       }
+
+      // Sort so player listings intermix with NPC listings of the same type
+      usedAircraft.sort((a, b) => {
+        const keyA = `${a.manufacturer} ${a.model} ${a.variant || ''}`;
+        const keyB = `${b.manufacturer} ${b.model} ${b.variant || ''}`;
+        return keyA.localeCompare(keyB);
+      });
 
       res.json(usedAircraft);
     } else {

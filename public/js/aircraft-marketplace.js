@@ -378,22 +378,40 @@ function displayAircraft(aircraftArray) {
       const variantName = aircraft.variant || 'Base';
       const icaoCode = aircraft.icaoCode || '';
       const lessorName = aircraft.lessor?.shortName || '';
+      const isPlayer = aircraft.isPlayerListing;
+      const playerType = aircraft.playerListingType; // 'sale' or 'lease'
+
+      // Seller label: player listings show airline name in distinct color
+      let sellerLabel = '';
+      if (isPlayer) {
+        const labelColor = playerType === 'sale' ? '#f59e0b' : '#a855f7';
+        const labelText = playerType === 'sale' ? 'Seller' : 'Lessor';
+        sellerLabel = `<div style="font-size: 0.55rem; color: ${labelColor}; margin-top: 0.1rem;">${labelText}: ${lessorName}</div>`;
+      } else if (lessorName) {
+        sellerLabel = `<div style="font-size: 0.55rem; color: var(--accent-color); margin-top: 0.1rem;">Lease: ${lessorName}</div>`;
+      }
+
+      // Price display: player listings only show their listing type
+      const purchaseDisplay = aircraft.purchasePrice ? `$${formatCurrencyShort(aircraft.purchasePrice)}` : '—';
+      const leaseDisplay = aircraft.leasePrice ? `$${formatCurrencyShort(aircraft.leasePrice)}` : '—';
+      const purchaseColor = aircraft.purchasePrice ? 'var(--success-color)' : 'var(--text-muted)';
+      const leaseColor = aircraft.leasePrice ? 'var(--accent-color)' : 'var(--text-muted)';
 
       html += `
-        <div class="market-row" onclick="showAircraftDetails('${aircraft.id}')">
+        <div class="market-row" onclick="showAircraftDetails('${aircraft.id}')"${isPlayer ? ' style="border-left: 2px solid ' + (playerType === 'sale' ? '#f59e0b' : '#a855f7') + ';"' : ''}>
           <div class="market-cell market-variant" style="flex-direction: column; align-items: flex-start;">
             <div>
               ${variantName}
               ${icaoCode ? `<span style="font-size: 0.65rem; color: var(--text-muted); margin-left: 0.25rem; font-family: monospace;">${icaoCode}</span>` : ''}
             </div>
-            ${lessorName ? `<div style="font-size: 0.55rem; color: var(--accent-color); margin-top: 0.1rem;">Lease: ${lessorName}</div>` : ''}
+            ${sellerLabel}
           </div>
           <div class="market-cell">${ageDisplay}</div>
           <div class="market-cell">
             <span class="status-badge ${getConditionClass(conditionPercent)}">${conditionPercent}%</span>
           </div>
-          <div class="market-cell" style="color: var(--success-color); font-weight: 600;">$${formatCurrencyShort(aircraft.purchasePrice || 0)}</div>
-          <div class="market-cell" style="color: var(--accent-color); font-weight: 600;">$${formatCurrencyShort(aircraft.leasePrice || 0)}<span style="font-size: 0.6rem; color: var(--text-muted); font-weight: 400;">/mo</span></div>
+          <div class="market-cell" style="color: ${purchaseColor}; font-weight: 600;">${purchaseDisplay}</div>
+          <div class="market-cell" style="color: ${leaseColor}; font-weight: 600;">${leaseDisplay}${aircraft.leasePrice ? '<span style="font-size: 0.6rem; color: var(--text-muted); font-weight: 400;">/mo</span>' : ''}</div>
           <div class="market-cell">
             <button class="btn btn-primary" style="padding: 0.2rem 0.4rem; font-size: 0.65rem;" onclick="event.stopPropagation(); showAircraftDetails('${aircraft.id}')">VIEW</button>
           </div>
@@ -569,43 +587,53 @@ function showAircraftDetails(aircraftId) {
 
       <!-- Right Column: Acquisition Options -->
       <div>
+        ${aircraft.isPlayerListing ? `
+        <div style="background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 6px; padding: 0.5rem 0.75rem; margin-bottom: 0.6rem; font-size: 0.7rem; color: #a855f7;">
+          <strong>Player Listing</strong> — ${aircraft.seller?.name || 'Another airline'}
+        </div>
+        ` : ''}
+
         <!-- Purchase Option -->
+        ${aircraft.purchasePrice ? `
         <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%); border: 2px solid rgba(16, 185, 129, 0.3); border-radius: 6px; padding: 0.75rem; margin-bottom: 0.6rem; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='#10b981'; this.style.transform='translateY(-1px)'" onmouseout="this.style.borderColor='rgba(16, 185, 129, 0.3)'; this.style.transform='none'" onclick="closeAircraftDetailModal(); processPurchase()">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
             <div>
               <div style="color: #10b981; font-weight: 700; font-size: 0.85rem;">PURCHASE</div>
-              <div style="color: var(--text-muted); font-size: 0.65rem;">Own outright</div>
+              <div style="color: var(--text-muted); font-size: 0.65rem;">${aircraft.isPlayerListing ? 'Buy from ' + (aircraft.seller?.name || 'player') : 'Own outright'}</div>
             </div>
             <div style="text-align: right;">
-              <div style="color: #10b981; font-weight: 700; font-size: 1.1rem;">$${formatCurrencyShort(aircraft.purchasePrice || 0)}</div>
+              <div style="color: #10b981; font-weight: 700; font-size: 1.1rem;">$${formatCurrencyShort(aircraft.purchasePrice)}</div>
             </div>
           </div>
           <div style="font-size: 0.65rem; color: var(--text-secondary);">
             ✓ Full ownership &nbsp; ✓ No monthly fees &nbsp; ✓ Sell anytime
           </div>
         </div>
+        ` : ''}
 
         <!-- Lease Option -->
+        ${aircraft.leasePrice ? `
         <div style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%); border: 2px solid rgba(59, 130, 246, 0.3); border-radius: 6px; padding: 0.75rem; margin-bottom: 0.6rem; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='#3b82f6'; this.style.transform='translateY(-1px)'" onmouseout="this.style.borderColor='rgba(59, 130, 246, 0.3)'; this.style.transform='none'" onclick="closeAircraftDetailModal(); processLease()">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
             <div>
               <div style="color: #3b82f6; font-weight: 700; font-size: 0.85rem;">LEASE</div>
-              <div style="color: var(--text-muted); font-size: 0.65rem;">12 month minimum</div>
+              <div style="color: var(--text-muted); font-size: 0.65rem;">${aircraft.isPlayerListing ? 'Lease from ' + (aircraft.lessor?.name || 'player') : '12 month minimum'}</div>
             </div>
             <div style="text-align: right;">
-              <div style="color: #3b82f6; font-weight: 700; font-size: 1.1rem;">$${formatCurrencyShort(aircraft.leasePrice || 0)}<span style="font-size: 0.7rem; font-weight: 400;">/mo</span></div>
+              <div style="color: #3b82f6; font-weight: 700; font-size: 1.1rem;">$${formatCurrencyShort(aircraft.leasePrice)}<span style="font-size: 0.7rem; font-weight: 400;">/mo</span></div>
             </div>
           </div>
           ${aircraft.lessor ? `
           <div style="font-size: 0.65rem; color: var(--text-muted); margin-bottom: 0.3rem; padding: 0.25rem 0.4rem; background: rgba(0,0,0,0.2); border-radius: 3px; display: inline-block;">
-            <span style="color: var(--text-secondary);">Lessor:</span> <strong style="color: var(--text-primary);">${aircraft.lessor.shortName}</strong>
-            <span style="color: var(--text-muted); font-size: 0.55rem;">${aircraft.lessor.country}</span>
+            <span style="color: var(--text-secondary);">${aircraft.lessor.isPlayer ? 'Owner:' : 'Lessor:'}</span> <strong style="color: var(--text-primary);">${aircraft.lessor.shortName}</strong>
+            ${aircraft.lessor.country ? `<span style="color: var(--text-muted); font-size: 0.55rem;">${aircraft.lessor.country}</span>` : ''}
           </div>
           ` : ''}
           <div style="font-size: 0.65rem; color: var(--text-secondary);">
             ✓ Lower upfront &nbsp; ✓ Flexible &nbsp; ✓ Maint included
           </div>
         </div>
+        ` : ''}
 
         <!-- Maintenance Auto-Schedule Info -->
         <div style="background: var(--surface-elevated); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.6rem;">
@@ -711,14 +739,18 @@ function showPurchaseConfirmationModal() {
       </div>
 
       <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem;">
+        ${selectedAircraft.purchasePrice ? `
         <button id="confirmPurchaseBtn" class="btn btn-primary" style="padding: 1.5rem; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center;">
           <span>PURCHASE OUTRIGHT</span>
-          <strong style="color: var(--success-color);">$${formatCurrency(selectedAircraft.purchasePrice || 0)}</strong>
+          <strong style="color: var(--success-color);">$${formatCurrency(selectedAircraft.purchasePrice)}</strong>
         </button>
+        ` : ''}
+        ${selectedAircraft.leasePrice ? `
         <button id="confirmLeaseBtn" class="btn btn-secondary" style="padding: 1.5rem; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center;">
           <span>LEASE (12 MONTHS)</span>
-          <strong style="color: var(--accent-color);">$${formatCurrency(selectedAircraft.leasePrice || 0)}/mo</strong>
+          <strong style="color: var(--accent-color);">$${formatCurrency(selectedAircraft.leasePrice)}/mo</strong>
         </button>
+        ` : ''}
       </div>
 
       <button id="cancelPurchaseBtn" class="btn btn-logout" style="width: 100%; padding: 0.75rem;">Cancel</button>
@@ -728,15 +760,21 @@ function showPurchaseConfirmationModal() {
   document.body.appendChild(overlay);
 
   // Add event listeners
-  document.getElementById('confirmPurchaseBtn').addEventListener('click', () => {
-    document.body.removeChild(overlay);
-    processPurchase();
-  });
+  const purchaseBtn = document.getElementById('confirmPurchaseBtn');
+  if (purchaseBtn) {
+    purchaseBtn.addEventListener('click', () => {
+      document.body.removeChild(overlay);
+      processPurchase();
+    });
+  }
 
-  document.getElementById('confirmLeaseBtn').addEventListener('click', () => {
-    document.body.removeChild(overlay);
-    processLease();
-  });
+  const leaseBtn = document.getElementById('confirmLeaseBtn');
+  if (leaseBtn) {
+    leaseBtn.addEventListener('click', () => {
+      document.body.removeChild(overlay);
+      processLease();
+    });
+  }
 
   document.getElementById('cancelPurchaseBtn').addEventListener('click', () => {
     document.body.removeChild(overlay);
@@ -857,7 +895,9 @@ async function confirmPurchase(registration, autoSchedulePrefs = {}) {
         autoScheduleWeekly: autoSchedulePrefs.autoScheduleWeekly || false,
         autoScheduleA: autoSchedulePrefs.autoScheduleA || false,
         autoScheduleC: autoSchedulePrefs.autoScheduleC || false,
-        autoScheduleD: autoSchedulePrefs.autoScheduleD || false
+        autoScheduleD: autoSchedulePrefs.autoScheduleD || false,
+        // Player-to-player listing
+        playerListingId: selectedAircraft.playerListingId || null
       })
     });
 
@@ -1594,7 +1634,9 @@ async function confirmLease(registration, autoSchedulePrefs = {}, leaseDurationM
         autoScheduleWeekly: autoSchedulePrefs.autoScheduleWeekly || false,
         autoScheduleA: autoSchedulePrefs.autoScheduleA || false,
         autoScheduleC: autoSchedulePrefs.autoScheduleC || false,
-        autoScheduleD: autoSchedulePrefs.autoScheduleD || false
+        autoScheduleD: autoSchedulePrefs.autoScheduleD || false,
+        // Player-to-player listing
+        playerListingId: selectedAircraft.playerListingId || null
       })
     });
 

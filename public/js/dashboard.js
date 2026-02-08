@@ -14,7 +14,10 @@ const TYPE_COLORS = {
   'maintenance-progress': 'var(--accent-color)',
   finance: '#f59e0b',
   operations: 'var(--accent-color)',
-  info: 'var(--text-secondary)'
+  info: 'var(--text-secondary)',
+  aircraft_sold: 'var(--success-color)',
+  aircraft_leased_out: 'var(--accent-color)',
+  lease_expired: 'var(--warning-color)'
 };
 
 function formatBalance(amount) {
@@ -168,6 +171,9 @@ async function loadNotifications() {
       const icon = NOTIFICATION_ICONS[n.icon] || NOTIFICATION_ICONS.alert;
       const color = TYPE_COLORS[n.type] || TYPE_COLORS.info;
       const linkAttr = n.link ? ` onclick="window.location.href='${n.link}'" style="cursor: pointer;"` : '';
+      const dismissBtn = n.persistent && n.id
+        ? `<button class="notification-dismiss" onclick="event.stopPropagation(); dismissNotification('${n.id}', this)" title="Dismiss">&times;</button>`
+        : '';
 
       return `
         <div class="notification-item"${linkAttr}>
@@ -176,12 +182,27 @@ async function loadNotifications() {
             <div class="notification-title">${n.title}</div>
             <div class="notification-message">${n.message}</div>
           </div>
-          ${n.link ? '<svg class="notification-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>' : ''}
+          ${dismissBtn}
+          ${!dismissBtn && n.link ? '<svg class="notification-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>' : ''}
         </div>`;
     }).join('');
   } catch (error) {
     console.error('Error loading notifications:', error);
     body.innerHTML = '<div class="panel-empty">Unable to load notifications.</div>';
+  }
+}
+
+async function dismissNotification(id, btnEl) {
+  try {
+    await fetch(`/api/dashboard/notifications/${id}/read`, { method: 'POST' });
+    const item = btnEl.closest('.notification-item');
+    if (item) {
+      item.style.transition = 'opacity 0.3s ease';
+      item.style.opacity = '0';
+      setTimeout(() => { item.remove(); loadNotifications(); }, 300);
+    }
+  } catch (error) {
+    console.error('Error dismissing notification:', error);
   }
 }
 

@@ -74,6 +74,54 @@ const UserAircraft = sequelize.define('UserAircraft', {
     type: DataTypes.DATE,
     field: 'lease_end_date'
   },
+  // Listing / sell / lease-out fields
+  listingPrice: {
+    type: DataTypes.DECIMAL(15, 2),
+    allowNull: true,
+    field: 'listing_price',
+    comment: 'Asking price when listed for sale, or monthly rate when listed for lease-out'
+  },
+  listedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'listed_at',
+    comment: 'Game-time when aircraft was listed for sale or lease'
+  },
+  leaseOutMonthlyRate: {
+    type: DataTypes.DECIMAL(15, 2),
+    allowNull: true,
+    field: 'lease_out_monthly_rate',
+    comment: 'Monthly lease rate when leased out to NPC'
+  },
+  leaseOutStartDate: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'lease_out_start_date'
+  },
+  leaseOutEndDate: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'lease_out_end_date'
+  },
+  leaseOutTenantName: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    field: 'lease_out_tenant_name',
+    comment: 'Name of NPC airline leasing this aircraft'
+  },
+  // Player-to-player lease linking
+  playerLessorAircraftId: {
+    type: DataTypes.UUID,
+    allowNull: true,
+    field: 'player_lessor_aircraft_id',
+    comment: 'On lessee record: points to the owner/lessor UserAircraft'
+  },
+  playerLesseeAircraftId: {
+    type: DataTypes.UUID,
+    allowNull: true,
+    field: 'player_lessee_aircraft_id',
+    comment: 'On lessor record: points to the lessee UserAircraft'
+  },
   // Operating costs (stored at acquisition time)
   maintenanceCostPerHour: {
     type: DataTypes.DECIMAL(10, 2),
@@ -94,7 +142,7 @@ const UserAircraft = sequelize.define('UserAircraft', {
   },
   // Status
   status: {
-    type: DataTypes.ENUM('active', 'maintenance', 'storage', 'sold'),
+    type: DataTypes.ENUM('active', 'maintenance', 'storage', 'sold', 'listed_sale', 'listed_lease', 'leased_out'),
     defaultValue: 'active'
   },
   // Location

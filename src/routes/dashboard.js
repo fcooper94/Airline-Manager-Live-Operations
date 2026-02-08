@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { Op } = require('sequelize');
-const { WorldMembership, UserAircraft, Aircraft, Route, ScheduledFlight, User, World, RecurringMaintenance } = require('../models');
+const { WorldMembership, UserAircraft, Aircraft, Route, ScheduledFlight, User, World, RecurringMaintenance, Notification } = require('../models');
 const worldTimeService = require('../services/worldTimeService');
 
 router.get('/notifications', async (req, res) => {
@@ -252,6 +252,29 @@ router.get('/notifications', async (req, res) => {
       });
     }
 
+    // Merge persistent notifications (sale/lease events)
+    const persistentNotifs = await Notification.findAll({
+      where: {
+        worldMembershipId: membership.id,
+        isRead: false
+      },
+      order: [['createdAt', 'DESC']],
+      limit: 20
+    });
+
+    for (const pn of persistentNotifs) {
+      notifications.push({
+        id: pn.id,
+        type: pn.type,
+        icon: pn.icon,
+        title: pn.title,
+        message: pn.message,
+        link: pn.link,
+        priority: pn.priority,
+        persistent: true
+      });
+    }
+
     // Sort by priority (1 = highest)
     notifications.sort((a, b) => a.priority - b.priority);
 
@@ -259,6 +282,29 @@ router.get('/notifications', async (req, res) => {
   } catch (error) {
     console.error('Error loading dashboard notifications:', error);
     res.status(500).json({ error: 'Failed to load notifications' });
+  }
+});
+
+/**
+ * POST /api/dashboard/notifications/:id/read
+ * Mark a persistent notification as read (dismissed)
+ */
+router.post('/notifications/:id/read', async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const notification = await Notification.findByPk(req.params.id);
+    if (!notification) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
+    await notification.update({ isRead: true });
+    res.json({ message: 'Notification dismissed' });
+  } catch (error) {
+    console.error('Error dismissing notification:', error);
+    res.status(500).json({ error: 'Failed to dismiss notification' });
   }
 });
 

@@ -12,6 +12,7 @@ const PricingDefault = require('./PricingDefault');
 const AirportRouteDemand = require('./AirportRouteDemand');
 const SystemSettings = require('./SystemSettings');
 const UsedAircraftForSale = require('./UsedAircraftForSale');
+const Notification = require('./Notification');
 
 // Define associations
 User.belongsToMany(World, {
@@ -79,6 +80,10 @@ UsedAircraftForSale.belongsTo(World, { foreignKey: 'world_id', as: 'world' });
 Aircraft.hasMany(UsedAircraftForSale, { foreignKey: 'aircraft_id', as: 'usedListings' });
 UsedAircraftForSale.belongsTo(Aircraft, { foreignKey: 'aircraft_id', as: 'aircraft' });
 
+// Notification associations
+WorldMembership.hasMany(Notification, { foreignKey: 'world_membership_id', as: 'notifications' });
+Notification.belongsTo(WorldMembership, { foreignKey: 'world_membership_id', as: 'membership' });
+
 module.exports = {
   User,
   World,
@@ -93,5 +98,6 @@ module.exports = {
   PricingDefault,
   AirportRouteDemand,
   SystemSettings,
-  UsedAircraftForSale
+  UsedAircraftForSale,
+  Notification
 };

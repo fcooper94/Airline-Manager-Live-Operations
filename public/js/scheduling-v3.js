@@ -628,6 +628,62 @@ function closeAlertModal() {
   }
 }
 
+// Clear Choice Modal - returns 'flights', 'maintenance', 'all', or null (cancelled)
+function showClearChoiceModal(title, flightCount, maintCount) {
+  return new Promise((resolve) => {
+    let modal = document.getElementById('clearChoiceModal');
+    if (modal) modal.remove();
+
+    modal = document.createElement('div');
+    modal.id = 'clearChoiceModal';
+    modal.className = 'modal';
+    modal.style.display = 'flex';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 480px;">
+        <div class="modal-header" style="border-bottom-color: #f85149;">
+          <h2 style="color: #f85149;">${title}</h2>
+        </div>
+        <div class="modal-body">
+          <p style="color: var(--text-primary); line-height: 1.6; margin: 0 0 0.75rem 0;">
+            Schedule contains:
+          </p>
+          <p style="color: var(--text-secondary); margin: 0 0 0.75rem 0;">
+            &bull; ${flightCount} flight(s)<br>
+            &bull; ${maintCount} maintenance check(s)
+          </p>
+          <p style="color: #f85149; font-weight: 600; margin: 0;">
+            This action cannot be undone!
+          </p>
+        </div>
+        <div class="modal-footer" style="display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: flex-end;">
+          <button class="btn btn-secondary" data-choice="cancel">Cancel</button>
+          <button class="btn" data-choice="flights" style="background: #d29922; border-color: #d29922; color: #fff;" ${flightCount === 0 ? 'disabled style="opacity:0.4; background:#d29922; border-color:#d29922; color:#fff; cursor:not-allowed;"' : ''}>Remove Flights Only</button>
+          <button class="btn" data-choice="maintenance" style="background: #d29922; border-color: #d29922; color: #fff;" ${maintCount === 0 ? 'disabled style="opacity:0.4; background:#d29922; border-color:#d29922; color:#fff; cursor:not-allowed;"' : ''}>Remove Checks Only</button>
+          <button class="btn btn-danger" data-choice="all">Remove All</button>
+        </div>
+      </div>
+    `;
+
+    modal.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-choice]');
+      if (!btn || btn.disabled) return;
+      modal.remove();
+      const choice = btn.dataset.choice;
+      resolve(choice === 'cancel' ? null : choice);
+    });
+
+    // Close on backdrop click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.remove();
+        resolve(null);
+      }
+    });
+
+    document.body.appendChild(modal);
+  });
+}
+
 // Loading Modal for batch operations
 function showLoadingModal(title, message) {
   // Create loading modal if it doesn't exist
@@ -724,7 +780,7 @@ function getVisibleAircraft() {
 }
 
 // Clear All Schedules Modal Functions
-function showClearAllSchedulesModal() {
+async function showClearAllSchedulesModal() {
   // Count visible aircraft (respecting the filter)
   const visibleAircraft = getVisibleAircraft();
   const visibleAircraftCount = visibleAircraft.length;
@@ -734,33 +790,28 @@ function showClearAllSchedulesModal() {
     return;
   }
 
-  // Update the count in the modal
-  document.getElementById('clearAllAircraftCount').textContent = visibleAircraftCount;
-  document.getElementById('clearAllModal').style.display = 'flex';
-}
-
-function closeClearAllModal() {
-  document.getElementById('clearAllModal').style.display = 'none';
-}
-
-async function confirmClearAllSchedules() {
-  closeClearAllModal();
-
-  // Get IDs of visible aircraft only (respecting the filter)
-  const visibleAircraft = getVisibleAircraft();
   const aircraftIds = visibleAircraft.map(a => a.id);
 
-  if (aircraftIds.length === 0) {
-    return;
-  }
+  // Count flights and maintenance across all visible aircraft
+  const allFlights = scheduledFlights.filter(f => aircraftIds.includes(f.aircraft?.id));
+  const allMaint = scheduledMaintenance.filter(m => aircraftIds.includes(m.aircraftId || m.aircraft?.id));
 
-  showLoadingModal('Clearing Schedules', 'Removing all flights and maintenance...');
+  const choice = await showClearChoiceModal(
+    `Clear All Schedules (${visibleAircraftCount} aircraft)`,
+    allFlights.length,
+    allMaint.length
+  );
+
+  if (!choice) return;
+
+  const modeLabels = { flights: 'flights', maintenance: 'maintenance checks', all: 'flights and maintenance' };
+  showLoadingModal('Clearing Schedules', `Removing ${modeLabels[choice]}...`);
 
   try {
     const response = await fetch('/api/schedule/clear-all', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ aircraftIds })
+      body: JSON.stringify({ aircraftIds, mode: choice })
     });
 
     if (!response.ok) {
@@ -775,8 +826,11 @@ async function confirmClearAllSchedules() {
     await loadSchedule();
 
     // Show success message
+    const parts = [];
+    if (result.flightsDeleted !== undefined) parts.push(`${result.flightsDeleted} scheduled flights`);
+    if (result.maintenanceDeleted !== undefined) parts.push(`${result.maintenanceDeleted} maintenance checks`);
     await showAlertModal('Schedules Cleared',
-      `Successfully cleared:\n• ${result.flightsDeleted} scheduled flights\n• ${result.maintenanceDeleted} maintenance checks`);
+      `Successfully cleared:\n${parts.map(p => '• ' + p).join('\n')}`);
 
   } catch (error) {
     closeLoadingModal();
@@ -1202,11 +1256,11 @@ async function fetchAllScheduleData() {
     if (response.ok) {
       const data = await response.json();
       console.log('[DEBUG] API returned maintenance count:', data.maintenance?.length || 0);
-      userFleet = data.fleet || [];
+      userFleet = (data.fleet || []).filter(ac => ac.status === 'active' || ac.status === 'maintenance');
       routes = data.routes || [];
       scheduledFlights = data.flights || [];
       scheduledMaintenance = data.maintenance || [];
-      console.log(`Loaded: ${userFleet.length} aircraft, ${routes.length} routes, ${scheduledFlights.length} flights, ${scheduledMaintenance.length} maintenance`);
+      console.log(`Loaded: ${userFleet.length} aircraft (active/maintenance), ${routes.length} routes, ${scheduledFlights.length} flights, ${scheduledMaintenance.length} maintenance`);
     } else {
       console.error('[DEBUG] API response not OK:', response.status, response.statusText);
     }
@@ -1220,7 +1274,8 @@ async function fetchUserFleet() {
   try {
     const response = await fetch('/api/fleet');
     if (response.ok) {
-      userFleet = await response.json();
+      const allFleet = await response.json();
+      userFleet = allFleet.filter(ac => ac.status === 'active' || ac.status === 'maintenance');
     }
   } catch (error) {
     console.error('Error fetching fleet:', error);
@@ -8648,22 +8703,25 @@ async function clearDaySchedule(aircraftId) {
   }
 
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const confirmed = await showConfirmModal(
-    'Clear Day Schedule',
-    `Clear all scheduled items for ${aircraft.registration} on ${dayNames[selectedDayOfWeek]}?\n\nThis will delete:\n• ${dayFlights.length} flight(s)\n• ${dayMaint.length} maintenance check(s)\n\nThis action cannot be undone.`
+  const choice = await showClearChoiceModal(
+    `Clear ${dayNames[selectedDayOfWeek]} — ${aircraft.registration}`,
+    dayFlights.length,
+    dayMaint.length
   );
 
-  if (!confirmed) return;
+  if (!choice) return;
+
+  const toDelete = [];
+  if (choice === 'flights' || choice === 'all') {
+    toDelete.push(...dayFlights.map(f => fetch(`/api/schedule/flight/${f.id}`, { method: 'DELETE' })));
+  }
+  if (choice === 'maintenance' || choice === 'all') {
+    toDelete.push(...dayMaint.map(m => fetch(`/api/schedule/maintenance/${m.id}`, { method: 'DELETE' })));
+  }
 
   try {
-    showLoadingModal('Clearing Schedule', `Removing ${totalItems} item(s)...`);
-
-    // Delete all flights and maintenance in parallel
-    await Promise.all([
-      ...dayFlights.map(f => fetch(`/api/schedule/flight/${f.id}`, { method: 'DELETE' })),
-      ...dayMaint.map(m => fetch(`/api/schedule/maintenance/${m.id}`, { method: 'DELETE' }))
-    ]);
-
+    showLoadingModal('Clearing Schedule', `Removing ${toDelete.length} item(s)...`);
+    await Promise.all(toDelete);
     await loadSchedule();
     closeLoadingModal();
   } catch (error) {
@@ -8691,22 +8749,25 @@ async function clearWeekSchedule(aircraftId) {
     return;
   }
 
-  const confirmed = await showConfirmModal(
-    'Clear Week Schedule',
-    `Clear ALL scheduled items for ${aircraft.registration} this week?\n\nThis will delete:\n• ${weekFlights.length} flight(s)\n• ${weekMaint.length} maintenance check(s)\n\nThis action cannot be undone.`
+  const choice = await showClearChoiceModal(
+    `Clear Week Schedule — ${aircraft.registration}`,
+    weekFlights.length,
+    weekMaint.length
   );
 
-  if (!confirmed) return;
+  if (!choice) return;
+
+  const toDelete = [];
+  if (choice === 'flights' || choice === 'all') {
+    toDelete.push(...weekFlights.map(f => fetch(`/api/schedule/flight/${f.id}`, { method: 'DELETE' })));
+  }
+  if (choice === 'maintenance' || choice === 'all') {
+    toDelete.push(...weekMaint.map(m => fetch(`/api/schedule/maintenance/${m.id}`, { method: 'DELETE' })));
+  }
 
   try {
-    showLoadingModal('Clearing Week Schedule', `Removing ${totalItems} item(s)...`);
-
-    // Delete all flights and maintenance in parallel
-    await Promise.all([
-      ...weekFlights.map(f => fetch(`/api/schedule/flight/${f.id}`, { method: 'DELETE' })),
-      ...weekMaint.map(m => fetch(`/api/schedule/maintenance/${m.id}`, { method: 'DELETE' }))
-    ]);
-
+    showLoadingModal('Clearing Week Schedule', `Removing ${toDelete.length} item(s)...`);
+    await Promise.all(toDelete);
     await loadSchedule();
     closeLoadingModal();
   } catch (error) {

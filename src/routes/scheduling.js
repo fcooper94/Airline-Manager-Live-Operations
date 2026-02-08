@@ -2644,10 +2644,14 @@ router.get('/active-all', async (req, res) => {
  */
 router.post('/clear-all', async (req, res) => {
   try {
-    const { aircraftIds } = req.body;
+    const { aircraftIds, mode = 'all' } = req.body;
 
     if (!aircraftIds || !Array.isArray(aircraftIds) || aircraftIds.length === 0) {
       return res.status(400).json({ error: 'Aircraft IDs are required' });
+    }
+
+    if (!['flights', 'maintenance', 'all'].includes(mode)) {
+      return res.status(400).json({ error: 'Invalid mode. Must be flights, maintenance, or all' });
     }
 
     // Get active world from session
@@ -2691,27 +2695,27 @@ router.post('/clear-all', async (req, res) => {
       return res.status(400).json({ error: 'No valid aircraft found to clear' });
     }
 
-    // Delete all scheduled flights for these aircraft
-    const flightsDeleted = await ScheduledFlight.destroy({
-      where: {
-        aircraftId: { [Op.in]: ownedAircraftIds }
-      }
-    });
+    const result = { aircraftCount: ownedAircraftIds.length };
 
-    // Delete all recurring maintenance for these aircraft
-    const maintenanceDeleted = await RecurringMaintenance.destroy({
-      where: {
-        aircraftId: { [Op.in]: ownedAircraftIds }
-      }
-    });
+    // Delete flights if mode is 'flights' or 'all'
+    if (mode === 'flights' || mode === 'all') {
+      result.flightsDeleted = await ScheduledFlight.destroy({
+        where: { aircraftId: { [Op.in]: ownedAircraftIds } }
+      });
+    }
 
-    console.log(`Cleared schedules: ${flightsDeleted} flights, ${maintenanceDeleted} maintenance for ${ownedAircraftIds.length} aircraft`);
+    // Delete maintenance if mode is 'maintenance' or 'all'
+    if (mode === 'maintenance' || mode === 'all') {
+      result.maintenanceDeleted = await RecurringMaintenance.destroy({
+        where: { aircraftId: { [Op.in]: ownedAircraftIds } }
+      });
+    }
+
+    console.log(`Cleared schedules (mode: ${mode}): flights=${result.flightsDeleted ?? 'skipped'}, maintenance=${result.maintenanceDeleted ?? 'skipped'} for ${ownedAircraftIds.length} aircraft`);
 
     res.json({
       message: 'Schedules cleared successfully',
-      flightsDeleted,
-      maintenanceDeleted,
-      aircraftCount: ownedAircraftIds.length
+      ...result
     });
   } catch (error) {
     console.error('Error clearing schedules:', error);

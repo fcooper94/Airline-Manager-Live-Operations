@@ -23,6 +23,10 @@ class WorldTimeService {
     this.isProcessingFlights = false; // Prevent overlapping flight queries
     this.isProcessingMaintenance = false; // Prevent overlapping maintenance queries
     this.isRefreshingMaintenance = false; // Prevent overlapping maintenance refresh
+    this.lastListingCheck = 0; // Timestamp of last listing check
+    this.listingCheckInterval = 60000; // Check listings every 60 seconds (real time)
+    this.isProcessingListings = false; // Prevent overlapping listing queries
+    this.lastLeaseIncomeMonth = {}; // Map of worldId -> last game month processed for lease income
   }
 
   /**
@@ -281,6 +285,15 @@ class WorldTimeService {
       this.refreshMaintenanceSchedules(worldId)
         .catch(err => console.error('Error refreshing maintenance schedules:', err.message))
         .finally(() => { this.isRefreshingMaintenance = false; });
+    }
+
+    // Process aircraft listings (NPC buyers/lessees) and lease-out income
+    if (!this.isProcessingListings && now - this.lastListingCheck >= this.listingCheckInterval) {
+      this.lastListingCheck = now;
+      this.isProcessingListings = true;
+      this.processListings(worldId, gameTime)
+        .catch(err => console.error('Error processing listings:', err.message))
+        .finally(() => { this.isProcessingListings = false; });
     }
   }
 
@@ -1011,6 +1024,191 @@ class WorldTimeService {
       }
     }
   }
+
+  /**
+   * Process aircraft listings: NPC buyers/lessees and lease-out income
+   */
+  async processListings(worldId, currentGameTime) {
+    const Notification = require('../models/Notification');
+
+    try {
+      const memberships = await WorldMembership.findAll({
+        where: { worldId, isActive: true },
+        attributes: ['id', 'balance']
+      });
+      if (memberships.length === 0) return;
+
+      const membershipIds = memberships.map(m => m.id);
+      const membershipMap = new Map(memberships.map(m => [m.id, m]));
+
+      // --- Process listed aircraft (NPC interest) ---
+      const listedAircraft = await UserAircraft.findAll({
+        where: {
+          worldMembershipId: { [Op.in]: membershipIds },
+          status: { [Op.in]: ['listed_sale', 'listed_lease'] },
+          listedAt: { [Op.ne]: null }
+        },
+        include: [{ model: Aircraft, as: 'aircraft' }]
+      });
+
+      for (const ac of listedAircraft) {
+        const listedAt = new Date(ac.listedAt);
+        const daysSinceListed = (currentGameTime - listedAt) / (1000 * 60 * 60 * 24);
+
+        // Minimum 7 game-days before any NPC interest
+        if (daysSinceListed < 7) continue;
+
+        // Probability increases over time: 5% base after 7 days, +1% per day, capped at 30%
+        const chance = Math.min(0.30, 0.05 + (daysSinceListed - 7) * 0.01);
+        if (Math.random() > chance) continue;
+
+        const membership = membershipMap.get(ac.worldMembershipId);
+        if (!membership) continue;
+
+        if (ac.status === 'listed_sale') {
+          await this.completeSale(ac, membership, currentGameTime, Notification);
+        } else if (ac.status === 'listed_lease') {
+          await this.completeLeaseOut(ac, membership, currentGameTime, Notification);
+        }
+      }
+
+      // --- Process lease-out income (monthly) ---
+      const gameMonth = currentGameTime.getFullYear() * 12 + currentGameTime.getMonth();
+      const lastMonth = this.lastLeaseIncomeMonth[worldId] || 0;
+
+      if (gameMonth > lastMonth) {
+        this.lastLeaseIncomeMonth[worldId] = gameMonth;
+
+        const leasedOutAircraft = await UserAircraft.findAll({
+          where: {
+            worldMembershipId: { [Op.in]: membershipIds },
+            status: 'leased_out',
+            leaseOutMonthlyRate: { [Op.ne]: null }
+          }
+        });
+
+        for (const ac of leasedOutAircraft) {
+          const membership = membershipMap.get(ac.worldMembershipId);
+          if (!membership) continue;
+
+          // Check if lease has expired
+          if (ac.leaseOutEndDate && new Date(ac.leaseOutEndDate) <= currentGameTime) {
+            await ac.update({
+              status: 'active',
+              leaseOutMonthlyRate: null,
+              leaseOutStartDate: null,
+              leaseOutEndDate: null,
+              leaseOutTenantName: null,
+              listingPrice: null,
+              listedAt: null
+            });
+
+            await Notification.create({
+              worldMembershipId: membership.id,
+              type: 'lease_expired',
+              icon: 'plane',
+              title: `Lease Ended: ${ac.registration}`,
+              message: `The lease on ${ac.registration} has expired. The aircraft has been returned to your fleet and is ready for service.`,
+              link: '/fleet',
+              priority: 3,
+              gameTime: currentGameTime
+            });
+
+            console.log(`Lease expired: ${ac.registration} returned to fleet`);
+            continue;
+          }
+
+          // Credit monthly lease income
+          const rate = parseFloat(ac.leaseOutMonthlyRate);
+          membership.balance = parseFloat(membership.balance) + rate;
+          await membership.save();
+
+          console.log(`Lease income: $${rate} from ${ac.registration} to membership ${membership.id}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error processing listings:', error);
+    }
+  }
+
+  /**
+   * Complete an NPC aircraft sale
+   */
+  async completeSale(userAircraft, membership, gameTime, Notification) {
+    const salePrice = parseFloat(userAircraft.listingPrice);
+    const reg = userAircraft.registration;
+    const npcName = generateNpcAirlineName();
+
+    // Credit sale price to balance
+    membership.balance = parseFloat(membership.balance) + salePrice;
+    await membership.save();
+
+    // Clean up schedule remnants and delete the aircraft
+    const { ScheduledFlight: SF, RecurringMaintenance: RM, Route: R } = require('../models');
+    await SF.destroy({ where: { aircraftId: userAircraft.id } });
+    await RM.destroy({ where: { aircraftId: userAircraft.id } });
+    await R.update({ assignedAircraftId: null }, { where: { assignedAircraftId: userAircraft.id } });
+    await userAircraft.destroy();
+
+    // Create notification
+    await Notification.create({
+      worldMembershipId: membership.id,
+      type: 'aircraft_sold',
+      icon: 'dollar',
+      title: `Aircraft Sold: ${reg}`,
+      message: `${npcName} purchased your ${reg} for $${salePrice.toLocaleString()}. The funds have been credited to your account.`,
+      link: '/fleet',
+      priority: 2,
+      gameTime: gameTime
+    });
+
+    console.log(`Aircraft sold: ${reg} to ${npcName} for $${salePrice}`);
+  }
+
+  /**
+   * Complete an NPC aircraft lease-out
+   */
+  async completeLeaseOut(userAircraft, membership, gameTime, Notification) {
+    const monthlyRate = parseFloat(userAircraft.listingPrice);
+    const npcName = generateNpcAirlineName();
+    const leaseDuration = 12 + Math.floor(Math.random() * 24); // 12-36 months
+
+    const leaseStart = new Date(gameTime);
+    const leaseEnd = new Date(gameTime);
+    leaseEnd.setMonth(leaseEnd.getMonth() + leaseDuration);
+
+    await userAircraft.update({
+      status: 'leased_out',
+      leaseOutMonthlyRate: monthlyRate,
+      leaseOutStartDate: leaseStart,
+      leaseOutEndDate: leaseEnd,
+      leaseOutTenantName: npcName,
+      listingPrice: null,
+      listedAt: null
+    });
+
+    await Notification.create({
+      worldMembershipId: membership.id,
+      type: 'aircraft_leased_out',
+      icon: 'plane',
+      title: `Aircraft Leased: ${userAircraft.registration}`,
+      message: `${npcName} is leasing your ${userAircraft.registration} for $${monthlyRate.toLocaleString()}/mo (${leaseDuration} months). Income will be credited monthly.`,
+      link: '/fleet',
+      priority: 2,
+      gameTime: gameTime
+    });
+
+    console.log(`Aircraft leased out: ${userAircraft.registration} to ${npcName} at $${monthlyRate}/mo for ${leaseDuration} months`);
+  }
+}
+
+/**
+ * Generate a random NPC airline name
+ */
+function generateNpcAirlineName() {
+  const prefixes = ['Pacific', 'Northern', 'Southern', 'Eastern', 'Western', 'Trans-Continental', 'Global', 'National', 'Royal', 'Air', 'Continental', 'Atlantic', 'Skyline', 'Horizon', 'Meridian', 'Polar', 'Coastal', 'Central', 'Imperial', 'United'];
+  const suffixes = ['Airways', 'Airlines', 'Air', 'Aviation', 'Express', 'Jet', 'Connect', 'Wings', 'Flights', 'Aero'];
+  return prefixes[Math.floor(Math.random() * prefixes.length)] + ' ' + suffixes[Math.floor(Math.random() * suffixes.length)];
 }
 
 // Singleton instance

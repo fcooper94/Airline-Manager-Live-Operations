@@ -24,7 +24,8 @@
       "Bash(taskkill:*)",
       "Bash(powershell -Command:*)",
       "Bash(python -c:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(find:*)"
     ]
   }
 }

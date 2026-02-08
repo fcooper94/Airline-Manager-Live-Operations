@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const path = require('path');
 const { Op } = require('sequelize');
-const { WorldMembership, UserAircraft, Aircraft, User, Airport, RecurringMaintenance, ScheduledFlight, Route, World } = require('../models');
+const { WorldMembership, UserAircraft, Aircraft, User, Airport, RecurringMaintenance, ScheduledFlight, Route, World, Notification } = require('../models');
+const worldTimeService = require('../services/worldTimeService');
 const { REGISTRATION_RULES, validateRegistrationSuffix, getRegistrationPrefix, hasSpecificRule } = require(path.join(__dirname, '../../public/js/registrationPrefixes.js'));
 
 // Check durations in minutes
@@ -1855,7 +1856,9 @@ router.post('/purchase', async (req, res) => {
       autoScheduleWeekly,
       autoScheduleA,
       autoScheduleC,
-      autoScheduleD
+      autoScheduleD,
+      // Player-to-player listing
+      playerListingId
     } = req.body;
 
     if (!aircraftId || !category || !purchasePrice || !registration) {
@@ -2031,6 +2034,35 @@ router.post('/purchase', async (req, res) => {
     membership.balance -= price;
     await membership.save();
 
+    // Handle player-to-player sale: credit seller and notify
+    if (playerListingId) {
+      try {
+        const sellerAircraft = await UserAircraft.findByPk(playerListingId, {
+          include: [{ model: WorldMembership, as: 'membership' }]
+        });
+        if (sellerAircraft && sellerAircraft.status === 'listed_sale') {
+          const sellerMembership = sellerAircraft.membership;
+          // Credit seller
+          sellerMembership.balance = parseFloat(sellerMembership.balance) + price;
+          await sellerMembership.save();
+          // Notify seller
+          await Notification.create({
+            worldMembershipId: sellerMembership.id,
+            type: 'aircraft_sold',
+            icon: 'plane',
+            title: 'Aircraft Sold',
+            message: `${sellerAircraft.registration} has been purchased by another airline for $${Number(price).toLocaleString('en-US')}`,
+            priority: 2,
+            gameTime: now
+          });
+          // Remove seller's aircraft
+          await sellerAircraft.destroy();
+        }
+      } catch (sellerErr) {
+        console.error('Error processing seller side of player sale:', sellerErr);
+      }
+    }
+
     // Include aircraft details in response
     const result = await UserAircraft.findByPk(userAircraft.id, {
       include: [{
@@ -2087,7 +2119,9 @@ router.post('/lease', async (req, res) => {
       autoScheduleWeekly,
       autoScheduleA,
       autoScheduleC,
-      autoScheduleD
+      autoScheduleD,
+      // Player-to-player listing
+      playerListingId
     } = req.body;
 
     if (!aircraftId || !leaseMonthlyPayment || !leaseDurationMonths || !registration) {
@@ -2265,6 +2299,45 @@ router.post('/lease', async (req, res) => {
     // Deduct first month's payment
     membership.balance -= monthlyPayment;
     await membership.save();
+
+    // Handle player-to-player lease: update owner's aircraft and notify
+    if (playerListingId) {
+      try {
+        const ownerAircraft = await UserAircraft.findByPk(playerListingId, {
+          include: [{ model: WorldMembership, as: 'membership' }]
+        });
+        if (ownerAircraft && ownerAircraft.status === 'listed_lease') {
+          const ownerMembership = ownerAircraft.membership;
+          const buyerAirlineName = membership.airlineName || 'Another airline';
+          // Update owner's aircraft to leased_out + link to lessee
+          ownerAircraft.status = 'leased_out';
+          ownerAircraft.leaseOutMonthlyRate = monthlyPayment;
+          ownerAircraft.leaseOutStartDate = now;
+          ownerAircraft.leaseOutEndDate = leaseEnd;
+          ownerAircraft.leaseOutTenantName = buyerAirlineName;
+          ownerAircraft.playerLesseeAircraftId = userAircraft.id;
+          await ownerAircraft.save();
+          // Link lessee back to lessor
+          userAircraft.playerLessorAircraftId = ownerAircraft.id;
+          await userAircraft.save();
+          // Credit first month to owner
+          ownerMembership.balance = parseFloat(ownerMembership.balance) + monthlyPayment;
+          await ownerMembership.save();
+          // Notify owner
+          await Notification.create({
+            worldMembershipId: ownerMembership.id,
+            type: 'aircraft_leased_out',
+            icon: 'plane',
+            title: 'Aircraft Leased Out',
+            message: `${ownerAircraft.registration} has been leased by ${buyerAirlineName} at $${Number(monthlyPayment).toLocaleString('en-US')}/mo for ${leaseDurationMonths} months`,
+            priority: 2,
+            gameTime: now
+          });
+        }
+      } catch (ownerErr) {
+        console.error('Error processing owner side of player lease:', ownerErr);
+      }
+    }
 
     // Include aircraft details in response
     const result = await UserAircraft.findByPk(userAircraft.id, {
@@ -3634,6 +3707,346 @@ router.post('/:aircraftId/refresh-maintenance', async (req, res) => {
   } catch (error) {
     console.error('Error refreshing maintenance:', error);
     res.status(500).json({ error: 'Failed to refresh maintenance' });
+  }
+});
+
+// ============================================================
+// Aircraft Lifecycle: Cancel Lease / Sell / Lease Out / Withdraw
+// ============================================================
+
+/**
+ * Helper: get authenticated user's membership and verify aircraft ownership
+ */
+async function getOwnedAircraft(req, aircraftId) {
+  const activeWorldId = req.session?.activeWorldId;
+  if (!activeWorldId) throw Object.assign(new Error('No active world selected'), { status: 404 });
+  if (!req.user) throw Object.assign(new Error('Not authenticated'), { status: 401 });
+
+  const user = await User.findOne({ where: { vatsimId: req.user.vatsimId } });
+  if (!user) throw Object.assign(new Error('User not found'), { status: 404 });
+
+  const membership = await WorldMembership.findOne({ where: { userId: user.id, worldId: activeWorldId } });
+  if (!membership) throw Object.assign(new Error('Not a member of this world'), { status: 404 });
+
+  const aircraft = await UserAircraft.findOne({
+    where: { id: aircraftId, worldMembershipId: membership.id },
+    include: [{ model: Aircraft, as: 'aircraft' }]
+  });
+  if (!aircraft) throw Object.assign(new Error('Aircraft not found'), { status: 404 });
+
+  return { user, membership, aircraft, activeWorldId };
+}
+
+/**
+ * Helper: remove all flights and maintenance for an aircraft
+ */
+async function clearAircraftSchedule(aircraftId) {
+  const flightsDeleted = await ScheduledFlight.destroy({ where: { aircraftId } });
+  const maintDeleted = await RecurringMaintenance.destroy({ where: { aircraftId } });
+  // Also unassign from any routes
+  await Route.update({ assignedAircraftId: null }, { where: { assignedAircraftId: aircraftId } });
+  return { flightsDeleted, maintDeleted };
+}
+
+/**
+ * POST /api/fleet/:aircraftId/cancel-lease
+ * Cancel a lease and return the aircraft to the lessor
+ * For player leases: lessee pays 3 months' lease rate as early termination penalty
+ */
+router.post('/:aircraftId/cancel-lease', async (req, res) => {
+  try {
+    const { membership, aircraft, activeWorldId } = await getOwnedAircraft(req, req.params.aircraftId);
+
+    if (aircraft.acquisitionType !== 'lease') {
+      return res.status(400).json({ error: 'This aircraft is not leased' });
+    }
+    if (!['active', 'maintenance', 'storage'].includes(aircraft.status)) {
+      return res.status(400).json({ error: 'Cannot cancel lease on this aircraft' });
+    }
+
+    const reg = aircraft.registration;
+    const monthlyPayment = parseFloat(aircraft.leaseMonthlyPayment) || 0;
+
+    // Find owner aircraft: first by direct link, then by reverse lookup
+    let ownerAircraft = null;
+    if (aircraft.playerLessorAircraftId) {
+      ownerAircraft = await UserAircraft.findByPk(aircraft.playerLessorAircraftId, {
+        include: [{ model: WorldMembership, as: 'membership' }]
+      });
+    }
+    if (!ownerAircraft) {
+      // Reverse lookup: find a leased_out aircraft pointing to this one
+      ownerAircraft = await UserAircraft.findOne({
+        where: { playerLesseeAircraftId: aircraft.id, status: 'leased_out' },
+        include: [{ model: WorldMembership, as: 'membership' }]
+      });
+    }
+
+    const isPlayerLease = !!ownerAircraft;
+
+    // Player lease: apply 3-month early termination penalty
+    if (isPlayerLease) {
+      const penalty = monthlyPayment * 3;
+      if (parseFloat(membership.balance) < penalty) {
+        return res.status(400).json({
+          error: `Insufficient funds for early termination penalty ($${Number(penalty).toLocaleString('en-US')}). You need 3 months' lease rate.`
+        });
+      }
+
+      const gameTime = worldTimeService.getCurrentTime(activeWorldId) || new Date();
+
+      // Deduct penalty from lessee
+      membership.balance = parseFloat(membership.balance) - penalty;
+      await membership.save();
+      if (ownerAircraft) {
+        const ownerMembership = ownerAircraft.membership;
+        ownerAircraft.status = 'active';
+        ownerAircraft.leaseOutMonthlyRate = null;
+        ownerAircraft.leaseOutStartDate = null;
+        ownerAircraft.leaseOutEndDate = null;
+        ownerAircraft.leaseOutTenantName = null;
+        ownerAircraft.playerLesseeAircraftId = null;
+        ownerAircraft.listingPrice = null;
+        ownerAircraft.listedAt = null;
+        await ownerAircraft.save();
+
+        // Credit penalty to lessor
+        ownerMembership.balance = parseFloat(ownerMembership.balance) + penalty;
+        await ownerMembership.save();
+
+        // Notify lessor
+        const lesseeName = membership.airlineName || 'A tenant airline';
+        await Notification.create({
+          worldMembershipId: ownerMembership.id,
+          type: 'lease_cancelled',
+          icon: 'plane',
+          title: 'Lease Cancelled Early',
+          message: `${lesseeName} cancelled the lease on ${ownerAircraft.registration}. Early termination penalty of $${Number(penalty).toLocaleString('en-US')} has been credited to your account.`,
+          priority: 2,
+          gameTime
+        });
+      }
+
+      await clearAircraftSchedule(aircraft.id);
+      await aircraft.destroy();
+
+      console.log(`Player lease cancelled: ${reg} - penalty $${penalty} from lessee to lessor`);
+      res.json({ message: 'Lease cancelled successfully', registration: reg, penalty });
+    } else {
+      // NPC lease: no penalty, just delete
+      await clearAircraftSchedule(aircraft.id);
+      await aircraft.destroy();
+
+      console.log(`Lease cancelled: ${reg} returned by membership ${membership.id}`);
+      res.json({ message: 'Lease cancelled successfully', registration: reg });
+    }
+  } catch (error) {
+    console.error('Error cancelling lease:', error);
+    res.status(error.status || 500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/fleet/:aircraftId/sell
+ * List an owned aircraft for sale on the used market
+ */
+router.post('/:aircraftId/sell', async (req, res) => {
+  try {
+    const { aircraft, activeWorldId } = await getOwnedAircraft(req, req.params.aircraftId);
+
+    if (aircraft.acquisitionType !== 'purchase') {
+      return res.status(400).json({ error: 'Can only sell owned aircraft' });
+    }
+    if (!['active', 'storage'].includes(aircraft.status)) {
+      return res.status(400).json({ error: 'Aircraft must be active or in storage to sell' });
+    }
+
+    const askingPrice = parseFloat(req.body.askingPrice);
+    if (!askingPrice || askingPrice <= 0) {
+      return res.status(400).json({ error: 'Valid asking price is required' });
+    }
+
+    // Get current game time for the listing date
+    const gameTime = worldTimeService.getCurrentTime(activeWorldId) || new Date();
+
+    await clearAircraftSchedule(aircraft.id);
+    await aircraft.update({
+      status: 'listed_sale',
+      listingPrice: askingPrice,
+      listedAt: gameTime
+    });
+
+    console.log(`Aircraft listed for sale: ${aircraft.registration} at $${askingPrice}`);
+    res.json({ message: 'Aircraft listed for sale', aircraft, newStatus: 'listed_sale' });
+  } catch (error) {
+    console.error('Error listing aircraft for sale:', error);
+    res.status(error.status || 500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/fleet/:aircraftId/lease-out
+ * List an owned aircraft for lease to other airlines
+ */
+router.post('/:aircraftId/lease-out', async (req, res) => {
+  try {
+    const { aircraft, activeWorldId } = await getOwnedAircraft(req, req.params.aircraftId);
+
+    if (aircraft.acquisitionType !== 'purchase') {
+      return res.status(400).json({ error: 'Can only lease out owned aircraft' });
+    }
+    if (!['active', 'storage'].includes(aircraft.status)) {
+      return res.status(400).json({ error: 'Aircraft must be active or in storage to lease out' });
+    }
+
+    const monthlyRate = parseFloat(req.body.monthlyRate);
+    if (!monthlyRate || monthlyRate <= 0) {
+      return res.status(400).json({ error: 'Valid monthly rate is required' });
+    }
+
+    const gameTime = worldTimeService.getCurrentTime(activeWorldId) || new Date();
+
+    await clearAircraftSchedule(aircraft.id);
+    await aircraft.update({
+      status: 'listed_lease',
+      listingPrice: monthlyRate,
+      listedAt: gameTime
+    });
+
+    console.log(`Aircraft listed for lease: ${aircraft.registration} at $${monthlyRate}/mo`);
+    res.json({ message: 'Aircraft listed for lease', aircraft, newStatus: 'listed_lease' });
+  } catch (error) {
+    console.error('Error listing aircraft for lease:', error);
+    res.status(error.status || 500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/fleet/:aircraftId/withdraw-listing
+ * Withdraw a sale or lease listing, returning aircraft to active status
+ */
+router.post('/:aircraftId/withdraw-listing', async (req, res) => {
+  try {
+    const { aircraft } = await getOwnedAircraft(req, req.params.aircraftId);
+
+    if (!['listed_sale', 'listed_lease'].includes(aircraft.status)) {
+      return res.status(400).json({ error: 'Aircraft is not currently listed' });
+    }
+
+    await aircraft.update({
+      status: 'active',
+      listingPrice: null,
+      listedAt: null
+    });
+
+    console.log(`Listing withdrawn: ${aircraft.registration} returned to active`);
+    res.json({ message: 'Listing withdrawn', aircraft, newStatus: 'active' });
+  } catch (error) {
+    console.error('Error withdrawing listing:', error);
+    res.status(error.status || 500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/fleet/:aircraftId/recall-aircraft
+ * Lessor recalls a leased-out aircraft early
+ * Lessor pays 3 months' lease rate as compensation to the lessee
+ */
+router.post('/:aircraftId/recall-aircraft', async (req, res) => {
+  try {
+    const { membership, aircraft, activeWorldId } = await getOwnedAircraft(req, req.params.aircraftId);
+
+    if (aircraft.status !== 'leased_out') {
+      return res.status(400).json({ error: 'Aircraft is not currently leased out' });
+    }
+
+    // Find the lessee's aircraft: first by direct link, then by reverse lookup
+    let lesseeAircraft = null;
+    if (aircraft.playerLesseeAircraftId) {
+      lesseeAircraft = await UserAircraft.findByPk(aircraft.playerLesseeAircraftId, {
+        include: [{ model: WorldMembership, as: 'membership' }]
+      });
+    }
+    if (!lesseeAircraft) {
+      // Reverse lookup: find a leased aircraft pointing back to this one
+      lesseeAircraft = await UserAircraft.findOne({
+        where: { playerLessorAircraftId: aircraft.id },
+        include: [{ model: WorldMembership, as: 'membership' }]
+      });
+    }
+
+    if (!lesseeAircraft) {
+      // No player lessee found - this is an NPC lease, just return to active
+      await aircraft.update({
+        status: 'active',
+        leaseOutMonthlyRate: null,
+        leaseOutStartDate: null,
+        leaseOutEndDate: null,
+        leaseOutTenantName: null,
+        playerLesseeAircraftId: null,
+        listingPrice: null,
+        listedAt: null
+      });
+      console.log(`NPC lease ended early: ${aircraft.registration} returned to active`);
+      return res.json({ message: 'Aircraft returned to fleet', registration: aircraft.registration, compensation: 0 });
+    }
+
+    const monthlyRate = parseFloat(aircraft.leaseOutMonthlyRate) || 0;
+    const compensation = monthlyRate * 3;
+
+    if (parseFloat(membership.balance) < compensation) {
+      return res.status(400).json({
+        error: `Insufficient funds for recall compensation ($${Number(compensation).toLocaleString('en-US')}). You must pay 3 months' lease rate to the lessee.`
+      });
+    }
+
+    const gameTime = worldTimeService.getCurrentTime(activeWorldId) || new Date();
+
+    // Deduct compensation from lessor
+    membership.balance = parseFloat(membership.balance) - compensation;
+    await membership.save();
+
+    if (lesseeAircraft) {
+      const lesseeMembership = lesseeAircraft.membership;
+
+      // Credit compensation to lessee
+      lesseeMembership.balance = parseFloat(lesseeMembership.balance) + compensation;
+      await lesseeMembership.save();
+
+      // Notify lessee
+      const lessorName = membership.airlineName || 'The aircraft owner';
+      await Notification.create({
+        worldMembershipId: lesseeMembership.id,
+        type: 'lease_recalled',
+        icon: 'plane',
+        title: 'Aircraft Recalled by Owner',
+        message: `${lessorName} has recalled ${aircraft.registration}. Compensation of $${Number(compensation).toLocaleString('en-US')} (3 months' lease) has been credited to your account. All flights for this aircraft have been removed.`,
+        priority: 1,
+        gameTime
+      });
+
+      // Clear lessee's schedule and destroy their aircraft copy
+      await clearAircraftSchedule(lesseeAircraft.id);
+      await lesseeAircraft.destroy();
+    }
+
+    // Return owner's aircraft to active
+    await aircraft.update({
+      status: 'active',
+      leaseOutMonthlyRate: null,
+      leaseOutStartDate: null,
+      leaseOutEndDate: null,
+      leaseOutTenantName: null,
+      playerLesseeAircraftId: null,
+      listingPrice: null,
+      listedAt: null
+    });
+
+    console.log(`Aircraft recalled: ${aircraft.registration} - compensation $${compensation} from lessor to lessee`);
+    res.json({ message: 'Aircraft recalled successfully', registration: aircraft.registration, compensation });
+  } catch (error) {
+    console.error('Error recalling aircraft:', error);
+    res.status(error.status || 500).json({ error: error.message });
   }
 });
 
