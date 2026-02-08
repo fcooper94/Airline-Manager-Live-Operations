@@ -772,8 +772,8 @@ async function createAutoScheduledMaintenance(aircraftId, checkTypes, worldId = 
         const endDate = new Date(schedDate);
         endDate.setDate(endDate.getDate() + durationDays);
 
-        // If targetDate is within the maintenance period (after start, before end)
-        if (targetDate > schedDate && targetDate < endDate) {
+        // If targetDate is within the maintenance period (on or after start, before end)
+        if (targetDate >= schedDate && targetDate < endDate) {
           return true;
         }
       }
@@ -950,14 +950,15 @@ async function createAutoScheduledMaintenance(aircraftId, checkTypes, worldId = 
     const fieldInfo = checkFieldMap[checkType];
     if (!fieldInfo) continue;
 
-    // If aircraft is grounded, skip daily and weekly checks entirely
-    // (aircraft isn't flying, so these routine checks don't make sense to schedule)
-    // Only allow scheduling the expired check that will return it to service, or future C/D checks
-    if (isInMaintenance) {
-      if (checkType === 'daily' || checkType === 'weekly') {
-        // Skip daily/weekly for grounded aircraft unless it's THE expired check
-        if (checkType !== heaviestExpiredCheck) {
-          console.log(`[AUTO-SCHEDULE] Skipping ${checkType} checks for grounded aircraft ${aircraft.registration}`);
+    // If aircraft is in maintenance OR has an expired C/D check, skip ALL lighter checks.
+    // During a heavy check (C/D), the aircraft is grounded — scheduling daily/weekly/A/C
+    // makes no sense and clutters the schedule. A D check also covers C check requirements.
+    if (isInMaintenance || (heaviestExpiredCheck && ['C', 'D'].includes(heaviestExpiredCheck))) {
+      if (checkType !== heaviestExpiredCheck) {
+        const heavierIdx = checkHierarchy.indexOf(heaviestExpiredCheck);
+        const currentIdx = checkHierarchy.indexOf(checkType);
+        if (currentIdx > heavierIdx) {
+          console.log(`[AUTO-SCHEDULE] Skipping ${checkType} checks — heavy check ${heaviestExpiredCheck} is expired/in-progress for ${aircraft.registration}`);
           continue;
         }
       }
@@ -1069,9 +1070,11 @@ async function createAutoScheduledMaintenance(aircraftId, checkTypes, worldId = 
         targetStartDate.setDate(targetStartDate.getDate() - bufferDays);
 
         // For weekly checks, stagger across the fleet by adding day offset
-        // This spreads weekly checks across different days of the week
+        // This spreads weekly checks across different days of the week.
+        // Cap offset to avoid pulling target so far back that it overlaps with the previous period.
         if (checkType === 'weekly' && !isExpired) {
-          targetStartDate.setDate(targetStartDate.getDate() - weeklyDayOffset);
+          const cappedOffset = Math.min(weeklyDayOffset, Math.floor(checkInterval / 2) - 1);
+          targetStartDate.setDate(targetStartDate.getDate() - cappedOffset);
         }
 
         // If expired or target is in the past, schedule for TODAY (not tomorrow)
@@ -1086,12 +1089,16 @@ async function createAutoScheduledMaintenance(aircraftId, checkTypes, worldId = 
         let targetDateStr = targetStartDate.toISOString().split('T')[0];
 
         // Check if already scheduled for this period (in DB or newly queued)
-        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+        // Use a fraction of the check interval as dedup window to prevent true duplicates
+        // without skipping valid future checks that land close due to stagger/push-forward.
+        // Weekly (8-day interval) → 2 days; A (112) → 37 days; C/D → much larger.
+        const dedupDays = Math.max(2, Math.floor(checkInterval / 3));
+        const dedupMs = dedupDays * 24 * 60 * 60 * 1000;
         const alreadyScheduled = existingScheduled.some(s => {
           const schedDate = new Date(s.scheduledDate);
-          return Math.abs(schedDate - targetStartDate) < sevenDaysMs;
+          return Math.abs(schedDate - targetStartDate) < dedupMs;
         }) || recordsToCreate.some(r => {
-          return r.checkType === checkType && Math.abs(new Date(r.scheduledDate) - targetStartDate) < sevenDaysMs;
+          return r.checkType === checkType && Math.abs(new Date(r.scheduledDate) - targetStartDate) < dedupMs;
         });
 
         if (alreadyScheduled) {
@@ -1158,32 +1165,36 @@ async function createAutoScheduledMaintenance(aircraftId, checkTypes, worldId = 
             // Skip if still no slot found - don't place on top of flights
             if (!startTime) {
               console.log(`[MAINT] No available slot for ${checkType} check on ${targetDateStr} - skipping`);
-              // Still advance the expiry date so the loop progresses
-              const checkCompletionDate = new Date(targetStartDate);
-              checkCompletionDate.setDate(checkCompletionDate.getDate() + durationDays);
-              currentExpiryDate = new Date(checkCompletionDate);
+              // Advance expiry by interval so the loop progresses
+              currentExpiryDate = new Date(currentExpiryDate);
               currentExpiryDate.setDate(currentExpiryDate.getDate() + checkInterval);
               continue;
             }
           }
 
           // Collect for batch insert
-          recordsToCreate.push({
+          const newRecord = {
             aircraftId,
             checkType,
             scheduledDate: targetDateStr,
             startTime,
             duration,
             status: 'active'
-          });
+          };
+          recordsToCreate.push(newRecord);
+
+          // For C/D checks, also add to allExistingMaint so that findAvailableSlotCached
+          // blocks these dates when scheduling lighter checks later in this batch
+          if (['C', 'D'].includes(checkType)) {
+            allExistingMaint.push(newRecord);
+          }
         }
 
-        // Calculate next expiry
-        const checkCompletionDate = new Date(targetStartDate);
-        checkCompletionDate.setDate(checkCompletionDate.getDate() + durationDays);
-        currentExpiryDate = new Date(checkCompletionDate);
-
+        // Advance to next expiry period.
+        // Use the ORIGINAL currentExpiryDate (not targetStartDate which has stagger applied)
+        // so that expiry dates stay evenly spaced regardless of stagger offset.
         if (!checkInterval || isNaN(checkInterval)) break;
+        currentExpiryDate = new Date(currentExpiryDate);
         currentExpiryDate.setDate(currentExpiryDate.getDate() + checkInterval);
       }
       continue;

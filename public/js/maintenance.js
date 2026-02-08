@@ -1,7 +1,7 @@
 let allAircraft = [];
 let aircraftTypes = [];
 let scheduledMaintenance = [];
-let isDataReady = false; // Track if game time is available and maintenance data is properly fetched
+let gameTimeAvailable = false; // Track if game time has been received from socket
 
 // Check durations in minutes
 // Daily: 30-90 mins (avg 60)
@@ -476,7 +476,18 @@ async function loadMaintenanceData() {
     aircraftTypes = Array.from(typeSet).sort();
     populateTypeFilter();
 
+    // If game time is already available, re-fetch scheduled maintenance with correct dates
+    // so WIP detection uses game time instead of real time
+    if (typeof window.getGlobalWorldTime === 'function' && window.getGlobalWorldTime()) {
+      gameTimeAvailable = true;
+      if (!hasRefetchedWithGameTime) {
+        hasRefetchedWithGameTime = true;
+        await fetchScheduledMaintenance();
+      }
+    }
+
     displayMaintenanceData(data);
+    updateSummaryStats();
   } catch (error) {
     console.error('Error loading maintenance data:', error);
     document.getElementById('maintenanceGrid').innerHTML = `
@@ -511,16 +522,6 @@ function getGameTime() {
 // Calculate check status for an aircraft
 // checkType: 'daily', 'weekly', 'A', 'C', 'D'
 function getCheckStatus(ac, checkType) {
-  // If data isn't ready yet (game time not available), show loading state
-  if (!isDataReady) {
-    return {
-      status: 'none',
-      text: '-',
-      expiryText: 'Loading...',
-      lastCheckTime: null
-    };
-  }
-
   // First check if this check is currently in progress
   if (isCheckInProgress(ac.id, checkType)) {
     return {
@@ -766,6 +767,90 @@ function groupAircraftByType(aircraft) {
     sorted[key] = groups[key];
     return sorted;
   }, {});
+}
+
+// Update summary stat boxes
+function updateSummaryStats() {
+  let overdueCount = 0;
+  let allClearCount = 0;
+  const hangarItems = []; // { reg, checks: ['Daily','A'] }
+  const heavyItems = []; // { reg, check: 'C-Check', status: 'warning'|'expired', detail: '28 days' }
+
+  allAircraft.forEach(ac => {
+    const checks = ['daily', 'weekly', 'A', 'C', 'D'];
+    let hasOverdue = false;
+    let hasAnyIssue = false;
+    const wipChecks = [];
+
+    checks.forEach(type => {
+      const s = getCheckStatus(ac, type);
+      if (s.status === 'inprogress') {
+        wipChecks.push(type === 'daily' ? 'Daily' : type === 'weekly' ? 'Weekly' : type + ' Check');
+        hasAnyIssue = true;
+      }
+      if (s.status === 'expired') { hasOverdue = true; hasAnyIssue = true; }
+      if (s.status === 'warning') { hasAnyIssue = true; }
+    });
+
+    // Collect hangar items
+    if (wipChecks.length > 0) {
+      hangarItems.push({ reg: ac.registration, checks: wipChecks });
+    }
+
+    // Heavy checks: C or D that are warning or expired
+    const cStatus = getCheckStatus(ac, 'C');
+    const dStatus = getCheckStatus(ac, 'D');
+    if (['warning', 'expired'].includes(cStatus.status)) {
+      heavyItems.push({
+        reg: ac.registration,
+        check: 'C-Check',
+        status: cStatus.status,
+        detail: cStatus.status === 'expired' ? 'overdue' : cStatus.expiryText || ''
+      });
+    }
+    if (['warning', 'expired'].includes(dStatus.status)) {
+      heavyItems.push({
+        reg: ac.registration,
+        check: 'D-Check',
+        status: dStatus.status,
+        detail: dStatus.status === 'expired' ? 'overdue' : dStatus.expiryText || ''
+      });
+    }
+
+    if (hasOverdue) overdueCount++;
+    if (!hasAnyIssue) allClearCount++;
+  });
+
+  // In the Hangar list
+  document.getElementById('statInHangar').textContent = hangarItems.length;
+  const hangarList = document.getElementById('hangarList');
+  if (hangarItems.length === 0) {
+    hangarList.innerHTML = '<li class="maint-list-empty">No aircraft in maintenance</li>';
+  } else {
+    hangarList.innerHTML = hangarItems.map(item =>
+      `<li><span class="maint-list-reg">${item.reg}</span><span class="maint-list-check">${item.checks.join(', ')}</span></li>`
+    ).join('');
+  }
+
+  // Upcoming Heavy Checks list
+  document.getElementById('statHeavyChecks').textContent = heavyItems.length;
+  const heavyList = document.getElementById('heavyChecksList');
+  if (heavyItems.length === 0) {
+    heavyList.innerHTML = '<li class="maint-list-empty">None due</li>';
+  } else {
+    heavyList.innerHTML = heavyItems.map(item => {
+      const badge = item.status === 'expired'
+        ? '<span style="color:#ef4444;font-weight:600;">OVERDUE</span>'
+        : '<span style="color:#d97706;">due soon</span>';
+      return `<li><span class="maint-list-reg">${item.reg}</span><span class="maint-list-check">${item.check} &middot; ${badge}</span></li>`;
+    }).join('');
+  }
+
+  // Counters
+  document.getElementById('statOverdue').textContent = overdueCount;
+  document.getElementById('statOverdueSub').textContent = overdueCount === 1 ? 'aircraft' : 'aircraft';
+  document.getElementById('statAllClear').textContent = allClearCount;
+  document.getElementById('statAllClearSub').textContent = `of ${allAircraft.length}`;
 }
 
 // Display maintenance data
@@ -1105,9 +1190,10 @@ window.addEventListener('worldTimeUpdated', async () => {
     if (!hasRefetchedWithGameTime) {
       hasRefetchedWithGameTime = true;
       await fetchScheduledMaintenance();
-      isDataReady = true; // Mark data as ready now that we have game time
+      gameTimeAvailable = true; // Mark game time as available
     }
 
+    updateSummaryStats();
     onFilterChange();
   }
 });

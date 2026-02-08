@@ -237,6 +237,142 @@
     gap: 0.3rem;
     color: var(--text-muted);
   }
+
+  /* Maintenance summary layout */
+  .maint-summary-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 0.6rem;
+    margin-bottom: 0.6rem;
+  }
+  .maint-summary-card {
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 0.6rem 1rem;
+  }
+  .maint-summary-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+  }
+  .maint-summary-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+  }
+  .maint-summary-icon.hangar { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+  .maint-summary-icon.heavy { background: rgba(217, 119, 6, 0.15); color: #d97706; }
+  .maint-summary-icon.overdue { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+  .maint-summary-icon.clear { background: rgba(5, 150, 105, 0.15); color: #059669; }
+  .maint-summary-header .stat-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+  }
+  .maint-summary-header .stat-count {
+    margin-left: auto;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-family: 'Courier New', monospace;
+  }
+  .maint-summary-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 120px;
+    overflow-y: auto;
+  }
+  .maint-summary-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.2rem 0;
+    font-size: 0.75rem;
+    border-top: 1px solid var(--border-color);
+  }
+  .maint-summary-list li:first-child {
+    border-top: none;
+  }
+  .maint-list-reg {
+    color: var(--accent-color);
+    font-weight: 600;
+    font-family: monospace;
+    font-size: 0.7rem;
+  }
+  .maint-list-check {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+  }
+  .maint-list-empty {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    padding: 0.2rem 0;
+    font-style: italic;
+  }
+  /* Compact counters column */
+  .maint-counters-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    min-width: 140px;
+  }
+  .maint-counter-card {
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 0.6rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex: 1;
+  }
+  .maint-counter-text .stat-label {
+    font-size: 0.55rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 0.1rem;
+  }
+  .maint-counter-text .stat-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-family: 'Courier New', monospace;
+    line-height: 1.2;
+  }
+  .maint-counter-text .stat-sub {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+  }
+  @media (max-width: 768px) {
+    .maint-summary-row {
+      grid-template-columns: 1fr 1fr;
+    }
+    .maint-counters-col {
+      grid-column: 1 / -1;
+      flex-direction: row;
+    }
+  }
+  @media (max-width: 480px) {
+    .maint-summary-row {
+      grid-template-columns: 1fr;
+    }
+    .maint-counters-col {
+      grid-column: auto;
+      flex-direction: row;
+    }
+  }
 </style>
 
 <div class="dashboard-container">
@@ -244,6 +380,51 @@
     <div class="page-header">
       <h1 id="maintenanceTitle">AIRCRAFT MAINTENANCE</h1>
       <p class="subtitle">MAINTENANCE CHECK STATUS</p>
+    </div>
+
+    <!-- Summary Boxes -->
+    <div class="maint-summary-row">
+      <!-- In the Hangar - list card -->
+      <div class="maint-summary-card">
+        <div class="maint-summary-header">
+          <div class="maint-summary-icon hangar">&#9874;</div>
+          <span class="stat-label">IN THE HANGAR</span>
+          <span class="stat-count" id="statInHangar">--</span>
+        </div>
+        <ul class="maint-summary-list" id="hangarList">
+          <li class="maint-list-empty">Loading...</li>
+        </ul>
+      </div>
+      <!-- Upcoming Heavy Checks - list card -->
+      <div class="maint-summary-card">
+        <div class="maint-summary-header">
+          <div class="maint-summary-icon heavy">&#9888;</div>
+          <span class="stat-label">UPCOMING HEAVY CHECKS</span>
+          <span class="stat-count" id="statHeavyChecks">--</span>
+        </div>
+        <ul class="maint-summary-list" id="heavyChecksList">
+          <li class="maint-list-empty">Loading...</li>
+        </ul>
+      </div>
+      <!-- Compact counters -->
+      <div class="maint-counters-col">
+        <div class="maint-counter-card">
+          <div class="maint-summary-icon overdue">&#10060;</div>
+          <div class="maint-counter-text">
+            <div class="stat-label">OVERDUE</div>
+            <div class="stat-value" id="statOverdue">--</div>
+            <div class="stat-sub" id="statOverdueSub">aircraft</div>
+          </div>
+        </div>
+        <div class="maint-counter-card">
+          <div class="maint-summary-icon clear">&#10004;</div>
+          <div class="maint-counter-text">
+            <div class="stat-label">ALL CLEAR</div>
+            <div class="stat-value" id="statAllClear">--</div>
+            <div class="stat-sub" id="statAllClearSub">aircraft</div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="ops-panel full-width">
